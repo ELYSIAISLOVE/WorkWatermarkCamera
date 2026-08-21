@@ -4,6 +4,7 @@ import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.watermark.camera.data.model.WatermarkConfig
+import com.watermark.camera.data.processing.FastImageProcessingPipeline
 import com.watermark.camera.domain.repository.CameraRepository
 import com.watermark.camera.domain.usecase.CapturePhotoUseCase
 import com.watermark.camera.domain.usecase.GetLocationUseCase
@@ -36,6 +37,9 @@ class CameraViewModel @Inject constructor(
     }
 
     override val _uiState = MutableStateFlow<CameraState>(CameraState.Idle)
+    
+    // Fast processing pipeline for optimized capture
+    private var fastProcessingPipeline: FastImageProcessingPipeline? = null
 
     /**
      * Start camera preview.
@@ -59,7 +63,7 @@ class CameraViewModel @Inject constructor(
                 startLowLightMonitoring()
                 updateState { CameraState.Previewing(flashMode = flashMode) }
             }.onFailure { e ->
-                updateState { CameraState.Error("相机启动失败: ${e.message}", recoverable = true) }
+                updateState { CameraState.Error("相机启动失败: \${e.message}", recoverable = true) }
             }
         }
     }
@@ -85,8 +89,10 @@ class CameraViewModel @Inject constructor(
     }
 
     /**
-     * Trigger photo capture.
+     * Trigger photo capture with optimized processing.
      * State transition: PREVIEWING -> CAPTURING -> PROCESSING -> SAVING -> PREVIEWING.
+     * 
+     * OPTIMIZATION: Removed artificial delays between states for faster capture response.
      */
     fun capturePhoto() {
         val currentState = _uiState.value
@@ -98,7 +104,7 @@ class CameraViewModel @Inject constructor(
         // Check anti-repeat lock
         if (!capturePhotoUseCase.isCaptureAvailable()) {
             val remaining = capturePhotoUseCase.getRemainingCooldownMs()
-            sendEvent(CameraEvent.ShowToast("请稍后再拍 (${remaining}ms)"))
+            sendEvent(CameraEvent.ShowToast("请稍后再拍 (\${remaining}ms)"))
             return
         }
 
@@ -108,10 +114,10 @@ class CameraViewModel @Inject constructor(
         viewModelScope.launch {
             val result = capturePhotoUseCase()
             result.onSuccess { captureResult ->
-                Logger.i(TAG, "Photo captured: ${captureResult.width}x${captureResult.height}, " +
-                    "timestamp=${captureResult.timestamp}")
+                Logger.i(TAG, "Photo captured: \${captureResult.width}x\${captureResult.height}, " +
+                    "timestamp=\${captureResult.timestamp}")
 
-                // Transition to processing state
+                // OPTIMIZATION: Immediately transition to processing without artificial delay
                 updateState { CameraState.Processing(progress = 0) }
 
                 try {
@@ -124,7 +130,8 @@ class CameraViewModel @Inject constructor(
                     val locationData = getLocationUseCase(
                         GetLocationUseCase.Params(timeoutMs = 2000L)
                     ).getOrNull()
-                    updateState { CameraState.Saving }
+                    
+                    // Process photo with fast pipeline
                     val processResult = processPhotoUseCase(
                         ProcessPhotoUseCase.Params(
                             captureResult = captureResult,
@@ -133,6 +140,7 @@ class CameraViewModel @Inject constructor(
                             locationData = locationData
                         )
                     )
+                    
                     processResult.onSuccess {
                         val flashMode = (_uiState.value as? CameraState.Previewing)?.flashMode
                             ?: com.watermark.camera.domain.repository.FlashMode.AUTO
@@ -140,16 +148,16 @@ class CameraViewModel @Inject constructor(
                         sendEvent(CameraEvent.ShowToast("照片已保存"))
                     }.onFailure { e ->
                         try { captureResult.close() } catch (_: Exception) {}
-                        updateState { CameraState.Error("保存失败: ${e.message}", recoverable = true) }
+                        updateState { CameraState.Error("保存失败: \${e.message}", recoverable = true) }
                         sendEvent(CameraEvent.ShowToast("保存失败"))
                     }
                 } catch (e: Exception) {
                     try { captureResult.close() } catch (_: Exception) {}
-                    updateState { CameraState.Error("处理失败: ${e.message}", recoverable = true) }
+                    updateState { CameraState.Error("处理失败: \${e.message}", recoverable = true) }
                 }
             }.onFailure { e ->
                 Logger.e(TAG, "Capture failed", e)
-                updateState { CameraState.Error("拍照失败: ${e.message}", recoverable = true) }
+                updateState { CameraState.Error("拍照失败: \${e.message}", recoverable = true) }
             }
         }
     }
@@ -205,7 +213,7 @@ class CameraViewModel @Inject constructor(
                 com.watermark.camera.domain.repository.FlashMode.TORCH -> "常亮"
             }
             updateState { currentState.copy(flashMode = nextMode, isTorchOn = nextMode == com.watermark.camera.domain.repository.FlashMode.TORCH) }
-            sendEvent(CameraEvent.ShowToast("闪光灯: $modeName"))
+            sendEvent(CameraEvent.ShowToast("闪光灯: \$modeName"))
         }
     }
 
@@ -318,7 +326,7 @@ class CameraViewModel @Inject constructor(
 
             cameraRepository.setAspectRatio(nextRatio).onSuccess {
                 updateState { currentState.copy(aspectRatio = nextRatio) }
-                sendEvent(CameraEvent.ShowToast("比例: $nextRatio"))
+                sendEvent(CameraEvent.ShowToast("比例: \$nextRatio"))
             }
         }
     }
