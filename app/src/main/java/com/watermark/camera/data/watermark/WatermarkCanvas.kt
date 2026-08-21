@@ -44,8 +44,11 @@ class WatermarkCanvas {
         private const val MAX_FONT_SIZE = 72f
     }
 
+    // Glassmorphism renderer for modern effect
+    private val glassRenderer = GlassmorphismRenderer()
+
     /**
-     * Draw watermark onto a bitmap.
+     * Draw watermark onto a bitmap with glassmorphism effect.
      *
      * @param sourceBitmap The original photo bitmap.
      * @param config Watermark configuration.
@@ -98,17 +101,13 @@ class WatermarkCanvas {
         )
 
         // Draw glassmorphism card background
-        val glassRenderer = GlassmorphismRenderer()
+        glassRenderer.setBackgroundAlpha((config.clampedTransparency() * 255).toInt())
         glassRenderer.drawGlassCard(
             canvas = canvas,
             left = cardLeft,
             top = cardTop,
-            width = cardWidth,
-            height = cardHeight,
-            radius = cardRadius,
-            borderWidth = borderWidth,
-            transparency = config.transparency,
-            template = config.template
+            right = cardLeft + cardWidth,
+            bottom = cardTop + cardHeight
         )
 
         // Draw text lines
@@ -119,7 +118,8 @@ class WatermarkCanvas {
         }
 
         Logger.i(TAG, "Watermark drawn: ${lines.size} lines, scale=$scaleFactor, " +
-            "fontSize=$fontSize, position=(${cardLeft.toInt()}, ${cardTop.toInt()})")
+            "fontSize=$fontSize, position=(${cardLeft.toInt()}, ${cardTop.toInt()}), " +
+            "transparency=${config.clampedTransparency()}")
 
         return resultBitmap
     }

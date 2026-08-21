@@ -211,34 +211,36 @@
 
     </LinearLayout>
 
-    <!-- ==================== Watermark Preview Overlay ==================== -->
+    <!-- ==================== Watermark Preview Overlay (with glassmorphism) ==================== -->
     <com.watermark.camera.data.watermark.WatermarkOverlayView
         android:id="@+id/watermarkOverlay"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="120dp"
         android:minWidth="168dp"
         android:minHeight="80dp"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        android:elevation="4dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
     <!-- ==================== Exposure Compensation Slider ==================== -->
     <com.google.android.material.slider.Slider
         android:id="@+id/sliderExposure"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="32dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="120dp"
         android:visibility="gone"
         android:valueFrom="-2.0"
         android:valueTo="2.0"
         android:stepSize="0.1"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:trackColorActive="@color/color_primary"
         app:trackColorInactive="@color/glass_background"
         app:thumbColor="@color/color_primary" />
 
-    <!-- ==================== Bottom Control Bar ==================== -->
+    <!-- ==================== Bottom Control Bar (Optimized Layout) ==================== -->
     <FrameLayout
         android:id="@+id/bottomBar"
         android:layout_width="match_parent"
@@ -263,8 +265,8 @@
 
                 <ImageButton
                     android:id="@+id/btnGallery"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/btn_gallery"
                     android:src="@android:drawable/ic_menu_gallery"
@@ -292,8 +294,8 @@
 
                 <ImageButton
                     android:id="@+id/btnWatermark"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/btn_watermark"
                     android:src="@android:drawable/ic_menu_edit"
@@ -312,7 +314,7 @@
                 android:layout_width="32dp"
                 android:layout_height="0dp" />
 
-            <!-- Capture Button -->
+            <!-- Capture Button (CENTERED & PROMINENT) -->
             <FrameLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content">
@@ -323,7 +325,7 @@
                     android:layout_height="72dp"
                     android:background="@drawable/bg_capture_button"
                     android:contentDescription="@string/btn_capture"
-                    android:elevation="4dp"
+                    android:elevation="6dp"
                     android:src="@android:drawable/ic_menu_camera"
                     app:tint="@color/white" />
 
@@ -342,8 +344,8 @@
 
                 <ImageButton
                     android:id="@+id/btnCollageBottom"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/btn_collage"
                     android:src="@android:drawable/ic_menu_crop"
@@ -371,8 +373,8 @@
 
                 <ImageButton
                     android:id="@+id/btnSettings"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/btn_settings"
                     android:src="@android:drawable/ic_menu_preferences"
