@@ -13,30 +13,46 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Unzip project to temp directory
+      - name: Unzip project
         run: |
           echo "=== 当前仓库文件 ==="
           ls -la
           
-          echo "=== 解压 zip ==="
+          echo "=== 解压 zip 到临时目录 ==="
           unzip -o "WatermarkCamera_Project (1).zip" -d /tmp/project/
           
-          echo "=== 解压后结构 ==="
-          ls -la /tmp/project/
-          ls -la /tmp/project/app/
+          echo "=== 查看解压后的结构 ==="
+          find /tmp/project/ -maxdepth 2 -type f | head -20
 
-      - name: Move source files to repository root
+      - name: Move source files to repository root (safely)
         run: |
-          echo "=== 移动文件到仓库根目录 ==="
+          echo "=== 安全移动文件 ==="
           
-          # 移动 app 目录下的所有文件到仓库根目录
-          mv /tmp/project/app/* .
-          mv /tmp/project/app/.* . 2>/dev/null || true
+          # 逐个移动目录，避免覆盖 .git
+          for item in /tmp/project/app/*; do
+            basename_item=$(basename "$item")
+            # 跳过 .git 等隐藏目录
+            if [[ "$basename_item" != .* ]]; then
+              rm -rf "./$basename_item" 2>/dev/null || true
+              mv "$item" "./$basename_item"
+              echo "Moved: $basename_item"
+            fi
+          done
+          
+          # 处理隐藏文件（除了 .git）
+          for item in /tmp/project/app/.*; do
+            basename_item=$(basename "$item")
+            if [[ "$basename_item" != "." && "$basename_item" != ".." && "$basename_item" != ".git" ]]; then
+              rm -rf "./$basename_item" 2>/dev/null || true
+              mv "$item" "./$basename_item"
+              echo "Moved: $basename_item"
+            fi
+          done
           
           echo "=== 删除 zip 文件 ==="
           rm -f "WatermarkCamera_Project (1).zip"
           
-          echo "=== 最终目录结构 ==="
+          echo "=== 最终目录 ==="
           ls -la
 
       - name: Configure Git
@@ -44,25 +60,17 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-      - name: Commit and push source code
+      - name: Commit and push
         run: |
-          echo "=== 添加所有文件 ==="
           git add -A
-          
-          echo "=== 检查变更 ==="
           git status
-          
-          echo "=== 提交并推送 ==="
-          git commit -m "Extract source code from ZIP file
+          git commit -m "Extract source code from ZIP
           
           - Unzipped WatermarkCamera_Project (1).zip
-          - Moved all source files to repository root
-          - Deleted ZIP file
-          - Ready for GitHub Actions build"
-          
+          - Moved source files to repository root
+          - Deleted ZIP file"
           git push origin main
 
-      - name: Verify push
+      - name: Verify
         run: |
-          echo "✅ 源代码已成功推送到仓库！"
-          echo "请刷新仓库页面查看文件"
+          echo "✅ 完成！请刷新仓库页面"
