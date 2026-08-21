@@ -37,16 +37,35 @@ jobs:
           sed -i 's/org.gradle.configuration-cache=true/org.gradle.configuration-cache=false/' gradle.properties
           sed -i 's/org.gradle.parallel=true/org.gradle.parallel=false/' gradle.properties
           sed -i 's/org.gradle.caching=true/org.gradle.caching=false/' gradle.properties
-          cat gradle.properties
 
-      - name: Fix CameraViewModel.kt bug
+      - name: Fix Bug 1 - CameraViewModel.kt (missing Unit param)
         run: |
           cd extracted/app
-          # 修复第102行：capturePhotoUseCase() -> capturePhotoUseCase(Unit)
           sed -i 's/val result = capturePhotoUseCase()/val result = capturePhotoUseCase(Unit)/' \
             app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
-          # 验证修复
+
+      - name: Fix Bug 2 - CameraEvent missing UiEvent (CORRECTED)
+        run: |
+          cd extracted/app
+          # 使用全限定名，因为 UiEvent 在不同包
+          sed -i 's/sealed class CameraEvent {/sealed class CameraEvent : com.watermark.camera.ui.common.UiEvent {/' \
+            app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
+
+      - name: Fix Bug 3 - GalleryEvent missing UiEvent
+        run: |
+          cd extracted/app
+          sed -i 's/sealed class GalleryEvent {/sealed class GalleryEvent : com.watermark.camera.ui.common.UiEvent {/' \
+            app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
+
+      - name: Verify fixes
+        run: |
+          cd extracted/app
+          echo "=== CameraViewModel ==="
           grep -n "capturePhotoUseCase" app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
+          echo "=== CameraState ==="
+          grep -n "CameraEvent" app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
+          echo "=== GalleryViewModel ==="
+          grep -n "GalleryEvent" app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
 
       - name: Clean everything
         run: |
