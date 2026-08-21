@@ -38,31 +38,53 @@ jobs:
           sed -i 's/org.gradle.parallel=true/org.gradle.parallel=false/' gradle.properties
           sed -i 's/org.gradle.caching=true/org.gradle.caching=false/' gradle.properties
 
-      - name: Fix Bug 1 - CameraViewModel.kt
+      - name: Fix all code bugs using Python (more reliable than sed)
         run: |
           cd extracted/app
-          sed -i 's/val result = capturePhotoUseCase()/val result = capturePhotoUseCase(Unit)/' \
-            app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
+          python3 << 'EOF'
+          import re
 
-      - name: Fix Bug 2 - CameraEvent (CORRECTED with full package name)
-        run: |
-          cd extracted/app
-          sed -i 's/sealed class CameraEvent {/sealed class CameraEvent : com.watermark.camera.ui.common.UiEvent {/' \
-            app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
+          # Fix Bug 1: CameraViewModel.kt
+          with open('app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt', 'r') as f:
+              content = f.read()
+          content = content.replace(
+              'val result = capturePhotoUseCase()',
+              'val result = capturePhotoUseCase(Unit)'
+          )
+          with open('app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt', 'w') as f:
+              f.write(content)
+          print("Fixed CameraViewModel.kt")
 
-      - name: Fix Bug 3 - GalleryEvent (CORRECTED with full package name)
-        run: |
-          cd extracted/app
-          sed -i 's/sealed class GalleryEvent {/sealed class GalleryEvent : com.watermark.camera.ui.common.UiEvent {/' \
-            app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
+          # Fix Bug 2: CameraState.kt
+          with open('app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt', 'r') as f:
+              content = f.read()
+          content = content.replace(
+              'sealed class CameraEvent {',
+              'sealed class CameraEvent : com.watermark.camera.ui.common.UiEvent {'
+          )
+          with open('app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt', 'w') as f:
+              f.write(content)
+          print("Fixed CameraState.kt")
 
-      - name: Verify fixes applied
+          # Fix Bug 3: GalleryViewModel.kt
+          with open('app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt', 'r') as f:
+              content = f.read()
+          content = content.replace(
+              'sealed class GalleryEvent {',
+              'sealed class GalleryEvent : com.watermark.camera.ui.common.UiEvent {'
+          )
+          with open('app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt', 'w') as f:
+              f.write(content)
+          print("Fixed GalleryViewModel.kt")
+          EOF
+
+      - name: Verify fixes
         run: |
           cd extracted/app
+          echo "=== CameraViewModel.kt ==="
+          grep -n "capturePhotoUseCase" app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
           echo "=== CameraState.kt ==="
           grep -n "sealed class CameraEvent" app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
-          echo "=== CameraViewModel.kt ==="
-          grep -n "capturePhotoUseCase(Unit)" app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
           echo "=== GalleryViewModel.kt ==="
           grep -n "sealed class GalleryEvent" app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
 
