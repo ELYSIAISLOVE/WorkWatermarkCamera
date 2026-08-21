@@ -1,122 +1,68 @@
-name: Android Build
+name: Extract ZIP to Repository and Push Source Code
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  build:
+  extract:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 34
-          build-tools: 34.0.0
-
-      - name: Unzip project
+      - name: Unzip project to temp directory
         run: |
-          unzip -o "WatermarkCamera_Project (1).zip" -d extracted/
-          ls -la extracted/app/
+          echo "=== 当前仓库文件 ==="
+          ls -la
+          
+          echo "=== 解压 zip ==="
+          unzip -o "WatermarkCamera_Project (1).zip" -d /tmp/project/
+          
+          echo "=== 解压后结构 ==="
+          ls -la /tmp/project/
+          ls -la /tmp/project/app/
 
-      - name: Fix gradle.properties
+      - name: Move source files to repository root
         run: |
-          cd extracted/app
-          sed -i 's/org.gradle.configuration-cache=true/org.gradle.configuration-cache=false/' gradle.properties
-          sed -i 's/org.gradle.parallel=true/org.gradle.parallel=false/' gradle.properties
-          sed -i 's/org.gradle.caching=true/org.gradle.caching=false/' gradle.properties
+          echo "=== 移动文件到仓库根目录 ==="
+          
+          # 移动 app 目录下的所有文件到仓库根目录
+          mv /tmp/project/app/* .
+          mv /tmp/project/app/.* . 2>/dev/null || true
+          
+          echo "=== 删除 zip 文件 ==="
+          rm -f "WatermarkCamera_Project (1).zip"
+          
+          echo "=== 最终目录结构 ==="
+          ls -la
 
-      - name: Fix all code bugs using Python (more reliable than sed)
+      - name: Configure Git
         run: |
-          cd extracted/app
-          python3 << 'EOF'
-          import re
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
 
-          # Fix Bug 1: CameraViewModel.kt
-          with open('app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt', 'r') as f:
-              content = f.read()
-          content = content.replace(
-              'val result = capturePhotoUseCase()',
-              'val result = capturePhotoUseCase(Unit)'
-          )
-          with open('app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt', 'w') as f:
-              f.write(content)
-          print("Fixed CameraViewModel.kt")
-
-          # Fix Bug 2: CameraState.kt
-          with open('app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt', 'r') as f:
-              content = f.read()
-          content = content.replace(
-              'sealed class CameraEvent {',
-              'sealed class CameraEvent : com.watermark.camera.ui.common.UiEvent {'
-          )
-          with open('app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt', 'w') as f:
-              f.write(content)
-          print("Fixed CameraState.kt")
-
-          # Fix Bug 3: GalleryViewModel.kt
-          with open('app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt', 'r') as f:
-              content = f.read()
-          content = content.replace(
-              'sealed class GalleryEvent {',
-              'sealed class GalleryEvent : com.watermark.camera.ui.common.UiEvent {'
-          )
-          with open('app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt', 'w') as f:
-              f.write(content)
-          print("Fixed GalleryViewModel.kt")
-          EOF
-
-      - name: Verify fixes
+      - name: Commit and push source code
         run: |
-          cd extracted/app
-          echo "=== CameraViewModel.kt ==="
-          grep -n "capturePhotoUseCase" app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
-          echo "=== CameraState.kt ==="
-          grep -n "sealed class CameraEvent" app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
-          echo "=== GalleryViewModel.kt ==="
-          grep -n "sealed class GalleryEvent" app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
+          echo "=== 添加所有文件 ==="
+          git add -A
+          
+          echo "=== 检查变更 ==="
+          git status
+          
+          echo "=== 提交并推送 ==="
+          git commit -m "Extract source code from ZIP file
+          
+          - Unzipped WatermarkCamera_Project (1).zip
+          - Moved all source files to repository root
+          - Deleted ZIP file
+          - Ready for GitHub Actions build"
+          
+          git push origin main
 
-      - name: Clean everything
+      - name: Verify push
         run: |
-          rm -rf extracted/app/.gradle
-          rm -rf extracted/app/app/build
-
-      - name: Build Debug APK
-        run: |
-          cd extracted/app
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --no-build-cache --max-workers=1 --stacktrace
-
-      - name: Build Release APK
-        run: |
-          cd extracted/app
-          ./gradlew assembleRelease --no-daemon --no-build-cache --max-workers=1 --stacktrace
-
-      - name: Find APK
-        run: find extracted/ -name "*.apk" -type f
-
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: app-debug
-          path: extracted/app/app/build/outputs/apk/debug/*.apk
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: app-release
-          path: extracted/app/app/build/outputs/apk/release/*.apk
+          echo "✅ 源代码已成功推送到仓库！"
+          echo "请刷新仓库页面查看文件"
