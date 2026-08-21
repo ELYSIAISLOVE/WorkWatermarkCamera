@@ -22,11 +22,23 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools: 34.0.0
 
       - name: Unzip project
         run: |
           unzip -o "WatermarkCamera_Project (1).zip" -d extracted/
           ls -la extracted/app/
+
+      - name: Fix gradle.properties (禁用配置缓存)
+        run: |
+          cd extracted/app
+          # 禁用配置缓存，因为与 kapt 不兼容
+          sed -i 's/org.gradle.configuration-cache=true/org.gradle.configuration-cache=false/' gradle.properties
+          # 增加内存
+          sed -i 's/org.gradle.jvmargs=-Xmx4096m/org.gradle.jvmargs=-Xmx6144m -Dfile.encoding=UTF-8/' gradle.properties
+          cat gradle.properties
 
       - name: Clean gradle cache
         run: |
@@ -37,12 +49,12 @@ jobs:
         run: |
           cd extracted/app
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --no-configuration-cache --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Build Release APK
         run: |
           cd extracted/app
-          ./gradlew assembleRelease --no-daemon --no-configuration-cache --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Find APK
         run: find extracted/ -name "*.apk" -type f
