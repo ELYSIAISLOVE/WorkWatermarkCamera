@@ -1,0 +1,90 @@
+name: Unzip and Commit Source to Repo
+
+on:
+  push:
+    paths:
+      - '**.zip'
+  workflow_dispatch:
+
+jobs:
+  unzip-and-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Find and extract all ZIP files
+        run: |
+          set -e
+          echo "=== 查找仓库中的 ZIP 文件 ==="
+          
+          ZIP_FILES=$(find . -name "*.zip" -type f | grep -v ".git/" | sort || true)
+          
+          if [ -z "$ZIP_FILES" ]; then
+            echo "没有找到 ZIP 文件，跳过"
+            exit 0
+          fi
+          
+          echo "$ZIP_FILES"
+          echo ""
+          
+          ZIP_COUNT=0
+          for zipfile in $ZIP_FILES; do
+            echo "----------------------------------------"
+            echo "📦 处理: $zipfile"
+            
+            # 获取 zip 所在目录（通常是仓库根目录）
+            target_dir=$(dirname "$zipfile")
+            
+            # 先解压到临时目录，分析结构
+            tmpdir=$(mktemp -d)
+            unzip -q -o "$zipfile" -d "$tmpdir"
+            
+            # 检查解压后的顶层结构
+            top_items=$(find "$tmpdir" -maxdepth 1 -mindepth 1 | wc -l)
+            top_dirs=$(find "$tmpdir" -maxdepth 1 -mindepth 1 -type d | wc -l)
+            
+            if [ "$top_items" -eq 1 ] && [ "$top_dirs" -eq 1 ]; then
+              # 只有一个顶层文件夹（如 workcamera-fixed-source/app/...）
+              # 把里面的内容提取到目标目录，去掉这层包裹
+              top_dir=$(find "$tmpdir" -maxdepth 1 -mindepth 1 -type d | head -1)
+              echo "  ↳ 检测到单层包裹文件夹，提取内容到: $target_dir"
+              cp -a "$top_dir"/. "$target_dir/"
+            else
+              # 多个顶层项，直接释放到目标目录
+              echo "  ↳ 直接解压到: $target_dir"
+              cp -a "$tmpdir"/. "$target_dir/"
+            fi
+            
+            # 清理临时目录和原 zip
+            rm -rf "$tmpdir"
+            rm -f "$zipfile"
+            
+            ZIP_COUNT=$((ZIP_COUNT + 1))
+            echo "  ✅ 完成"
+          done
+          
+          echo ""
+          echo "=== 共处理 $ZIP_COUNT 个 ZIP 文件 ==="
+          echo "=== 解压后的仓库根目录结构 ==="
+          ls -la .
+      
+      - name: Commit and push extracted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add -A
+          
+          if git diff --cached --quiet; then
+            echo "没有变更需要提交"
+          else
+            git commit -m "chore: auto-extract source from ZIP archives"
+            git push
+            echo "✅ 已提交解压后的源码到仓库"
+          fi
