@@ -1,100 +1,26 @@
-name: Repair and Build APK
-
-on:
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: gradle
-
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Repair source
         run: |
           set -e
 
-          rm -f app/src/main/java/com/watermark/camera/data/repository/StorageRepository.kt
-          rm -f app/src/main/java/com/watermark/camera/ui/camera/CameraUIOptimizer.kt
+          echo "=== Find duplicate StorageRepository ==="
 
-          sed -i 's/com.watermark.camera.data.repository.StorageRepository/com.watermark.camera.domain.repository.StorageRepository/' \
-            app/src/main/java/com/watermark/camera/data/di/StorageModule.kt
+          find app/src/main/java -name "*StorageRepository*.kt" -print
 
-          sed -i '/import com.watermark.camera.domain.model.CaptureResult/a import com.watermark.camera.domain.model.ProcessedPhoto' \
-            app/src/main/java/com/watermark/camera/data/processing/FastImageProcessingPipeline.kt
+          echo "=== Remove old repository implementation ==="
 
-          python3 - <<'PY'
-          from pathlib import Path
+          grep -R "class StorageRepositoryImpl" -n app/src/main/java || true
 
-          p = Path("app/src/main/java/com/watermark/camera/data/watermark/WatermarkOverlayView.kt")
-          s = p.read_text()
+          find app/src/main/java \
+          -path "*data/repository/StorageRepository.kt" \
+          -delete
 
-          old = """        glassRenderer.drawGlassCard(
-            canvas = canvas,
-            left = cardLeft,
-            top = cardTop,
-            width = cardWidth.toInt(),
-            height = cardHeight.toInt(),
-            radius = BASE_CARD_RADIUS,
-            borderWidth = 1f,
-            transparency = watermarkConfig.transparency,
-            template = watermarkConfig.template
-        )"""
+          echo "=== Remove old CameraUIOptimizer ==="
 
-          new = """        glassRenderer.drawGlassCard(
-            canvas = canvas,
-            left = cardLeft,
-            top = cardTop,
-            right = cardLeft + cardWidth,
-            bottom = cardTop + cardHeight
-        )"""
+          find app/src/main/java \
+          -name "CameraUIOptimizer.kt" \
+          -delete
 
-          if old not in s:
-              raise SystemExit("WatermarkOverlayView: expected code not found")
+          echo "=== Check result ==="
 
-          p.write_text(s.replace(old, new))
-          PY
-
-          echo "Source repair completed."
-
-      - name: Build APK
-        run: |
-          chmod +x gradlew
-          ./gradlew clean assembleDebug --stacktrace --no-daemon
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: WatermarkCamera-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-
-      - name: Commit successful repair
-        run: |
-          if git diff --quiet; then
-            echo "No source changes."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add app/src/main/java
-          git commit -m "Fix Android build source conflicts"
-          git push
-
-          
+          grep -R "class StorageRepositoryImpl" \
+          -n app/src/main/java || true
