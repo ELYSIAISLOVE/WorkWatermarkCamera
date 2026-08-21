@@ -31,16 +31,24 @@ jobs:
           unzip -o "WatermarkCamera_Project (1).zip" -d extracted/
           ls -la extracted/app/
 
-      - name: Fix gradle.properties (禁用配置缓存)
+      - name: Fix gradle.properties
         run: |
           cd extracted/app
-          # 禁用配置缓存，因为与 kapt 不兼容
           sed -i 's/org.gradle.configuration-cache=true/org.gradle.configuration-cache=false/' gradle.properties
-          # 增加内存
-          sed -i 's/org.gradle.jvmargs=-Xmx4096m/org.gradle.jvmargs=-Xmx6144m -Dfile.encoding=UTF-8/' gradle.properties
+          sed -i 's/org.gradle.parallel=true/org.gradle.parallel=false/' gradle.properties
+          sed -i 's/org.gradle.caching=true/org.gradle.caching=false/' gradle.properties
           cat gradle.properties
 
-      - name: Clean gradle cache
+      - name: Fix CameraViewModel.kt bug
+        run: |
+          cd extracted/app
+          # 修复第102行：capturePhotoUseCase() -> capturePhotoUseCase(Unit)
+          sed -i 's/val result = capturePhotoUseCase()/val result = capturePhotoUseCase(Unit)/' \
+            app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
+          # 验证修复
+          grep -n "capturePhotoUseCase" app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
+
+      - name: Clean everything
         run: |
           rm -rf extracted/app/.gradle
           rm -rf extracted/app/app/build
@@ -49,12 +57,12 @@ jobs:
         run: |
           cd extracted/app
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --no-build-cache --max-workers=1 --stacktrace
 
       - name: Build Release APK
         run: |
           cd extracted/app
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --no-build-cache --max-workers=1 --stacktrace
 
       - name: Find APK
         run: find extracted/ -name "*.apk" -type f
