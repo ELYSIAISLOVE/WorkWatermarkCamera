@@ -1,8 +1,7 @@
-name: Extract, Fix, Build and Push
+name: Android Build
 
 on:
   push:
-    branches: [ main, master:
     branches: [ main, master ]
   workflow_dispatch:
 
@@ -14,94 +13,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ========== 1. 解压 ZIP ==========
-      - name: Unzip project
-        run: |
-          echo "=== 解压前 ==="
-          ls -la
-          
-          unzip -o "WatermarkCamera_Project (1).zip" -d /tmp/project/
-          
-          echo "=== 解压后结构 ==="
-          ls -la /tmp/project/app/
-
-      # ========== 2. 移动源代码到仓库根目录（安全方式） ==========
-      - name: Move source to repository root
-        run: |
-          echo "=== 移动源代码文件 ==="
-          
-          # 移动所有非隐藏文件
-          for item in /tmp/project/app/*; do
-            name=$(basename "$item")
-            rm -rf "./$name" 2>/dev/null || true
-            mv "$item" "./$name"
-            echo "✓ $name"
-          done
-          
-          # 移动隐藏文件（排除 . 和 ..）
-          for item in /tmp/project/app/.*; do
-            name=$(basename "$item")
-            if [ "$name" != "." ] && [ "$name" != ".." ]; then
-              rm -rf "./$name" 2>/dev/null || true
-              mv "$item" "./$name"
-              echo "✓ $name"
-            fi
-          done
-          
-          # 删除 zip 文件
-          rm -f "WatermarkCamera_Project (1).zip"
-          
-          echo "=== 移动完成 ==="
-          ls -la
-
-      # ========== 3. 修复代码 Bug ==========
-      - name: Fix code bugs
-        run: |
-          echo "=== 修复 Bug 1: CameraViewModel.kt ==="
-          sed -i 's/val result = capturePhotoUseCase()/val result = capturePhotoUseCase(Unit)/' \
-            app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
-          
-          echo "=== 修复 Bug 2: CameraState.kt ==="
-          sed -i 's/sealed class CameraEvent {/sealed class CameraEvent : com.watermark.camera.ui.common.UiEvent {/' \
-            app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
-          
-          echo "=== 修复 Bug 3: GalleryViewModel.kt ==="
-          sed -i 's/sealed class GalleryEvent {/sealed class GalleryEvent : com.watermark.camera.ui.common.UiEvent {/' \
-            app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
-          
-          echo "=== 验证修复 ==="
-          grep -n "capturePhotoUseCase(Unit)" app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
-          grep -n "sealed class CameraEvent" app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
-          grep -n "sealed class GalleryEvent" app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
-
-      # ========== 4. 提交修复后的源代码到仓库 ==========
-      - name: Commit and push fixed source code
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          
-          git add -A
-          
-          # 检查是否有变更
-          if git diff --cached --quiet; then
-            echo "没有变更需要提交"
-          else
-            git commit -m "Extract source code from ZIP and fix build errors
-            
-            - Unzipped WatermarkCamera_Project (1).zip
-            - Fixed: capturePhotoUseCase() → capturePhotoUseCase(Unit)
-            - Fixed: CameraEvent missing UiEvent inheritance
-            - Fixed: GalleryEvent missing UiEvent inheritance
-            - Deleted ZIP file"
-            
-            git push origin main
-            echo "✅ 源代码已推送到仓库"
-          fi
-
-      # ========== 5. 设置编译环境 ==========
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -114,45 +26,75 @@ jobs:
           api-level: 34
           build-tools: 34.0.0
 
+      - name: Unzip project
+        run: |
+          unzip -o "WatermarkCamera_Project (1).zip" -d extracted/
+          ls -la extracted/app/
+
       - name: Fix gradle.properties
         run: |
+          cd extracted/app
           sed -i 's/org.gradle.configuration-cache=true/org.gradle.configuration-cache=false/' gradle.properties
           sed -i 's/org.gradle.parallel=true/org.gradle.parallel=false/' gradle.properties
           sed -i 's/org.gradle.caching=true/org.gradle.caching=false/' gradle.properties
 
-      - name: Clean build cache
+      - name: Fix Bug 1 - CameraViewModel.kt
         run: |
-          rm -rf .gradle
-          rm -rf app/build
+          cd extracted/app
+          sed -i 's/val result = capturePhotoUseCase()/val result = capturePhotoUseCase(Unit)/' \
+            app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
 
-      # ========== 6. 编译 APK ==========
+      - name: Fix Bug 2 - CameraEvent (CORRECTED with full package name)
+        run: |
+          cd extracted/app
+          sed -i 's/sealed class CameraEvent {/sealed class CameraEvent : com.watermark.camera.ui.common.UiEvent {/' \
+            app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
+
+      - name: Fix Bug 3 - GalleryEvent (CORRECTED with full package name)
+        run: |
+          cd extracted/app
+          sed -i 's/sealed class GalleryEvent {/sealed class GalleryEvent : com.watermark.camera.ui.common.UiEvent {/' \
+            app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
+
+      - name: Verify fixes applied
+        run: |
+          cd extracted/app
+          echo "=== CameraState.kt ==="
+          grep -n "sealed class CameraEvent" app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
+          echo "=== CameraViewModel.kt ==="
+          grep -n "capturePhotoUseCase(Unit)" app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
+          echo "=== GalleryViewModel.kt ==="
+          grep -n "sealed class GalleryEvent" app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
+
+      - name: Clean everything
+        run: |
+          rm -rf extracted/app/.gradle
+          rm -rf extracted/app/app/build
+
       - name: Build Debug APK
         run: |
+          cd extracted/app
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --no-build-cache --max-workers=1 --stacktrace
 
       - name: Build Release APK
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          cd extracted/app
+          ./gradlew assembleRelease --no-daemon --no-build-cache --max-workers=1 --stacktrace
 
-      # ========== 7. 上传 APK ==========
+      - name: Find APK
+        run: find extracted/ -name "*.apk" -type f
+
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         if: success()
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: extracted/app/app/build/outputs/apk/debug/*.apk
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         if: success()
         with:
           name: app-release
-          path: app/build/outputs/apk/release/*.apk
-
-      - name: Build complete
-        if: success()
-        run: |
-          echo "🎉 编译成功！"
-          echo "📦 Debug APK: app/build/outputs/apk/debug/app-debug.apk"
-          echo "📦 Release APK: app/build/outputs/apk/release/app-release.apk"
+          path: extracted/app/app/build/outputs/apk/release/*.apk
