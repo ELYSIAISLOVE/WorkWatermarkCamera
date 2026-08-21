@@ -1,121 +1,167 @@
-name: Unzip and Build APK
+name: Fix Source, Build APK & Self-Rewrite
 
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  JAVA_VERSION: "17"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4g"
+
 jobs:
-  build:
+  # ========================================================================
+  # 一次性任务：修复源码 → 编译 → 自毁重写为纯打包 workflow
+  # ========================================================================
+  fix-build-rewrite:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 45
 
     steps:
-      - name: Checkout
+      # ----------------------------------------------------------------------
+      # 0. 检出代码
+      # ----------------------------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Find and unzip source
+      - name: Detect project root
+        id: detect
         run: |
-          set -e
-          echo "=== 仓库根目录 ==="
-          ls -la
-
-          ZIP=""
-          for name in source.zip WorkCamera-Fixed-Source.zip "WatermarkCamera_Project (1).zip"; do
-            if [ -f "$name" ]; then
-              ZIP="$name"
-              break
-            fi
-          done
-          if [ -z "$ZIP" ]; then
-            ZIP=$(ls -1 *.zip 2>/dev/null | head -1 || true)
-          fi
-          if [ -z "$ZIP" ] || [ ! -f "$ZIP" ]; then
-            echo "❌ 根目录没有 zip，请上传 source.zip"
+          GRADLEW=$(find . -name "gradlew" -type f | head -1)
+          if [ -z "$GRADLEW" ]; then
+            echo "❌ 未找到 gradlew，请确认这是一个 Android Gradle 项目"
             exit 1
           fi
-          echo "使用 ZIP: $ZIP"
+          PROJECT_ROOT=$(dirname "$GRADLEW")
+          echo "project_root=$PROJECT_ROOT" >> $GITHUB_OUTPUT
+          echo "✅ 项目根目录: $PROJECT_ROOT"
 
-          rm -rf /tmp/src
-          mkdir -p /tmp/src
-          unzip -q -o "$ZIP" -d /tmp/src
-
-          echo "=== 解压结果 ==="
-          find /tmp/src -maxdepth 3 -type d | head -40
-
-          ROOT=$(find /tmp/src -name gradlew -type f | head -1 | xargs dirname)
-          if [ -z "$ROOT" ]; then
-            echo "❌ zip 里没有 gradlew"
-            find /tmp/src -maxdepth 4 | head -50
-            exit 1
-          fi
-          echo "工程根目录: $ROOT"
-
-          rm -rf "$GITHUB_WORKSPACE/project"
-          mkdir -p "$GITHUB_WORKSPACE/project"
-          cp -a "$ROOT"/. "$GITHUB_WORKSPACE/project/"
-
-          echo "=== project 目录 ==="
-          ls -la "$GITHUB_WORKSPACE/project"
-          test -d "$GITHUB_WORKSPACE/project/app" || { echo "❌ 缺少 app/"; exit 1; }
-
-      - name: Fix BitmapDecoder setter clash
-        working-directory: project
+      # ----------------------------------------------------------------------
+      # 1. 自动修复源码中的已知问题（基于 Grok fix log）
+      # ----------------------------------------------------------------------
+      - name: Auto-fix known source bugs
         run: |
+          PROJECT_ROOT="${{ steps.detect.outputs.project_root }}"
+
           python3 << 'PY'
-          from pathlib import Path
           import re
+          from pathlib import Path
 
-          p = Path("app/src/main/java/com/watermark/camera/data/processing/BitmapDecoder.kt")
-          if not p.exists():
-              print("BitmapDecoder.kt not found, skip")
-              raise SystemExit(0)
+          root = Path("${PROJECT_ROOT}")
+          fixed = 0
 
-          t = p.read_text(encoding="utf-8")
-          t2, n = re.subn(
-              r"\n[ \t]*fun setAppContext\([^)]*\)\s*\{[^{}]*\}",
-              "",
-              t,
-              count=1,
-          )
-          p.write_text(t2, encoding="utf-8")
-          print(f"BitmapDecoder: removed setAppContext functions={n}")
+          print("=" * 60)
+          print("🔧 开始自动修复源码中的已知问题")
+          print("=" * 60)
 
-          app = Path("app/src/main/java/com/watermark/camera/WatermarkCameraApp.kt")
-          if app.exists():
-              at = app.read_text(encoding="utf-8")
-              at2 = at.replace(
+          # ================================================================
+          # Fix 1: BitmapDecoder setAppContext → lateinit var appContext
+          # Issue: C008 - content:// URI 解码需要 Context，但 setAppContext
+          #        函数与属性 setter 冲突导致编译/运行时错误
+          # ================================================================
+          for decoder in root.rglob("BitmapDecoder.kt"):
+              text = decoder.read_text(encoding="utf-8")
+              orig = text
+
+              # 1a. 移除 setAppContext 函数定义
+              text, n = re.subn(
+                  r"\n[ \t]*fun setAppContext\([^)]*\)\s*\{[^{}]*\}",
+                  "",
+                  text,
+                  count=1,
+              )
+              if n > 0:
+                  print(f"  ✅ Fix 1a: 移除 setAppContext 函数 ({decoder.name})")
+                  fixed += 1
+
+              # 1b. 确保 appContext 是 lateinit var（如果还没有）
+              if "lateinit var appContext" not in text and "var appContext" not in text:
+                  if "companion object" in text:
+                      text = text.replace(
+                          "companion object {",
+                          "companion object {\n    lateinit var appContext: android.content.Context"
+                      )
+                  else:
+                      # 没有 companion object，在 class body 顶部添加
+                      text = text.replace(
+                          "class BitmapDecoder",
+                          "class BitmapDecoder {\n    companion object {\n        lateinit var appContext: android.content.Context\n    }\n\n    // original class"
+                      )
+                  print(f"  ✅ Fix 1b: 添加 lateinit appContext ({decoder.name})")
+                  fixed += 1
+
+              if text != orig:
+                  decoder.write_text(text, encoding="utf-8")
+
+          # ================================================================
+          # Fix 2: WatermarkCameraApp 中 setAppContext 调用改为属性赋值
+          # Issue: C009 - 设置保存逻辑不完整，同时修复 BitmapDecoder 调用
+          # ================================================================
+          for app_file in root.rglob("WatermarkCameraApp.kt"):
+              text = app_file.read_text(encoding="utf-8")
+              orig = text
+
+              text = text.replace(
                   "com.watermark.camera.data.processing.BitmapDecoder.setAppContext(this)",
                   "com.watermark.camera.data.processing.BitmapDecoder.appContext = this.applicationContext",
               )
-              at2 = at2.replace(
+              text = text.replace(
                   "BitmapDecoder.setAppContext(this)",
                   "BitmapDecoder.appContext = this.applicationContext",
               )
-              app.write_text(at2, encoding="utf-8")
-              print("WatermarkCameraApp: setAppContext -> appContext =")
-          print("fix done")
-          PY
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: gradle
+              if text != orig:
+                  app_file.write_text(text, encoding="utf-8")
+                  print(f"  ✅ Fix 2: 修复 WatermarkCameraApp BitmapDecoder 调用 ({app_file.name})")
+                  fixed += 1
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+          # ================================================================
+          # Fix 3: CameraEvent 必须继承 UiEvent
+          # Issue: C001 - BaseViewModel 类型参数约束失败，编译阻塞
+          # ================================================================
+          ui_events = list(root.rglob("UiEvent.kt"))
+          if ui_events:
+              for camera_event in root.rglob("CameraEvent.kt"):
+                  text = camera_event.read_text(encoding="utf-8")
+                  if "UiEvent" not in text:
+                      # 多种声明格式兼容
+                      text = text.replace(
+                          "sealed class CameraEvent {",
+                          "sealed class CameraEvent : UiEvent {"
+                      )
+                      text = text.replace(
+                          "sealed class CameraEvent\n",
+                          "sealed class CameraEvent : UiEvent\n"
+                      )
+                      text = text.replace(
+                          "sealed class CameraEvent(",
+                          "sealed class CameraEvent : UiEvent("
+                      )
+                      camera_event.write_text(text, encoding="utf-8")
+                      print(f"  ✅ Fix 3: CameraEvent 继承 UiEvent ({camera_event.name})")
+                      fixed += 1
 
-      - name: Build Debug APK
-        working-directory: project
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          # ================================================================
+          # Fix 4: AGP 8.x buildConfig 默认关闭，需要显式开启
+          # Issue: C011 - BuildConfig 找不到，编译阻塞
+          # ================================================================
+          for bg in root.rglob("build.gradle"):
+              text = bg.read_text(encoding="utf-8")
+              # 只在存在 viewBinding 且没有 buildConfig 的情况下添加
+              if "buildConfig" not in text and "viewBinding" in text:
+                  text = text.replace(
+                      "viewBinding true",
+                      "viewBinding true\n        buildConfig true"
+                  )
+                  bg.write_text(text, encoding="utf-8")
+                  print(f"  ✅ Fix 4: 添加 buildConfig true ({bg.name})")
+                  fixed += 1
 
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: workcamera-debug
-          path: project/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          # ================================================================
+          # Fix 5: local.properties 硬编码 SDK 路径（CI 环境不兼容）
+          # Issue: 沙箱路径如 /mnt/agents、/home/workdir 在 GitHub Actions 不存在
+       
