@@ -20,7 +20,6 @@ jobs:
           echo "=== 仓库根目录 ==="
           ls -la
 
-          # 按优先级找 zip
           ZIP=""
           for name in source.zip WorkCamera-Fixed-Source.zip "WatermarkCamera_Project (1).zip"; do
             if [ -f "$name" ]; then
@@ -44,10 +43,9 @@ jobs:
           echo "=== 解压结果 ==="
           find /tmp/src -maxdepth 3 -type d | head -40
 
-          # 自动定位含 gradlew 的目录
           ROOT=$(find /tmp/src -name gradlew -type f | head -1 | xargs dirname)
           if [ -z "$ROOT" ]; then
-            echo "❌ zip 里没有 gradlew，不是完整 Android 工程"
+            echo "❌ zip 里没有 gradlew"
             find /tmp/src -maxdepth 4 | head -50
             exit 1
           fi
@@ -60,6 +58,44 @@ jobs:
           echo "=== project 目录 ==="
           ls -la "$GITHUB_WORKSPACE/project"
           test -d "$GITHUB_WORKSPACE/project/app" || { echo "❌ 缺少 app/"; exit 1; }
+
+      - name: Fix BitmapDecoder setter clash
+        working-directory: project
+        run: |
+          python3 << 'PY'
+          from pathlib import Path
+          import re
+
+          p = Path("app/src/main/java/com/watermark/camera/data/processing/BitmapDecoder.kt")
+          if not p.exists():
+              print("BitmapDecoder.kt not found, skip")
+              raise SystemExit(0)
+
+          t = p.read_text(encoding="utf-8")
+          t2, n = re.subn(
+              r"\n[ \t]*fun setAppContext\([^)]*\)\s*\{[^{}]*\}",
+              "",
+              t,
+              count=1,
+          )
+          p.write_text(t2, encoding="utf-8")
+          print(f"BitmapDecoder: removed setAppContext functions={n}")
+
+          app = Path("app/src/main/java/com/watermark/camera/WatermarkCameraApp.kt")
+          if app.exists():
+              at = app.read_text(encoding="utf-8")
+              at2 = at.replace(
+                  "com.watermark.camera.data.processing.BitmapDecoder.setAppContext(this)",
+                  "com.watermark.camera.data.processing.BitmapDecoder.appContext = this.applicationContext",
+              )
+              at2 = at2.replace(
+                  "BitmapDecoder.setAppContext(this)",
+                  "BitmapDecoder.appContext = this.applicationContext",
+              )
+              app.write_text(at2, encoding="utf-8")
+              print("WatermarkCameraApp: setAppContext -> appContext =")
+          print("fix done")
+          PY
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
