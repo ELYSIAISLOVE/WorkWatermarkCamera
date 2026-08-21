@@ -1,4 +1,4 @@
-name: Build Work Camera APK
+name: Unzip and Build APK
 
 on:
   push:
@@ -14,24 +14,52 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check project structure
+      - name: Find and unzip source
         run: |
+          set -e
           echo "=== 仓库根目录 ==="
           ls -la
-          echo "=== 是否有 app 模块 ==="
-          if [ ! -d app ]; then
-            echo "❌ 缺少 app/ 目录。请先上传修复版源码（解压后的文件，不要只传 zip）"
+
+          # 按优先级找 zip
+          ZIP=""
+          for name in source.zip WorkCamera-Fixed-Source.zip "WatermarkCamera_Project (1).zip"; do
+            if [ -f "$name" ]; then
+              ZIP="$name"
+              break
+            fi
+          done
+          if [ -z "$ZIP" ]; then
+            ZIP=$(ls -1 *.zip 2>/dev/null | head -1 || true)
+          fi
+          if [ -z "$ZIP" ] || [ ! -f "$ZIP" ]; then
+            echo "❌ 根目录没有 zip，请上传 source.zip"
             exit 1
           fi
-          if [ ! -f gradlew ]; then
-            echo "❌ 缺少 gradlew"
+          echo "使用 ZIP: $ZIP"
+
+          rm -rf /tmp/src
+          mkdir -p /tmp/src
+          unzip -q -o "$ZIP" -d /tmp/src
+
+          echo "=== 解压结果 ==="
+          find /tmp/src -maxdepth 3 -type d | head -40
+
+          # 自动定位含 gradlew 的目录
+          ROOT=$(find /tmp/src -name gradlew -type f | head -1 | xargs dirname)
+          if [ -z "$ROOT" ]; then
+            echo "❌ zip 里没有 gradlew，不是完整 Android 工程"
+            find /tmp/src -maxdepth 4 | head -50
             exit 1
           fi
-          if [ ! -d gradle/wrapper ]; then
-            echo "❌ 缺少 gradle/wrapper"
-            exit 1
-          fi
-          echo "✅ 结构检查通过"
+          echo "工程根目录: $ROOT"
+
+          rm -rf "$GITHUB_WORKSPACE/project"
+          mkdir -p "$GITHUB_WORKSPACE/project"
+          cp -a "$ROOT"/. "$GITHUB_WORKSPACE/project/"
+
+          echo "=== project 目录 ==="
+          ls -la "$GITHUB_WORKSPACE/project"
+          test -d "$GITHUB_WORKSPACE/project/app" || { echo "❌ 缺少 app/"; exit 1; }
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -44,6 +72,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Build Debug APK
+        working-directory: project
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
@@ -52,5 +81,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: workcamera-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: project/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
