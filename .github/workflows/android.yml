@@ -38,34 +38,33 @@ jobs:
           sed -i 's/org.gradle.parallel=true/org.gradle.parallel=false/' gradle.properties
           sed -i 's/org.gradle.caching=true/org.gradle.caching=false/' gradle.properties
 
-      - name: Fix Bug 1 - CameraViewModel.kt (missing Unit param)
+      - name: Fix Bug 1 - CameraViewModel.kt
         run: |
           cd extracted/app
           sed -i 's/val result = capturePhotoUseCase()/val result = capturePhotoUseCase(Unit)/' \
             app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
 
-      - name: Fix Bug 2 - CameraEvent missing UiEvent (CORRECTED)
+      - name: Fix Bug 2 - CameraEvent (CORRECTED with full package name)
         run: |
           cd extracted/app
-          # 使用全限定名，因为 UiEvent 在不同包
           sed -i 's/sealed class CameraEvent {/sealed class CameraEvent : com.watermark.camera.ui.common.UiEvent {/' \
             app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
 
-      - name: Fix Bug 3 - GalleryEvent missing UiEvent
+      - name: Fix Bug 3 - GalleryEvent (CORRECTED with full package name)
         run: |
           cd extracted/app
           sed -i 's/sealed class GalleryEvent {/sealed class GalleryEvent : com.watermark.camera.ui.common.UiEvent {/' \
             app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
 
-      - name: Verify fixes
+      - name: Verify fixes applied
         run: |
           cd extracted/app
-          echo "=== CameraViewModel ==="
-          grep -n "capturePhotoUseCase" app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
-          echo "=== CameraState ==="
-          grep -n "CameraEvent" app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
-          echo "=== GalleryViewModel ==="
-          grep -n "GalleryEvent" app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
+          echo "=== CameraState.kt ==="
+          grep -n "sealed class CameraEvent" app/src/main/java/com/watermark/camera/ui/camera/CameraState.kt
+          echo "=== CameraViewModel.kt ==="
+          grep -n "capturePhotoUseCase(Unit)" app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
+          echo "=== GalleryViewModel.kt ==="
+          grep -n "sealed class GalleryEvent" app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
 
       - name: Clean everything
         run: |
