@@ -95,35 +95,40 @@ class CameraViewModel @Inject constructor(
             return
         }
 
-        // Check anti-repeat lock
         if (!capturePhotoUseCase.isCaptureAvailable()) {
             val remaining = capturePhotoUseCase.getRemainingCooldownMs()
             sendEvent(CameraEvent.ShowToast("请稍后再拍 (${remaining}ms)"))
             return
         }
 
+        val flashMode = currentState.flashMode
         updateState { CameraState.Capturing }
         sendEvent(CameraEvent.ShutterFeedback)
 
         viewModelScope.launch {
             val result = capturePhotoUseCase()
             result.onSuccess { captureResult ->
-                Logger.i(TAG, "Photo captured: ${captureResult.width}x${captureResult.height}, " +
-                    "timestamp=${captureResult.timestamp}")
-
-                // Transition to processing state
+                Logger.i(TAG, "Photo captured: ${captureResult.width}x${captureResult.height}")
                 updateState { CameraState.Processing(progress = 0) }
 
                 try {
                     val config = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
-                    val locationStr = try {
-                        getLocationUseCase.getLocationString(timeoutMs = 2000L)
-                    } catch (_: Exception) {
-                        "未获取位置"
-                    }
+
+                    // Single location request (avoid double GPS wait — was ~4s)
                     val locationData = getLocationUseCase(
-                        GetLocationUseCase.Params(timeoutMs = 2000L)
+                        GetLocationUseCase.Params(timeoutMs = 2500L)
                     ).getOrNull()
+                    val locationStr = if (locationData == null) {
+                        "定位失败"
+                    } else {
+                        String.format(
+                            java.util.Locale.US,
+                            "%.5f, %.5f",
+                            locationData.latitude,
+                            locationData.longitude
+                        )
+                    }
+
                     updateState { CameraState.Saving }
                     val processResult = processPhotoUseCase(
                         ProcessPhotoUseCase.Params(
@@ -134,22 +139,24 @@ class CameraViewModel @Inject constructor(
                         )
                     )
                     processResult.onSuccess {
-                        val flashMode = (_uiState.value as? CameraState.Previewing)?.flashMode
-                            ?: com.watermark.camera.domain.repository.FlashMode.AUTO
                         updateState { CameraState.Previewing(flashMode = flashMode) }
                         sendEvent(CameraEvent.ShowToast("照片已保存"))
                     }.onFailure { e ->
+                        Logger.e(TAG, "Save failed", e)
                         try { captureResult.close() } catch (_: Exception) {}
-                        updateState { CameraState.Error("保存失败: ${e.message}", recoverable = true) }
-                        sendEvent(CameraEvent.ShowToast("保存失败"))
+                        updateState { CameraState.Previewing(flashMode = flashMode) }
+                        sendEvent(CameraEvent.ShowToast("保存失败: ${e.message ?: "未知错误"}"))
                     }
                 } catch (e: Exception) {
+                    Logger.e(TAG, "Process failed", e)
                     try { captureResult.close() } catch (_: Exception) {}
-                    updateState { CameraState.Error("处理失败: ${e.message}", recoverable = true) }
+                    updateState { CameraState.Previewing(flashMode = flashMode) }
+                    sendEvent(CameraEvent.ShowToast("处理失败: ${e.message ?: "未知错误"}"))
                 }
             }.onFailure { e ->
                 Logger.e(TAG, "Capture failed", e)
-                updateState { CameraState.Error("拍照失败: ${e.message}", recoverable = true) }
+                updateState { CameraState.Previewing(flashMode = flashMode) }
+                sendEvent(CameraEvent.ShowToast("拍照失败: ${e.message ?: "未知错误"}"))
             }
         }
     }

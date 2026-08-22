@@ -4,16 +4,13 @@ import com.watermark.camera.domain.repository.LocationData
 import com.watermark.camera.domain.repository.LocationRepository
 import com.watermark.camera.util.Logger
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 /**
  * UseCase for obtaining location data for watermark and EXIF.
  *
- * Encapsulates:
- * - One-shot location request with timeout
- * - Fallback to last known location
- * - Formatting for watermark display
- * - Permission check
+ * On failure, retries up to [MAX_ATTEMPTS] times, then returns failure.
  */
 class GetLocationUseCase @Inject constructor(
     private val locationRepository: LocationRepository,
@@ -22,23 +19,18 @@ class GetLocationUseCase @Inject constructor(
 
     companion object {
         private const val TAG = "GetLocationUC"
-        private const val DEFAULT_TIMEOUT_MS = 10000L
+        private const val DEFAULT_TIMEOUT_MS = 3000L
+        /** Max attempts including the first try (fail 3 times → give up). */
+        private const val MAX_ATTEMPTS = 3
+        private const val RETRY_DELAY_MS = 400L
     }
 
-    /**
-     * Input parameters.
-     *
-     * @param timeoutMs Maximum time to wait for location (default 10s).
-     * @param formatForDisplay Whether to pre-format the location string for watermark.
-     */
     data class Params(
         val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
-        val formatForDisplay: Boolean = true
+        val formatForDisplay: Boolean = true,
+        val maxAttempts: Int = MAX_ATTEMPTS
     )
 
-    /**
-     * Result containing both raw location data and formatted string.
-     */
     data class LocationResult(
         val data: LocationData,
         val displayString: String
@@ -50,32 +42,39 @@ class GetLocationUseCase @Inject constructor(
             return Result.failure(SecurityException("定位权限未授予"))
         }
 
-        Logger.i(TAG, "Requesting location, timeout=${params.timeoutMs}ms")
+        val attempts = params.maxAttempts.coerceIn(1, 5)
+        var lastError: Throwable = IllegalStateException("定位失败")
 
-        val result = locationRepository.getCurrentLocation(params.timeoutMs)
-
-        return result.fold(
-            onSuccess = { locationData ->
-                Logger.i(TAG, "Location obtained: ${locationData.latitude}, ${locationData.longitude}")
-                Result.success(locationData)
-            },
-            onFailure = { error ->
-                Logger.e(TAG, "Location request failed", error)
-                Result.failure(error)
+        for (attempt in 1..attempts) {
+            Logger.i(TAG, "Location attempt $attempt/$attempts, timeout=${params.timeoutMs}ms")
+            val result = locationRepository.getCurrentLocation(params.timeoutMs)
+            if (result.isSuccess) {
+                val data = result.getOrThrow()
+                Logger.i(TAG, "Location OK on attempt $attempt: ${data.latitude}, ${data.longitude}")
+                return Result.success(data)
             }
+            lastError = result.exceptionOrNull() ?: lastError
+            Logger.w(TAG, "Location attempt $attempt failed: ${lastError.message}")
+            if (attempt < attempts) {
+                delay(RETRY_DELAY_MS)
+            }
+        }
+
+        Logger.e(TAG, "Location failed after $attempts attempts")
+        return Result.failure(
+            lastError.message?.let { IllegalStateException("定位失败（已重试${attempts}次）: $it") }
+                ?: IllegalStateException("定位失败（已重试${attempts}次）")
         )
     }
 
     /**
-     * Get formatted location string for watermark display.
-     *
-     * @return Formatted address string, or "未获取位置" if unavailable.
+     * Formatted string for watermark; after max retries returns failure text.
      */
     suspend fun getLocationString(timeoutMs: Long = DEFAULT_TIMEOUT_MS): String {
         val result = execute(Params(timeoutMs = timeoutMs))
         return result.fold(
             onSuccess = { locationRepository.formatForWatermark(it) },
-            onFailure = { "未获取位置" }
+            onFailure = { "定位失败" }
         )
     }
 }
