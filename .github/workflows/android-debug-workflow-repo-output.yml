@@ -1,0 +1,315 @@
+name: Android Full Debug Report
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  debug:
+    name: Full Android Build Diagnosis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. 检出项目
+        uses: actions/checkout@v4
+
+      - name: 2. 设置 Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: 3. 设置 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 4. 准备诊断环境
+        shell: bash
+        run: |
+          set +e
+          chmod +x gradlew
+          {
+            echo "Android 项目全面诊断开始"
+            echo "生成时间：$(date '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+            echo "系统信息："
+            uname -a
+            echo ""
+            echo "Java 信息："
+            java -version
+            echo ""
+            echo "Gradle 信息："
+            ./gradlew --version
+            echo ""
+            echo "Android SDK 已安装组件："
+            sdkmanager --list_installed
+          } > debug_environment.txt 2>&1
+
+      - name: 5. 检查项目结构
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "项目根目录："
+            pwd
+            echo ""
+            echo "settings 文件："
+            find . -maxdepth 2 \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -print
+            echo ""
+            echo "Gradle 构建文件："
+            find . -maxdepth 3 \( -name "build.gradle" -o -name "build.gradle.kts" \) -print
+            echo ""
+            echo "src 目录："
+            find . -maxdepth 3 -type d -name "src" -print
+            echo ""
+            echo "Kotlin 文件数量："
+            find . -type f -name "*.kt" | wc -l
+            echo ""
+            echo "Java 文件数量："
+            find . -type f -name "*.java" | wc -l
+            echo ""
+            echo "XML 文件数量："
+            find . -type f -name "*.xml" | wc -l
+          } > project_structure.txt 2>&1
+
+      - name: 6. Gradle 依赖诊断
+        shell: bash
+        run: |
+          set +e
+          ./gradlew dependencies             --configuration debugCompileClasspath             --no-daemon             --stacktrace             --console=plain > gradle_dependencies.txt 2>&1
+          echo "依赖检查退出代码：$?" >> gradle_dependencies.txt
+
+      - name: 7. 完整 Debug 编译诊断
+        shell: bash
+        run: |
+          set +e
+          ./gradlew clean assembleDebug             --stacktrace             --warning-mode all             --no-daemon             --console=plain > full_build.log 2>&1
+          BUILD_EXIT_CODE=$?
+          echo "$BUILD_EXIT_CODE" > build_exit_code.txt
+          echo "" >> full_build.log
+          echo "Gradle 编译退出代码：$BUILD_EXIT_CODE" >> full_build.log
+          # 故意返回 0，保证后续诊断和 Artifact 上传继续执行。
+          exit 0
+
+      - name: 8. 提取所有问题
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "===== 一、Kotlin / Java 编译错误 ====="
+            grep -nEi '(^|[^a-zA-Z])(e: |error: |ERROR|Unresolved reference|Redeclaration|Cannot find|Type mismatch|Compilation error)' full_build.log || true
+
+            echo ""
+            echo "===== 二、Gradle FAILURE ====="
+            grep -nEi 'FAILURE:|What went wrong|Execution failed|BUILD FAILED' full_build.log || true
+
+            echo ""
+            echo "===== 三、Android 资源 / AAPT2 ====="
+            grep -niE 'resource .* not found|AAPT|aapt2|Resource compilation|merge.*Resources|process.*Resources' full_build.log || true
+
+            echo ""
+            echo "===== 四、Manifest ====="
+            grep -niE 'AndroidManifest|manifest merger|Manifest merger failed|uses-sdk' full_build.log || true
+
+            echo ""
+            echo "===== 五、依赖冲突 / 重复类 ====="
+            grep -niE 'Duplicate class|duplicate|conflict|Could not resolve|Failed to resolve|dependency' full_build.log || true
+
+            echo ""
+            echo "===== 六、KAPT / DataBinding / SafeArgs ====="
+            grep -niE 'kapt|dataBinding|SafeArgs|annotation processor' full_build.log || true
+
+            echo ""
+            echo "===== 七、Native / JNI / .so ====="
+            grep -niE 'jni|native|\.so|stripDebug|Unable to strip' full_build.log || true
+
+            echo ""
+            echo "===== 八、警告 / Deprecated ====="
+            grep -niE 'warning:|WARNING|deprecated|obsolete' full_build.log || true
+          } > extracted_problems.txt
+
+      - name: 9. 生成中文 debuglog.txt
+        shell: bash
+        run: |
+          set +e
+          EXIT_CODE=$(cat build_exit_code.txt 2>/dev/null || echo "未知")
+          if [ "$EXIT_CODE" = "0" ]; then
+            RESULT="编译成功"
+          else
+            RESULT="编译失败"
+          fi
+
+          cat > debuglog.txt <<EOF
+水印相机 Android 项目全面诊断报告
+========================================
+
+生成时间：
+$(date '+%Y-%m-%d %H:%M:%S UTC')
+
+诊断结果：
+$RESULT
+
+Gradle 原始退出代码：
+$EXIT_CODE
+
+
+一、诊断目的
+========================================
+
+本次工作流只负责诊断，不修改项目源码，不删除文件，
+不自动修复 Kotlin / Java / XML / Gradle 文件，也不会 push
+任何修改回 GitHub。
+
+诊断范围：
+1. Kotlin 编译错误
+2. Java 编译错误
+3. Gradle 构建错误
+4. Android Manifest 错误
+5. Android XML / AAPT2 资源错误
+6. Gradle 依赖解析错误
+7. 重复类错误
+8. KAPT / DataBinding / SafeArgs 错误
+9. JNI / Native .so 问题
+10. Deprecated / obsolete / warning
+
+
+二、重要判断原则
+========================================
+
+【最高优先级】
+Kotlin / Java Compilation Error
+Unresolved reference
+Redeclaration
+Type mismatch
+Cannot find
+Compilation error
+
+【高优先级】
+AAPT / Resource
+Manifest merger
+Duplicate class
+Could not resolve dependency
+Execution failed
+
+【中优先级】
+KAPT
+DataBinding
+SafeArgs
+Gradle Plugin compatibility
+
+【通常不是直接失败原因】
+Unable to strip .so
+deprecated
+obsolete
+普通 warning
+
+注意：
+“Unable to strip ... .so”通常是警告，Gradle 可以选择直接把
+该 Native 库原样打包。不能仅凭这个警告判断 APK 无法生成。
+
+
+三、项目环境
+========================================
+
+EOF
+
+          cat debug_environment.txt >> debuglog.txt
+
+          cat >> debuglog.txt <<'EOF'
+
+
+四、项目结构
+========================================
+
+EOF
+
+          cat project_structure.txt >> debuglog.txt
+
+          cat >> debuglog.txt <<'EOF'
+
+
+五、Gradle 依赖诊断
+========================================
+
+EOF
+
+          cat gradle_dependencies.txt >> debuglog.txt
+
+          cat >> debuglog.txt <<'EOF'
+
+
+六、自动提取出的所有可疑问题
+========================================
+
+EOF
+
+          cat extracted_problems.txt >> debuglog.txt
+
+          cat >> debuglog.txt <<'EOF'
+
+
+七、原始完整构建日志
+========================================
+
+完整 Gradle 输出：
+full_build.log
+
+其它诊断文件：
+gradle_dependencies.txt
+debug_environment.txt
+project_structure.txt
+extracted_problems.txt
+build_exit_code.txt
+
+
+八、最终说明
+========================================
+
+本报告只记录问题，不自动修改源码。
+
+如果项目构建失败，请优先查看：
+1. Kotlin / Java 编译错误
+2. Resource / AAPT2 错误
+3. Manifest 错误
+4. Duplicate class / dependency 错误
+5. KAPT / DataBinding / SafeArgs 错误
+
+最后再判断 Native .so 警告。
+
+诊断结束。
+EOF
+
+      - name: 10. 保存 debuglog.txt 到仓库
+        if: always()
+        shell: bash
+        run: |
+          set +e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add debuglog.txt
+
+          if git diff --cached --quiet; then
+            echo "debuglog.txt 没有变化，不需要提交。"
+          else
+            git commit -m "chore: update Android debug log"
+            git push
+          fi
+
+      - name: 11. 同时上传完整诊断文件
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-Debug-Complete-Report
+          path: |
+            debuglog.txt
+            full_build.log
+            gradle_dependencies.txt
+            debug_environment.txt
+            project_structure.txt
+            extracted_problems.txt
+            build_exit_code.txt
+          if-no-files-found: error
