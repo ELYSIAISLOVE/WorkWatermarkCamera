@@ -72,6 +72,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        hideRedundantTopControls()
         setupScaleGestureDetector()
         requestCameraPermissionIfNeeded()
     }
@@ -142,8 +143,14 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             // Fixed 4:3
             viewModel.cycleAspectRatio()
         }
-        binding.watermarkOverlay.onPositionChanged = { pos ->
-            viewModel.updateWatermarkPosition(pos)
+        binding.watermarkOverlay.onDragPosition = { _, _, _ ->
+            // live drag only updates overlay config in-memory
+        }
+        binding.watermarkOverlay.onPositionChanged = { _ ->
+            val c = binding.watermarkOverlay.watermarkConfig
+            val nx = c.customX ?: 0f
+            val ny = c.customY ?: 0f
+            viewModel.updateWatermarkDrag(nx, ny, c.position)
         }
 
         // EV value click to show/hide slider
@@ -199,11 +206,11 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             }
             is CameraState.Previewing -> {
                 binding.btnCapture.isEnabled = true
-                binding.tvZoomRatio.visibility = View.VISIBLE
+                binding.tvZoomRatio.visibility = View.GONE
                 binding.tvZoomRatio.text = String.format("%.1fx", state.zoomRatio)
                 binding.tvAspectRatio.text = "4:3"
-                binding.tvAspectRatio.visibility = View.VISIBLE
-                binding.tvEvValue.visibility = View.VISIBLE
+                binding.tvAspectRatio.visibility = View.GONE
+                binding.tvEvValue.visibility = View.GONE
                 binding.tvEvValue.text = String.format("EV %+.1f", state.evValue)
                 currentZoomRatio = state.zoomRatio
 
@@ -280,6 +287,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             }
             is CameraEvent.CaptureHaptic -> {
                 performCaptureHaptic()
+            }
+            is CameraEvent.GalleryFlash -> {
+                flashGalleryButton()
             }
             is CameraEvent.RequestRebind -> {
                 rebindCameraPreview()
@@ -474,6 +484,33 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
     // endregion
+
+
+    private fun hideRedundantTopControls() {
+        // Keep bottom bar only; remove duplicate / unused top chrome
+        runCatching { binding.tvAspectRatio.visibility = View.GONE }
+        runCatching { binding.tvEvValue.visibility = View.GONE }
+        runCatching { binding.sliderExposure.visibility = View.GONE }
+        runCatching { binding.btnCollage.visibility = View.GONE }
+        runCatching { binding.btnSettingsTop.visibility = View.GONE }
+        runCatching { binding.btnVerify.visibility = View.GONE }
+        runCatching { binding.btnMenu.visibility = View.GONE }
+        // zoom can stay or hide — hide to declutter
+        runCatching { binding.tvZoomRatio.visibility = View.GONE }
+    }
+
+    private fun flashGalleryButton() {
+        val v = binding.btnGallery
+        v.animate().cancel()
+        v.alpha = 1f
+        v.animate()
+            .alpha(0.25f)
+            .setDuration(90L)
+            .withEndAction {
+                v.animate().alpha(1f).setDuration(160L).start()
+            }
+            .start()
+    }
 
     private fun performCaptureHaptic() {
         try {

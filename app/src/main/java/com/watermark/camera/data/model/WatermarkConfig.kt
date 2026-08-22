@@ -30,6 +30,12 @@ data class WatermarkConfig(
     val transparency: Float = 0.8f,
     val fontScale: Float = 1.0f,
     val position: WatermarkPosition = WatermarkPosition.BOTTOM_LEFT,
+    /**
+     * Free-drag position of card top-left as fraction of [0,1] in view/photo space.
+     * null = derive from [position] enum only.
+     */
+    val customX: Float? = null,
+    val customY: Float? = null,
     val useGyroscope: Boolean = true,
     val showLocation: Boolean = true
 ) : Parcelable {

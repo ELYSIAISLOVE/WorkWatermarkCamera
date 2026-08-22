@@ -16,8 +16,8 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Camera preview watermark. Layout math matches [WatermarkCanvas] via [WatermarkLayout]
- * so preview position/size tracks the final saved image (fixed 4:3 framing).
+ * Preview watermark: same layout model as [WatermarkCanvas], free-drag inside viewfinder.
+ * Text stays upright relative to device gravity when orientation changes.
  */
 class WatermarkOverlayView @JvmOverloads constructor(
     context: Context,
@@ -51,7 +51,6 @@ class WatermarkOverlayView @JvmOverloads constructor(
             invalidate()
         }
 
-    /** Device orientation (for future use); placement still follows [WatermarkConfig.position]. */
     var deviceOrientation: OrientationHelper.DeviceOrientation =
         OrientationHelper.DeviceOrientation.PORTRAIT
         set(value) {
@@ -59,20 +58,27 @@ class WatermarkOverlayView @JvmOverloads constructor(
             invalidate()
         }
 
-    /** Called when user drags/taps to change watermark slot. */
+    /** Continuous drag updates (normalized customX/Y + nearest slot). */
+    var onDragPosition: ((Float, Float, WatermarkPosition) -> Unit)? = null
+
+    /** Final commit after finger up. */
     var onPositionChanged: ((WatermarkPosition) -> Unit)? = null
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         typeface = Typeface.DEFAULT_BOLD
     }
-
     private val glassRenderer = GlassmorphismRenderer()
 
     private var lastCardLeft = 0f
     private var lastCardTop = 0f
     private var lastCardW = 0f
     private var lastCardH = 0f
+    private var lastMargin = 8f
+
+    private var dragging = false
+    private var grabDx = 0f
+    private var grabDy = 0f
 
     private val clockRunnable = object : Runnable {
         override fun run() {
@@ -101,13 +107,13 @@ class WatermarkOverlayView @JvmOverloads constructor(
         val lines = buildPreviewLines()
         if (lines.isEmpty()) return
 
-        // Same scale model as WatermarkCanvas: relative to area width (~ photo width)
         val scaleFactor = width / BASE_WIDTH
         val fontScale = watermarkConfig.fontScale.coerceIn(0.5f, 8.0f)
         val fontSize = (BASE_FONT_SIZE * scaleFactor * fontScale).coerceIn(12f, 96f)
         val padding = (BASE_PADDING * scaleFactor).coerceAtLeast(8f)
         val lineSpacing = (BASE_LINE_SPACING * scaleFactor).coerceAtLeast(2f)
         val radius = (BASE_CARD_RADIUS * scaleFactor).coerceAtLeast(8f)
+        lastMargin = padding
 
         textPaint.textSize = fontSize
         textPaint.color = Color.WHITE
@@ -125,7 +131,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
         val cardWidth = maxWidth + padding * 2
         val cardHeight = totalHeight + padding * 2
         val (cardLeft, cardTop) = WatermarkLayout.cardOrigin(
-            position = watermarkConfig.position,
+            config = watermarkConfig,
             areaWidth = width.toFloat(),
             areaHeight = height.toFloat(),
             cardWidth = cardWidth,
@@ -136,6 +142,15 @@ class WatermarkOverlayView @JvmOverloads constructor(
         lastCardTop = cardTop
         lastCardW = cardWidth
         lastCardH = cardHeight
+
+        val save = canvas.save()
+        // Keep watermark text upright relative to gravity when device rotates
+        val rotation = uprightRotationDegrees()
+        if (rotation != 0f) {
+            val cx = cardLeft + cardWidth / 2f
+            val cy = cardTop + cardHeight / 2f
+            canvas.rotate(rotation, cx, cy)
+        }
 
         glassRenderer.drawGlassCard(
             canvas = canvas,
@@ -154,30 +169,67 @@ class WatermarkOverlayView @JvmOverloads constructor(
             canvas.drawText(line, cardLeft + padding, currentY, textPaint)
             currentY += fontSize + lineSpacing
         }
+        canvas.restoreToCount(save)
+    }
+
+    private fun uprightRotationDegrees(): Float {
+        return when (deviceOrientation) {
+            OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
+            OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
+            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
+            else -> 0f
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                val inside =
-                    event.x >= lastCardLeft && event.x <= lastCardLeft + lastCardW &&
-                        event.y >= lastCardTop && event.y <= lastCardTop + lastCardH
-                return if (inside || true) {
-                    // Allow tap anywhere on overlay to snap position
-                    true
-                } else {
-                    super.onTouchEvent(event)
+                val hit = event.x >= lastCardLeft - 24 &&
+                    event.x <= lastCardLeft + lastCardW + 24 &&
+                    event.y >= lastCardTop - 24 &&
+                    event.y <= lastCardTop + lastCardH + 24
+                if (hit) {
+                    dragging = true
+                    grabDx = event.x - lastCardLeft
+                    grabDy = event.y - lastCardTop
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    return true
                 }
+                return false
             }
-            MotionEvent.ACTION_UP -> {
-                val pos = WatermarkLayout.positionFromTouch(
-                    event.x, event.y, width.toFloat(), height.toFloat()
+            MotionEvent.ACTION_MOVE -> {
+                if (!dragging) return false
+                val rawL = event.x - grabDx
+                val rawT = event.y - grabDy
+                val (clampedL, clampedT) = WatermarkLayout.clampOrigin(
+                    rawL, rawT,
+                    width.toFloat(), height.toFloat(),
+                    lastCardW, lastCardH, lastMargin
                 )
-                if (pos != watermarkConfig.position) {
-                    watermarkConfig = watermarkConfig.copy(position = pos)
-                    onPositionChanged?.invoke(pos)
-                }
+                val (nx, ny) = WatermarkLayout.toNormalized(
+                    clampedL, clampedT,
+                    width.toFloat(), height.toFloat(),
+                    lastCardW, lastCardH, lastMargin
+                )
+                val slot = WatermarkLayout.nearestSlot(
+                    clampedL + lastCardW / 2f,
+                    clampedT + lastCardH / 2f,
+                    width.toFloat(), height.toFloat()
+                )
+                watermarkConfig = watermarkConfig.copy(
+                    customX = nx,
+                    customY = ny,
+                    position = slot
+                )
+                onDragPosition?.invoke(nx, ny, slot)
                 invalidate()
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (!dragging) return false
+                dragging = false
+                parent?.requestDisallowInterceptTouchEvent(false)
+                onPositionChanged?.invoke(watermarkConfig.position)
                 return true
             }
         }
@@ -190,11 +242,9 @@ class WatermarkOverlayView @JvmOverloads constructor(
         val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
         val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
         val weekFormat = SimpleDateFormat("EEEE", Locale.CHINA)
-
         lines.add(watermarkConfig.template.displayName + "水印")
         lines.add("${timeFormat.format(now)} | ${dateFormat.format(now)}")
         lines.add(weekFormat.format(now))
-
         if (watermarkConfig.showLocation) {
             val loc = locationText.ifBlank { watermarkConfig.location }
             if (loc.isNotBlank()) lines.add("● $loc")

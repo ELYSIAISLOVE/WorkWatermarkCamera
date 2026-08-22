@@ -113,6 +113,8 @@ class WatermarkConfigDataSource @Inject constructor(
             put("transparency", config.transparency)
             put("fontScale", config.fontScale)
             put("position", config.position.name)
+            if (config.customX != null) put("customX", config.customX.toDouble())
+            if (config.customY != null) put("customY", config.customY.toDouble())
             put("useGyroscope", config.useGyroscope)
             put("showLocation", config.showLocation)
         }
@@ -137,6 +139,8 @@ class WatermarkConfigDataSource @Inject constructor(
             } catch (e: Exception) {
                 WatermarkPosition.BOTTOM_LEFT
             },
+            customX = if (json.has("customX")) json.getDouble("customX").toFloat() else null,
+            customY = if (json.has("customY")) json.getDouble("customY").toFloat() else null,
             useGyroscope = json.optBoolean("useGyroscope", true),
             showLocation = json.optBoolean("showLocation", true)
         )

@@ -106,5 +106,8 @@ sealed class CameraEvent : com.watermark.camera.ui.common.UiEvent {
     /** Short haptic on capture (10ms). */
     data object CaptureHaptic : CameraEvent()
 
+    /** Blink gallery button once — save succeeded (no toast). */
+    data object GalleryFlash : CameraEvent()
+
     data object RequestRebind : CameraEvent()
 }
