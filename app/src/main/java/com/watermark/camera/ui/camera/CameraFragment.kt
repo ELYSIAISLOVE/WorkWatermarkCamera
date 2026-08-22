@@ -43,6 +43,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         if (isGranted) {
             startCameraPreview()
             viewModel.reloadWatermarkConfig()
+            binding.watermarkOverlay.locationText = viewModel.locationDisplay.value
+            binding.watermarkOverlay.watermarkConfig = viewModel.watermarkConfigDisplay.value
         } else {
             Toast.makeText(requireContext(), "相机权限被拒绝", Toast.LENGTH_LONG).show()
         }
@@ -113,6 +115,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             val settingsFragment = com.watermark.camera.ui.settings.WatermarkSettingsFragment.newInstance()
             settingsFragment.onConfigSaved = { config ->
                 binding.watermarkOverlay.watermarkConfig = config
+                viewModel.reloadWatermarkConfig()
             }
             settingsFragment.show(parentFragmentManager, "WatermarkSettings")
         }

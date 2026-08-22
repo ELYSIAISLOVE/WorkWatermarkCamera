@@ -266,6 +266,11 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
 
     // endregion
 
+    override fun onDismiss(dialog: android.content.DialogInterface) {
+        onConfigSaved?.invoke(viewModel.config.value)
+        super.onDismiss(dialog)
+    }
+
     override fun onPause() {
         // Flush text fields and silent save when leaving
         viewModel.setName(binding.etName.text?.toString() ?: "")
