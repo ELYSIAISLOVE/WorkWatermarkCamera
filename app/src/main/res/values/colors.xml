@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary brand color -->
+    <color name="color_primary">#2B6AFF</color>
+    <color name="color_primary_dark">#1E5AEE</color>
+    <color name="color_primary_light">#5B8FFF</color>
+
+    <!-- Glassmorphism (毛玻璃) base colors -->
+    <color name="glass_background">#99000000</color>
+    <color name="glass_border">#66FFFFFF</color>
+    <color name="glass_text_primary">#FFFFFF</color>
+    <color name="glass_text_secondary">#CCFFFFFF</color>
+
+    <!-- Watermark template colors -->
+    <color name="watermark_blue">#2B6AFF</color>
+    <color name="watermark_orange">#FF8C42</color>
+    <color name="watermark_green">#52C41A</color>
+    <color name="watermark_gray">#595959</color>
+
+    <!-- Status colors -->
+    <color name="success">#52C41A</color>
+    <color name="warning">#FAAD14</color>
+    <color name="error">#FF4D4F</color>
+
+    <!-- Background colors -->
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="transparent">#00000000</color>
+
+    <!-- Overlay colors -->
+    <color name="overlay_dark">#80000000</color>
+    <color name="overlay_black">#CC000000</color>
+</resources>
