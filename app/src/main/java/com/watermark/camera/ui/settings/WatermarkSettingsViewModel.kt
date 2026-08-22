@@ -12,6 +12,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -51,6 +53,8 @@ class WatermarkSettingsViewModel @Inject constructor(
 
     /** Error message. */
     private val _errorMessage = MutableStateFlow<String?>(null)
+
+    private var autoSaveJob: Job? = null
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     // endregion
@@ -83,22 +87,27 @@ class WatermarkSettingsViewModel @Inject constructor(
 
     fun selectTemplate(template: WatermarkTemplate) {
         _config.value = _config.value.copy(template = template)
+        scheduleAutoSave()
     }
 
     fun setName(name: String) {
         _config.value = _config.value.copy(name = name)
+        scheduleAutoSave()
     }
 
     fun setProjectName(project: String) {
         _config.value = _config.value.copy(projectName = project)
+        scheduleAutoSave()
     }
 
     fun setRemark(remark: String) {
         _config.value = _config.value.copy(remark = remark)
+        scheduleAutoSave()
     }
 
     fun setPosition(position: WatermarkPosition) {
         _config.value = _config.value.copy(position = position)
+        scheduleAutoSave()
     }
 
     fun setTransparency(value: Float) {
@@ -108,6 +117,7 @@ class WatermarkSettingsViewModel @Inject constructor(
                 WatermarkConfig.MAX_TRANSPARENCY
             )
         )
+        scheduleAutoSave()
     }
 
     fun setFontScale(value: Float) {
@@ -117,10 +127,12 @@ class WatermarkSettingsViewModel @Inject constructor(
                 WatermarkConfig.MAX_FONT_SCALE
             )
         )
+        scheduleAutoSave()
     }
 
     fun setShowLocation(show: Boolean) {
         _config.value = _config.value.copy(showLocation = show)
+        scheduleAutoSave()
     }
 
     // endregion
@@ -130,6 +142,27 @@ class WatermarkSettingsViewModel @Inject constructor(
     /**
      * Save current configuration to persistent storage.
      */
+
+    /** Debounced silent auto-save (no toast). */
+    fun scheduleAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(500L)
+            saveConfigSilent()
+        }
+    }
+
+    private suspend fun saveConfigSilent() {
+        try {
+            val result = saveConfigUseCase(_config.value)
+            result.onSuccess { ok ->
+                if (ok) Logger.i(TAG, "Auto-saved watermark config")
+            }
+        } catch (e: Exception) {
+            Logger.e(TAG, "Auto-save failed", e)
+        }
+    }
+
     fun saveConfig() {
         viewModelScope.launch {
             _isSaving.value = true

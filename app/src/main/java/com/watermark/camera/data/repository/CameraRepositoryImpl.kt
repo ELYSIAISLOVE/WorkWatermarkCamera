@@ -61,6 +61,7 @@ class CameraRepositoryImpl @Inject constructor(
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var currentLensFacing = CameraSelector.LENS_FACING_BACK
+    private var currentAspectRatio: String = "4:3"
 
     // State flows
     private val _cameraState = MutableStateFlow<CameraRepoState>(CameraRepoState.Idle)
@@ -97,8 +98,8 @@ class CameraRepositoryImpl @Inject constructor(
 
             // Build use cases
             val cameraSelector = CameraXConfiguration.buildCameraSelector(lensFacing)
-            preview = CameraXConfiguration.buildPreview()
-            imageCapture = CameraXConfiguration.buildImageCapture()
+            preview = CameraXConfiguration.buildPreview(currentAspectRatio)
+            imageCapture = CameraXConfiguration.buildImageCapture(currentAspectRatio)
 
             // Set preview surface
             preview?.setSurfaceProvider(previewSurface)
@@ -289,9 +290,8 @@ class CameraRepositoryImpl @Inject constructor(
         }
 
     override suspend fun setAspectRatio(ratio: String): Result<Unit> {
-        // Aspect ratio changes require rebinding use cases
-        // This will be handled by the ViewModel triggering a rebind
-        Logger.d(TAG, "Aspect ratio change requested: $ratio")
+        currentAspectRatio = ratio
+        Logger.d(TAG, "Aspect ratio set to $ratio (rebind required)")
         return Result.success(Unit)
     }
 

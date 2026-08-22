@@ -15,6 +15,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -39,6 +42,12 @@ class CameraViewModel @Inject constructor(
     }
 
     override val _uiState = MutableStateFlow<CameraState>(CameraState.Idle)
+
+    /** Chinese location for watermark overlay (updated by continuous sampling). */
+    private val _locationDisplay = MutableStateFlow("定位中…")
+    val locationDisplay: kotlinx.coroutines.flow.StateFlow<String> = _locationDisplay
+
+    private var locationSampleJob: Job? = null
 
     private var lastLifecycleOwner: LifecycleOwner? = null
     private var lastPreviewSurface: Preview.SurfaceProvider? = null
@@ -65,6 +74,7 @@ class CameraViewModel @Inject constructor(
                     ?: com.watermark.camera.domain.repository.FlashMode.AUTO
                 cameraRepository.setFlashMode(flashMode)
                 startLowLightMonitoring()
+                startLocationSampling()
                 updateState { CameraState.Previewing(flashMode = flashMode) }
             }.onFailure { e ->
                 updateState { CameraState.Error("相机启动失败: ${e.message}", recoverable = true) }
@@ -124,26 +134,25 @@ class CameraViewModel @Inject constructor(
                 updateState { CameraState.Processing(progress = 0) }
 
                 try {
-                    // Location in parallel with config load (short timeout; never block save long)
+                    // Config + Chinese location in parallel (use cached preview text when ready)
                     val configDeferred = async(Dispatchers.IO) {
                         getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
                     }
-                    val locationDeferred = async(Dispatchers.IO) {
-                        getLocationUseCase(GetLocationUseCase.Params(timeoutMs = 600L)).getOrNull()
+                    val locationStrDeferred = async(Dispatchers.IO) {
+                        val cached = _locationDisplay.value
+                        if (cached.isNotBlank() && cached != "定位中…" && cached != "定位失败") {
+                            cached
+                        } else {
+                            getLocationUseCase.getLocationString(timeoutMs = 800L)
+                        }
+                    }
+                    val locationDataDeferred = async(Dispatchers.IO) {
+                        getLocationUseCase(GetLocationUseCase.Params(timeoutMs = 400L)).getOrNull()
                     }
 
                     val config = configDeferred.await()
-                    val locationData = locationDeferred.await()
-                    val locationStr = if (locationData == null) {
-                        "定位中"
-                    } else {
-                        String.format(
-                            java.util.Locale.US,
-                            "%.5f, %.5f",
-                            locationData.latitude,
-                            locationData.longitude
-                        )
-                    }
+                    val locationStr = locationStrDeferred.await()
+                    val locationData = locationDataDeferred.await()
 
                     updateState { CameraState.Saving }
                     val processResult = withContext(Dispatchers.Default) {
@@ -250,6 +259,31 @@ class CameraViewModel @Inject constructor(
     /**
      * Start periodic low-light monitoring.
      */
+
+    /**
+     * Continuous location sampling until success or 10s timeout.
+     * Updates [locationDisplay] with Chinese address (not lat/lng).
+     */
+    private fun startLocationSampling() {
+        locationSampleJob?.cancel()
+        locationSampleJob = viewModelScope.launch(Dispatchers.IO) {
+            _locationDisplay.value = "定位中…"
+            val deadline = System.currentTimeMillis() + 10_000L
+            while (isActive && System.currentTimeMillis() < deadline) {
+                val text = getLocationUseCase.getLocationString(timeoutMs = 2_000L)
+                if (text.isNotBlank() && text != "定位失败" && text != "未获取位置") {
+                    _locationDisplay.value = text
+                    Logger.i(TAG, "Location display updated: $text")
+                    return@launch
+                }
+                delay(400L)
+            }
+            if (_locationDisplay.value == "定位中…") {
+                _locationDisplay.value = "定位失败"
+            }
+        }
+    }
+
     private fun startLowLightMonitoring() {
         viewModelScope.launch {
             while (true) {

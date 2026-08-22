@@ -216,8 +216,8 @@ class WatermarkOverlayView @JvmOverloads constructor(
         return when (deviceOrientation) {
             OrientationHelper.DeviceOrientation.PORTRAIT -> {
                 when (watermarkConfig.position) {
-                    WatermarkPosition.BOTTOM_LEFT -> padding to (height - cardHeight - padding * 4)
-                    WatermarkPosition.BOTTOM_RIGHT -> (width - cardWidth - padding) to (height - cardHeight - padding * 4)
+                    WatermarkPosition.BOTTOM_LEFT -> padding to (height - cardHeight - padding * 8)
+                    WatermarkPosition.BOTTOM_RIGHT -> (width - cardWidth - padding) to (height - cardHeight - padding * 8)
                     WatermarkPosition.TOP_LEFT -> padding to padding
                     WatermarkPosition.TOP_RIGHT -> (width - cardWidth - padding) to padding
                     WatermarkPosition.CENTER -> (width - cardWidth) / 2 to (height - cardHeight) / 2
@@ -233,7 +233,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
                 padding to padding
             }
             OrientationHelper.DeviceOrientation.UNKNOWN -> {
-                padding to (height - cardHeight - padding * 4)
+                padding to (height - cardHeight - padding * 8)
             }
         }
     }

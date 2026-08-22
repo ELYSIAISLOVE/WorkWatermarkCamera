@@ -15,8 +15,8 @@ android {
         applicationId "com.watermark.camera"
         minSdk min_sdk
         targetSdk target_sdk
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 101
+        versionName "1.0.01"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -34,10 +34,14 @@ android {
 
     signingConfigs {
         release {
-            storeFile file("workcamera-release.jks")
-            storePassword "WorkCamera#2026Release"
-            keyAlias "workcamera"
-            keyPassword "WorkCamera#2026Release"
+            def ksPath = System.getenv("WORKCAMERA_KEYSTORE_PATH") ?: "workcamera-release.jks"
+            def ksPass = System.getenv("WORKCAMERA_KEYSTORE_PASSWORD") ?: ""
+            def kAlias = System.getenv("WORKCAMERA_KEY_ALIAS") ?: "workcamera"
+            def kPass = System.getenv("WORKCAMERA_KEY_PASSWORD") ?: ""
+            storeFile file(ksPath)
+            storePassword ksPass
+            keyAlias kAlias
+            keyPassword kPass
         }
     }
 
@@ -46,7 +50,10 @@ android {
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            def ksPass = System.getenv("WORKCAMERA_KEYSTORE_PASSWORD") ?: ""
+            if (!ksPass.isEmpty()) {
+                signingConfig signingConfigs.release
+            }
         }
         debug {
             minifyEnabled false

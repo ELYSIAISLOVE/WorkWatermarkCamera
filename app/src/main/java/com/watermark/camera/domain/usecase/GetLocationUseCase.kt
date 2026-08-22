@@ -8,8 +8,8 @@ import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 /**
- * Location for watermark/EXIF.
- * Prefer last-known (fast), then current location with up to 3 retries.
+ * Location for watermark. Prefers last-known; retries current fix up to maxAttempts.
+ * Display string uses repository.formatForWatermark (Chinese address when Geocoder works).
  */
 class GetLocationUseCase @Inject constructor(
     private val locationRepository: LocationRepository,
@@ -31,15 +31,13 @@ class GetLocationUseCase @Inject constructor(
 
     override suspend fun execute(params: Params): Result<LocationData> {
         if (!locationRepository.hasLocationPermission()) {
-            Logger.w(TAG, "Location permission not granted")
             return Result.failure(SecurityException("定位权限未授予"))
         }
 
-        // Fast path: last known
         try {
             val last = locationRepository.getLastKnownLocation()
             if (last != null) {
-                Logger.i(TAG, "Using last known location")
+                Logger.i(TAG, "lastKnown OK")
                 return Result.success(last)
             }
         } catch (_: Exception) {
@@ -47,20 +45,13 @@ class GetLocationUseCase @Inject constructor(
 
         val attempts = params.maxAttempts.coerceIn(1, 5)
         var lastError: Throwable = IllegalStateException("定位失败")
-
         for (attempt in 1..attempts) {
-            Logger.i(TAG, "Location attempt $attempt/$attempts")
             val result = locationRepository.getCurrentLocation(params.timeoutMs)
-            if (result.isSuccess) {
-                return Result.success(result.getOrThrow())
-            }
+            if (result.isSuccess) return Result.success(result.getOrThrow())
             lastError = result.exceptionOrNull() ?: lastError
             if (attempt < attempts) delay(RETRY_DELAY_MS)
         }
-
-        return Result.failure(
-            IllegalStateException("定位失败（已重试${attempts}次）: ${lastError.message}")
-        )
+        return Result.failure(IllegalStateException("定位失败: ${lastError.message}"))
     }
 
     suspend fun getLocationString(timeoutMs: Long = DEFAULT_TIMEOUT_MS): String {

@@ -245,6 +245,13 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     /**
      * Handle one-time UI events.
      */
+
+    private suspend fun observeLocationDisplay() {
+        viewModel.locationDisplay.collect { text ->
+            binding.watermarkOverlay.locationText = text
+        }
+    }
+
     private fun handleEvent(event: CameraEvent) {
         when (event) {
             is CameraEvent.ShowToast -> {

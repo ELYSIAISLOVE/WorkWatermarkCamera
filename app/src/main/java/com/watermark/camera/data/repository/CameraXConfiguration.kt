@@ -45,9 +45,14 @@ object CameraXConfiguration {
      * @return Configured Preview instance.
      */
     fun buildPreview(aspectRatio: String = AspectRatios.RATIO_4_3): Preview {
-        val previewBuilder = Preview.Builder()
+        val aspectStrategy = when (aspectRatio) {
+            AspectRatios.RATIO_16_9 -> AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY
+            else -> AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY
+        }
+        return Preview.Builder()
             .setResolutionSelector(
                 ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(aspectStrategy)
                     .setResolutionStrategy(
                         ResolutionStrategy(
                             PREVIEW_TARGET_RESOLUTION,
@@ -56,11 +61,7 @@ object CameraXConfiguration {
                     )
                     .build()
             )
-
-        // Set target rotation if needed
-        // previewBuilder.setTargetRotation(Surface.ROTATION_0)
-
-        return previewBuilder.build()
+            .build()
     }
 
     /**

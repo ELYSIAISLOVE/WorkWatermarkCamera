@@ -263,4 +263,13 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
     }
 
     // endregion
+
+    override fun onPause() {
+        // Flush text fields and silent save when leaving
+        viewModel.setName(binding.etName.text?.toString() ?: "")
+        viewModel.setProjectName(binding.etProjectName.text?.toString() ?: "")
+        viewModel.setRemark(binding.etRemark.text?.toString() ?: "")
+        super.onPause()
+    }
+
 }
