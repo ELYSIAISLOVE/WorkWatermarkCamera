@@ -73,6 +73,9 @@ class CreateCollageUseCase @Inject constructor(
         } else null
 
         // Generate collage
+        if (com.watermark.camera.data.processing.BitmapDecoder.appContext == null) {
+            Logger.w(TAG, "BitmapDecoder.appContext was null before collage")
+        }
         val result = collageEngine.generate(
             photoPaths = params.photoPaths,
             template = params.template,

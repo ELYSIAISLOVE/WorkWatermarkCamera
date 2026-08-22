@@ -109,6 +109,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         // Settings button click
         binding.btnSettings.setOnClickListener {
             val settingsFragment = com.watermark.camera.ui.settings.WatermarkSettingsFragment.newInstance()
+            settingsFragment.onConfigSaved = { config ->
+                binding.watermarkOverlay.watermarkConfig = config
+            }
             settingsFragment.show(parentFragmentManager, "WatermarkSettings")
         }
 
@@ -482,14 +485,18 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun rebindCameraPreview() {
         try {
             viewModel.stopPreview()
-            binding.previewView.post {
-                viewModel.startPreview(
-                    viewLifecycleOwner,
-                    binding.previewView.surfaceProvider
-                )
-            }
-        } catch (e: Exception) {
-            // ignore rebind failures
+            binding.previewView.postDelayed({
+                try {
+                    if (isAdded && view != null) {
+                        viewModel.startPreview(
+                            viewLifecycleOwner,
+                            binding.previewView.surfaceProvider
+                        )
+                    }
+                } catch (_: Exception) {
+                }
+            }, 120L)
+        } catch (_: Exception) {
         }
     }
 

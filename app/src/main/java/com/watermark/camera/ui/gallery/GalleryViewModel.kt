@@ -33,6 +33,7 @@ class GalleryViewModel @Inject constructor(
     companion object {
         private const val TAG = "GalleryVM"
         private const val RELATIVE_DIR = "Pictures/WatermarkCamera"
+        private const val MAX_PHOTOS = 100
     }
 
     private val _photos = MutableStateFlow<List<PhotoEntity>>(emptyList())
@@ -60,7 +61,7 @@ class GalleryViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val fromStore = withContext(Dispatchers.IO) { queryMediaStore() }
+                val fromStore = withContext(Dispatchers.IO) { queryMediaStore().take(MAX_PHOTOS) }
                 if (fromStore.isNotEmpty()) {
                     _photos.value = fromStore
                     Logger.i(TAG, "MediaStore loaded ${fromStore.size} photos")
@@ -115,7 +116,7 @@ class GalleryViewModel @Inject constructor(
 
         val sort = "${MediaStore.Images.Media.DATE_ADDED} DESC"
 
-        fun read(sel: String?, args: Array<String>?) {
+        fun read(sel: String?, args: Array<String>?, limit: Int = MAX_PHOTOS) {
             context.contentResolver.query(collection, projection, sel, args, sort)?.use { c ->
                 val idCol = c.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
                 val nameCol = c.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
@@ -124,7 +125,7 @@ class GalleryViewModel @Inject constructor(
                 val wCol = c.getColumnIndex(MediaStore.Images.Media.WIDTH)
                 val hCol = c.getColumnIndex(MediaStore.Images.Media.HEIGHT)
                 val dataCol = c.getColumnIndex(MediaStore.Images.Media.DATA)
-                while (c.moveToNext()) {
+                while (c.moveToNext() && list.size < limit) {
                     val id = c.getLong(idCol)
                     val uri = ContentUris.withAppendedId(collection, id).toString()
                     val name = c.getString(nameCol) ?: "IMG_$id.jpg"
@@ -151,10 +152,11 @@ class GalleryViewModel @Inject constructor(
             }
         }
 
-        read(selection, selectionArgs)
+        read(selection, selectionArgs, MAX_PHOTOS)
         if (list.isEmpty()) {
             // Fallback: latest 100 images from system gallery
-            read(null, null)
+            // skip full-library scan for performance
+            // read(null, null)
             return list.take(100)
         }
         return list
