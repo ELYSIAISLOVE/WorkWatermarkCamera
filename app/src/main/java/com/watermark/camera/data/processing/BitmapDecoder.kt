@@ -64,7 +64,7 @@ class BitmapDecoder {
         }
 
         // YUV_420_888 needs at least 3 planes
-        if (planes.size >= 3 && (format == ImageFormat.YUV_420_888 || format == ImageFormat.YUV_422_888 || format == 35)) {
+        if (planes.size >= 3) {
             return yuv420ToJpeg(imageProxy)
         }
 

@@ -195,7 +195,7 @@ class GalleryViewModel @Inject constructor(
     }
 }
 
-sealed class GalleryEvent {
+sealed class GalleryEvent : com.watermark.camera.ui.common.UiEvent {
     data class NavigateToDetail(val uri: String) : GalleryEvent()
     data class SendToCollage(val uris: List<String>) : GalleryEvent()
 }

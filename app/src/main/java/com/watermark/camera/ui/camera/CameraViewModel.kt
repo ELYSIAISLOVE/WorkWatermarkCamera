@@ -134,14 +134,14 @@ class CameraViewModel @Inject constructor(
                     updateState { CameraState.Saving }
                     val processResult = withContext(Dispatchers.Default) {
                         processPhotoUseCase(
-                        ProcessPhotoUseCase.Params(
-                            captureResult = captureResult,
-                            watermarkConfig = config,
-                            locationStr = locationStr,
-                            locationData = locationData
+                            ProcessPhotoUseCase.Params(
+                                captureResult = captureResult,
+                                watermarkConfig = config,
+                                locationStr = locationStr,
+                                locationData = locationData
+                            )
                         )
                     }
-                    )
                     processResult.onSuccess {
                         updateState { CameraState.Previewing(flashMode = flashMode) }
                         sendEvent(CameraEvent.ShowToast("照片已保存"))
