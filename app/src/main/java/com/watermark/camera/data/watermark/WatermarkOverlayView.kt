@@ -116,7 +116,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
 
         if (!isWatermarkVisible) return
 
-        val scale = watermarkConfig.fontScale.coerceIn(0.5f, 2.5f)
+        val scale = watermarkConfig.fontScale.coerceIn(0.5f, 8.0f)
         // sp-like sizing so slider changes are obvious on preview
         textPaint.textSize = (BASE_FONT_SIZE + 4f) * scale * resources.displayMetrics.density
 

@@ -1,5 +1,15 @@
 package com.watermark.camera.ui.collage
 
+import java.io.FileOutputStream
+
+import java.io.File
+
+import kotlinx.coroutines.withContext
+
+import kotlinx.coroutines.Dispatchers
+
+import android.content.Context
+
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -74,6 +84,47 @@ class CollageViewModel @Inject constructor(
     fun setSelectedPhotos(paths: List<String>) {
         _selectedPhotos.value = paths
         Logger.i(TAG, "Photos selected: ${paths.size}")
+    }
+
+    /**
+     * Copy Photo Picker content:// URIs into app cache, then use local paths for decode/save.
+     * Temporary picker grants often fail when opened via Application ContentResolver later.
+     */
+    fun importFromPicker(context: Context, uris: List<Uri>) {
+        viewModelScope.launch {
+            _errorMessage.value = null
+            val local = withContext(Dispatchers.IO) {
+                val dir = File(context.cacheDir, "collage_src").apply { mkdirs() }
+                dir.listFiles()?.forEach { f ->
+                    if (System.currentTimeMillis() - f.lastModified() > 24L * 3600_000L) {
+                        f.delete()
+                    }
+                }
+                uris.mapIndexedNotNull { index, uri ->
+                    try {
+                        val out = File(dir, "src_${System.currentTimeMillis()}_$index.jpg")
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            FileOutputStream(out).use { output -> input.copyTo(output) }
+                        } ?: return@mapIndexedNotNull null
+                        if (out.length() < 32L) {
+                            out.delete()
+                            return@mapIndexedNotNull null
+                        }
+                        out.absolutePath
+                    } catch (e: Exception) {
+                        Logger.e(TAG, "Copy picker uri failed: $uri", e)
+                        null
+                    }
+                }
+            }
+            if (local.isEmpty()) {
+                _errorMessage.value = "无法读取所选照片（权限或格式）"
+                _selectedPhotos.value = emptyList()
+            } else {
+                _selectedPhotos.value = local
+                Logger.i(TAG, "Imported ${local.size} photos to cache for collage")
+            }
+        }
     }
 
     /**

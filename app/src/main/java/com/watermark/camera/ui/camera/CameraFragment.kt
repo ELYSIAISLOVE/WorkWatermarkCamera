@@ -42,6 +42,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     ) { isGranted ->
         if (isGranted) {
             startCameraPreview()
+            viewModel.reloadWatermarkConfig()
         } else {
             Toast.makeText(requireContext(), "相机权限被拒绝", Toast.LENGTH_LONG).show()
         }
@@ -249,6 +250,13 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
      * Handle one-time UI events.
      */
 
+
+    private suspend fun observeWatermarkConfigDisplay() {
+        viewModel.watermarkConfigDisplay.collect { config ->
+            binding.watermarkOverlay.watermarkConfig = config
+        }
+    }
+
     private suspend fun observeLocationDisplay() {
         viewModel.locationDisplay.collect { text ->
             binding.watermarkOverlay.locationText = text
@@ -390,6 +398,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             ) == PackageManager.PERMISSION_GRANTED
         ) {
             startCameraPreview()
+            viewModel.reloadWatermarkConfig()
         }
         requireView().isFocusableInTouchMode = true
         requireView().requestFocus()

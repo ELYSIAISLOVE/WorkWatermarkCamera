@@ -47,6 +47,9 @@ class CameraViewModel @Inject constructor(
     private val _locationDisplay = MutableStateFlow("定位中…")
     val locationDisplay: kotlinx.coroutines.flow.StateFlow<String> = _locationDisplay
 
+    private val _watermarkConfigDisplay = MutableStateFlow(WatermarkConfig())
+    val watermarkConfigDisplay: kotlinx.coroutines.flow.StateFlow<WatermarkConfig> = _watermarkConfigDisplay
+
     private var locationSampleJob: Job? = null
 
     private var lastLifecycleOwner: LifecycleOwner? = null
@@ -75,6 +78,7 @@ class CameraViewModel @Inject constructor(
                 cameraRepository.setFlashMode(flashMode)
                 startLowLightMonitoring()
                 startLocationSampling()
+                reloadWatermarkConfig()
                 updateState { CameraState.Previewing(flashMode = flashMode) }
             }.onFailure { e ->
                 updateState { CameraState.Error("相机启动失败: ${e.message}", recoverable = true) }
@@ -248,6 +252,13 @@ class CameraViewModel @Inject constructor(
      * Continuous location sampling until success or 10s timeout.
      * Updates [locationDisplay] with Chinese address (not lat/lng).
      */
+    fun reloadWatermarkConfig() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cfg = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
+            _watermarkConfigDisplay.value = cfg
+        }
+    }
+
     private fun startLocationSampling() {
         locationSampleJob?.cancel()
         locationSampleJob = viewModelScope.launch(Dispatchers.IO) {
@@ -270,9 +281,9 @@ class CameraViewModel @Inject constructor(
             if (!gotFix && (_locationDisplay.value == "定位中…" || _locationDisplay.value.isBlank())) {
                 _locationDisplay.value = "定位失败"
             }
-            // Keep refreshing every 5s while preview is active
+            // Keep refreshing every 20s while preview is active
             while (isActive) {
-                delay(5_000L)
+                delay(20_000L)
                 val text = getLocationUseCase.getLocationString(timeoutMs = 2_000L)
                 if (text.isNotBlank() && text != "定位失败" && text != "未获取位置") {
                     _locationDisplay.value = text

@@ -40,7 +40,7 @@ class CollageFragment : BaseFragment<FragmentCollageBinding>() {
         ActivityResultContracts.GetMultipleContents()
     ) { uris: List<android.net.Uri> ->
         if (uris.isNotEmpty()) {
-            viewModel.setSelectedPhotos(uris.map { it.toString() })
+            viewModel.importFromPicker(requireContext(), uris)
             Toast.makeText(requireContext(), "已选择 ${uris.size} 张", Toast.LENGTH_SHORT).show()
         }
     }
