@@ -1,0 +1,91 @@
+name: Apply KF Update Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-kf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find KF zip
+        id: zip
+        run: |
+          ZIP=$(find . -maxdepth 1 -type f -name "kf*.zip" | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "No KF package found"
+            exit 1
+          fi
+          echo "zip=$ZIP" >> $GITHUB_OUTPUT
+
+      - name: Extract package
+        run: |
+          rm -rf kf_temp
+          mkdir kf_temp
+          unzip -q "${{ steps.zip.outputs.zip }}" -d kf_temp
+
+      - name: Read manifest and apply files
+        run: |
+          set -e
+
+          if [ ! -f kf_temp/kf_manifest.txt ]; then
+            echo "Missing kf_manifest.txt"
+            exit 1
+          fi
+
+          while IFS= read -r file
+          do
+            [ -z "$file" ] && continue
+
+            if [[ "$file" == .github/workflows/* ]] || \
+               [[ "$file" == README* ]] || \
+               [[ "$file" == *.md ]]; then
+              echo "Protected: $file"
+              continue
+            fi
+
+            if [ -f "kf_temp/$file" ]; then
+              mkdir -p "$(dirname "$file")"
+              cp "kf_temp/$file" "$file"
+              echo "Applied: $file"
+            fi
+          done < kf_temp/kf_manifest.txt
+
+      - name: Add new files
+        run: |
+          while IFS= read -r file
+          do
+            [ -z "$file" ] && continue
+
+            if [[ "$file" == .github/workflows/* ]] || \
+               [[ "$file" == README* ]] || \
+               [[ "$file" == *.md ]]; then
+              continue
+            fi
+
+            if [ -f "kf_temp/$file" ]; then
+              mkdir -p "$(dirname "$file")"
+              cp "kf_temp/$file" "$file"
+            fi
+          done < kf_temp/kf_manifest.txt
+
+      - name: Cleanup KF package
+        run: |
+          rm -f "${{ steps.zip.outputs.zip }}"
+          rm -rf kf_temp
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Apply KF update package" || echo "No changes"
+          git push
