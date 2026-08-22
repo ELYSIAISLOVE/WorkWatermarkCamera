@@ -290,10 +290,13 @@ class CameraRepositoryImpl @Inject constructor(
         }
 
     override suspend fun setAspectRatio(ratio: String): Result<Unit> {
+        // Only manual switch updates this; never auto-changed elsewhere
         currentAspectRatio = ratio
         Logger.d(TAG, "Aspect ratio set to $ratio (rebind required)")
         return Result.success(Unit)
     }
+
+    fun getCurrentAspectRatio(): String = currentAspectRatio
 
     override suspend fun tapToFocus(x: Float, y: Float): Result<Unit> =
         withContext(Dispatchers.Main) {
