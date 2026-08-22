@@ -42,9 +42,11 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     ) { isGranted ->
         if (isGranted) {
             startCameraPreview()
-            viewModel.reloadWatermarkConfig()
+            viewModel.onReturnToCamera()
             binding.watermarkOverlay.locationText = viewModel.locationDisplay.value
-            binding.watermarkOverlay.watermarkConfig = viewModel.watermarkConfigDisplay.value
+            binding.watermarkOverlay.watermarkConfig = viewModel.watermarkConfigDisplay.value.copy(
+                showLocation = true
+            )
         } else {
             Toast.makeText(requireContext(), "相机权限被拒绝", Toast.LENGTH_LONG).show()
         }
@@ -115,7 +117,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             val settingsFragment = com.watermark.camera.ui.settings.WatermarkSettingsFragment.newInstance()
             settingsFragment.onConfigSaved = { config ->
                 binding.watermarkOverlay.watermarkConfig = config
-                viewModel.reloadWatermarkConfig()
+                viewModel.onReturnToCamera()
             }
             settingsFragment.show(parentFragmentManager, "WatermarkSettings")
         }
@@ -267,13 +269,13 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
     private suspend fun observeWatermarkConfigDisplay() {
         viewModel.watermarkConfigDisplay.collect { config ->
-            binding.watermarkOverlay.watermarkConfig = config
+            binding.watermarkOverlay.watermarkConfig = config.copy(showLocation = true)
         }
     }
 
     private suspend fun observeLocationDisplay() {
         viewModel.locationDisplay.collect { text ->
-            binding.watermarkOverlay.locationText = text
+            binding.watermarkOverlay.locationText = text.ifBlank { "定位中…" }
         }
     }
 
@@ -415,7 +417,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             ) == PackageManager.PERMISSION_GRANTED
         ) {
             startCameraPreview()
-            viewModel.reloadWatermarkConfig()
+            viewModel.onReturnToCamera()
         }
         requireView().isFocusableInTouchMode = true
         requireView().requestFocus()
@@ -477,6 +479,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         orientationHelper = com.watermark.camera.util.OrientationHelper(requireContext()).apply {
             startListening { orientation ->
                 binding.watermarkOverlay.deviceOrientation = orientation
+                viewModel.setDeviceOrientation(orientation)
             }
         }
     }

@@ -3,6 +3,7 @@ package com.watermark.camera.domain.usecase
 import android.net.Uri
 import com.watermark.camera.data.local.PhotoEntity
 import com.watermark.camera.data.model.WatermarkConfig
+import com.watermark.camera.util.OrientationHelper
 import com.watermark.camera.data.processing.ImageProcessingPipeline
 import com.watermark.camera.data.processing.MemoryManager
 import com.watermark.camera.domain.model.CaptureResult
@@ -47,6 +48,7 @@ class ProcessPhotoUseCase @Inject constructor(
         val captureResult: CaptureResult,
         val watermarkConfig: WatermarkConfig,
         val locationStr: String = "",
+        val deviceOrientation: OrientationHelper.DeviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
         val locationData: LocationData? = null
     )
 
@@ -67,7 +69,8 @@ class ProcessPhotoUseCase @Inject constructor(
                 captureResult = params.captureResult,
                 watermarkConfig = params.watermarkConfig,
                 locationStr = params.locationStr,
-                locationData = params.locationData
+                locationData = params.locationData,
+                deviceOrientation = params.deviceOrientation
             )
 
             val processedPhoto = processResult.getOrElse { error ->

@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import com.watermark.camera.data.model.WatermarkConfig
+import com.watermark.camera.util.OrientationHelper
 import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.data.model.WatermarkTemplate
 import com.watermark.camera.util.Logger
@@ -55,7 +56,9 @@ class WatermarkCanvas {
     fun drawWatermark(
         sourceBitmap: Bitmap,
         config: WatermarkConfig,
-        locationStr: String = ""
+        locationStr: String = "",
+        deviceOrientation: OrientationHelper.DeviceOrientation =
+            OrientationHelper.DeviceOrientation.PORTRAIT
     ): Bitmap {
         val width = sourceBitmap.width
         val height = sourceBitmap.height
@@ -88,14 +91,29 @@ class WatermarkCanvas {
         val cardHeight = textHeight + padding * 2
 
         // Calculate position
+        // Same coordinate model as preview: normalized customX/Y over full bitmap, margin 0
         val (cardLeft, cardTop) = WatermarkLayout.cardOrigin(
             config = config,
             areaWidth = width.toFloat(),
             areaHeight = height.toFloat(),
             cardWidth = cardWidth.toFloat(),
             cardHeight = cardHeight.toFloat(),
-            margin = padding.toFloat()
+            margin = 0f
         )
+
+        // Match preview: rotate watermark card so text stays upright relative to device gravity
+        val rotation = when (deviceOrientation) {
+            OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
+            OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
+            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
+            else -> 0f
+        }
+        val saveCount = canvas.save()
+        if (rotation != 0f) {
+            val cx = cardLeft + cardWidth / 2f
+            val cy = cardTop + cardHeight / 2f
+            canvas.rotate(rotation, cx, cy)
+        }
 
         // Draw glassmorphism card background
         val glassRenderer = GlassmorphismRenderer()
@@ -117,6 +135,7 @@ class WatermarkCanvas {
             canvas.drawText(line, cardLeft + padding, currentY, textPaint)
             currentY += textPaint.textSize + lineSpacing
         }
+        canvas.restoreToCount(saveCount)
 
         Logger.i(TAG, "Watermark drawn: ${lines.size} lines, scale=$scaleFactor, " +
             "fontSize=$fontSize, position=(${cardLeft.toInt()}, ${cardTop.toInt()})")
@@ -145,10 +164,8 @@ class WatermarkCanvas {
 
         // Location
         if (config.showLocation) {
-            val loc = locationStr.ifBlank { config.location }
-            if (loc.isNotBlank()) {
-                lines.add("● $loc")
-            }
+            val loc = locationStr.ifBlank { config.location }.ifBlank { "定位中…" }
+            lines.add("● $loc")
         }
 
         // Custom fields

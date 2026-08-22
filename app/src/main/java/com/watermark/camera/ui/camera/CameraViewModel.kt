@@ -4,6 +4,7 @@ import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.watermark.camera.data.model.WatermarkConfig
+import com.watermark.camera.util.OrientationHelper
 import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.domain.repository.CameraRepository
 import com.watermark.camera.domain.usecase.CapturePhotoUseCase
@@ -57,6 +58,14 @@ class CameraViewModel @Inject constructor(
     private var locationSampleJob: Job? = null
 
     private val saveQueueCount = AtomicInteger(0)
+
+    @Volatile
+    private var currentDeviceOrientation: OrientationHelper.DeviceOrientation =
+        OrientationHelper.DeviceOrientation.PORTRAIT
+
+    fun setDeviceOrientation(orientation: OrientationHelper.DeviceOrientation) {
+        currentDeviceOrientation = orientation
+    }
     private val MAX_SAVE_QUEUE = 10
 
     private var lastLifecycleOwner: LifecycleOwner? = null
@@ -156,9 +165,7 @@ class CameraViewModel @Inject constructor(
                 viewModelScope.launch(Dispatchers.Default) {
                     try {
                         val config = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
-                        val locationStr = _locationDisplay.value.takeIf {
-                            it.isNotBlank() && it != "定位中…" && it != "定位失败"
-                        } ?: "定位中"
+                        val locationStr = _locationDisplay.value.ifBlank { "定位中…" }
                         val locationData: com.watermark.camera.domain.repository.LocationData? = null
 
                         val processResult = processPhotoUseCase(
@@ -166,7 +173,8 @@ class CameraViewModel @Inject constructor(
                                 captureResult = captureResult,
                                 watermarkConfig = config,
                                 locationStr = locationStr,
-                                locationData = locationData
+                                locationData = locationData,
+                                deviceOrientation = currentDeviceOrientation
                             )
                         )
                         processResult.onSuccess {
@@ -294,9 +302,20 @@ class CameraViewModel @Inject constructor(
 
     fun reloadWatermarkConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val cfg = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
+            var cfg = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
+            // Ensure location line is enabled for preview/save consistency
+            if (!cfg.showLocation) {
+                cfg = cfg.copy(showLocation = true)
+                saveWatermarkConfigUseCase(cfg)
+            }
             _watermarkConfigDisplay.value = cfg
         }
+    }
+
+    /** Re-apply settings + kick location when returning to camera. */
+    fun onReturnToCamera() {
+        reloadWatermarkConfig()
+        startLocationSampling()
     }
 
     private fun startLocationSampling() {
