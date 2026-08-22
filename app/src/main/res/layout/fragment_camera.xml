@@ -46,6 +46,7 @@
             <!-- Menu Button -->
             <ImageButton
                 android:id="@+id/btnMenu"
+        android:visibility="gone"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
@@ -56,6 +57,7 @@
             <!-- Collage Button -->
             <ImageButton
                 android:id="@+id/btnCollage"
+        android:visibility="gone"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:layout_marginStart="8dp"
@@ -88,6 +90,7 @@
             <!-- Verify Button -->
             <ImageButton
                 android:id="@+id/btnVerify"
+        android:visibility="gone"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:layout_marginEnd="8dp"
@@ -99,6 +102,7 @@
             <!-- Settings Button -->
             <ImageButton
                 android:id="@+id/btnSettingsTop"
+        android:visibility="gone"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
@@ -113,6 +117,7 @@
     <!-- ==================== Zoom Ratio Display ==================== -->
     <TextView
         android:id="@+id/tvZoomRatio"
+        android:visibility="gone"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
@@ -131,6 +136,7 @@
     <!-- ==================== Aspect Ratio Display ==================== -->
     <TextView
         android:id="@+id/tvAspectRatio"
+        android:visibility="gone"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
@@ -162,6 +168,7 @@
     <!-- ==================== EV Value Display ==================== -->
     <TextView
         android:id="@+id/tvEvValue"
+        android:visibility="gone"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"

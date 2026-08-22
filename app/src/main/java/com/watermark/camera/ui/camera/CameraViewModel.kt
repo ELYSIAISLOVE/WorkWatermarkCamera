@@ -22,6 +22,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
 /**
@@ -54,6 +55,9 @@ class CameraViewModel @Inject constructor(
     val watermarkConfigDisplay: kotlinx.coroutines.flow.StateFlow<WatermarkConfig> = _watermarkConfigDisplay
 
     private var locationSampleJob: Job? = null
+
+    private val saveQueueCount = AtomicInteger(0)
+    private val MAX_SAVE_QUEUE = 10
 
     private var lastLifecycleOwner: LifecycleOwner? = null
     private var lastPreviewSurface: Preview.SurfaceProvider? = null
@@ -131,7 +135,7 @@ class CameraViewModel @Inject constructor(
         }
 
         val flashMode = currentState.flashMode
-        updateState { CameraState.Capturing }
+        // Do not switch to Capturing UI lock — keep Previewing for rapid next shot
         sendEvent(CameraEvent.ShutterFeedback)
         sendEvent(CameraEvent.CaptureHaptic)
 
@@ -139,10 +143,16 @@ class CameraViewModel @Inject constructor(
             val result = capturePhotoUseCase()
             result.onSuccess { captureResult ->
                 Logger.i(TAG, "Photo captured: ${captureResult.width}x${captureResult.height}")
-                // Unlock shutter immediately so continuous shooting is not blocked by save pipeline
+                // Unlock shutter immediately for continuous shooting
                 updateState { CameraState.Previewing(flashMode = flashMode, aspectRatio = "4:3") }
 
-                // Background: watermark + save (uses cached location; no long GPS wait)
+                if (saveQueueCount.get() >= MAX_SAVE_QUEUE) {
+                    try { captureResult.close() } catch (_: Exception) {}
+                    sendEvent(CameraEvent.ShowToast("保存队列已满，请稍候"))
+                    return@onSuccess
+                }
+                saveQueueCount.incrementAndGet()
+                // Fully async: watermark + encode + MediaStore on Default
                 viewModelScope.launch(Dispatchers.Default) {
                     try {
                         val config = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
@@ -160,7 +170,7 @@ class CameraViewModel @Inject constructor(
                             )
                         )
                         processResult.onSuccess {
-                            sendEvent(CameraEvent.ShowToast("照片已保存"))
+                            sendEvent(CameraEvent.GalleryFlash)
                         }.onFailure { e ->
                             Logger.e(TAG, "Save failed", e)
                             try { captureResult.close() } catch (_: Exception) {}
@@ -170,6 +180,8 @@ class CameraViewModel @Inject constructor(
                         Logger.e(TAG, "Process failed", e)
                         try { captureResult.close() } catch (_: Exception) {}
                         sendEvent(CameraEvent.ShowToast("处理失败: ${e.message ?: "未知错误"}"))
+                    } finally {
+                        saveQueueCount.decrementAndGet()
                     }
                 }
             }.onFailure { e ->
@@ -256,6 +268,20 @@ class CameraViewModel @Inject constructor(
      * Continuous location sampling until success or 10s timeout.
      * Updates [locationDisplay] with Chinese address (not lat/lng).
      */
+
+    fun updateWatermarkDrag(normX: Float, normY: Float, position: WatermarkPosition) {
+        // Live preview already applied on overlay; persist on IO
+        viewModelScope.launch(Dispatchers.IO) {
+            val current = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
+            val updated = current.copy(
+                position = position,
+                customX = normX.coerceIn(0f, 1f),
+                customY = normY.coerceIn(0f, 1f)
+            )
+            saveWatermarkConfigUseCase(updated)
+            _watermarkConfigDisplay.value = updated
+        }
+    }
 
     fun updateWatermarkPosition(position: WatermarkPosition) {
         viewModelScope.launch(Dispatchers.IO) {

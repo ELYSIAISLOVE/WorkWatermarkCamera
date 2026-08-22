@@ -88,13 +88,13 @@ class WatermarkCanvas {
         val cardHeight = textHeight + padding * 2
 
         // Calculate position
-        val (cardLeft, cardTop) = calculatePosition(
-            config.position,
-            width,
-            height,
-            cardWidth,
-            cardHeight,
-            padding
+        val (cardLeft, cardTop) = WatermarkLayout.cardOrigin(
+            config = config,
+            areaWidth = width.toFloat(),
+            areaHeight = height.toFloat(),
+            cardWidth = cardWidth.toFloat(),
+            cardHeight = cardHeight.toFloat(),
+            margin = padding.toFloat()
         )
 
         // Draw glassmorphism card background
@@ -200,23 +200,6 @@ class WatermarkCanvas {
     /**
      * Calculate watermark card position based on configuration.
      */
-    private fun calculatePosition(
-        position: WatermarkPosition,
-        photoWidth: Int,
-        photoHeight: Int,
-        cardWidth: Int,
-        cardHeight: Int,
-        margin: Int
-    ): Pair<Float, Float> {
-        return WatermarkLayout.cardOrigin(
-            position = position,
-            areaWidth = photoWidth.toFloat(),
-            areaHeight = photoHeight.toFloat(),
-            cardWidth = cardWidth.toFloat(),
-            cardHeight = cardHeight.toFloat(),
-            margin = margin.toFloat()
-        )
-    }
 
     /**
      * Estimate watermark dimensions without drawing.
