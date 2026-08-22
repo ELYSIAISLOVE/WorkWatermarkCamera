@@ -21,7 +21,6 @@
         android:layout_width="80dp"
         android:layout_height="80dp"
         android:background="@drawable/bg_focus_frame"
-        android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -129,7 +128,6 @@
         android:textColor="@color/white"
         android:textSize="14sp"
         android:textStyle="bold"
-        android:visibility="visible"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topBar" />
 
@@ -160,7 +158,6 @@
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/flash_auto"
         android:src="@android:drawable/ic_menu_compass"
-        android:visibility="gone"
         app:tint="@color/white"
         app:layout_constraintEnd_toStartOf="@id/tvEvValue"
         app:layout_constraintTop_toBottomOf="@id/topBar" />
@@ -179,7 +176,6 @@
         android:text="EV 0.0"
         android:textColor="@color/white"
         android:textSize="14sp"
-        android:visibility="gone"
         app:layout_constraintEnd_toStartOf="@id/tvAspectRatio"
         app:layout_constraintTop_toBottomOf="@id/topBar" />
 
@@ -194,7 +190,6 @@
         android:orientation="horizontal"
         android:paddingHorizontal="12dp"
         android:paddingVertical="6dp"
-        android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topBar">
@@ -232,11 +227,11 @@
     <!-- ==================== Exposure Compensation Slider ==================== -->
     <com.google.android.material.slider.Slider
         android:id="@+id/sliderExposure"
+        android:visibility="gone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="32dp"
         android:layout_marginBottom="8dp"
-        android:visibility="gone"
         android:valueFrom="-2.0"
         android:valueTo="2.0"
         android:stepSize="0.1"
@@ -404,6 +399,5 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/white"
-        android:visibility="invisible" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
