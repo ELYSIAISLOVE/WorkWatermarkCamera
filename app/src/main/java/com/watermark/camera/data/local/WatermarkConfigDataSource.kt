@@ -64,7 +64,7 @@ class WatermarkConfigDataSource @Inject constructor(
     suspend fun saveConfig(config: WatermarkConfig): Boolean = withContext(Dispatchers.IO) {
         try {
             val json = configToJson(config)
-            prefs.edit().putString(KEY_CONFIG, json.toString()).apply()
+            prefs.edit().putString(KEY_CONFIG, json.toString()).commit()
             Logger.i(TAG, "Config saved successfully")
             true
         } catch (e: Exception) {
@@ -78,7 +78,7 @@ class WatermarkConfigDataSource @Inject constructor(
      */
     suspend fun resetConfig(): Boolean = withContext(Dispatchers.IO) {
         try {
-            prefs.edit().remove(KEY_CONFIG).apply()
+            prefs.edit().remove(KEY_CONFIG).commit()
             Logger.i(TAG, "Config reset to default")
             true
         } catch (e: Exception) {

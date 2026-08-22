@@ -1,6 +1,10 @@
 package com.watermark.camera.ui.camera
 
 import android.Manifest
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.KeyEvent
@@ -251,6 +255,12 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             }
             is CameraEvent.RequestCameraPermission -> {
                 requestCameraPermissionIfNeeded()
+            }
+            is CameraEvent.CaptureHaptic -> {
+                performCaptureHaptic()
+            }
+            is CameraEvent.RequestRebind -> {
+                rebindCameraPreview()
             }
             else -> {
                 // Handle other events in later steps

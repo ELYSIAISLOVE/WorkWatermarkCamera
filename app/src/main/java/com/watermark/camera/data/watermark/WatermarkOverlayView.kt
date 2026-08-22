@@ -72,6 +72,27 @@ class WatermarkOverlayView @JvmOverloads constructor(
             invalidate()
         }
 
+
+    private val clockRunnable = object : Runnable {
+        override fun run() {
+            if (isAttachedToWindow) {
+                invalidate()
+                postDelayed(this, 1000L)
+            }
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        removeCallbacks(clockRunnable)
+        post(clockRunnable)
+    }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(clockRunnable)
+        super.onDetachedFromWindow()
+    }
+
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textSize = BASE_FONT_SIZE
@@ -94,6 +115,9 @@ class WatermarkOverlayView @JvmOverloads constructor(
         super.onDraw(canvas)
 
         if (!isWatermarkVisible) return
+
+        val scale = watermarkConfig.fontScale.coerceIn(0.5f, 3.0f)
+        textPaint.textSize = BASE_FONT_SIZE * scale * resources.displayMetrics.scaledDensity
 
         val lines = buildPreviewLines()
         if (lines.isEmpty()) return
@@ -161,7 +185,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
         val lines = mutableListOf<String>()
         val now = Date()
 
-        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
         val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
         val weekFormat = SimpleDateFormat("EEEE", Locale.CHINA)
 

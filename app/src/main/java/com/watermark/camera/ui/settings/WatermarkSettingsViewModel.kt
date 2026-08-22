@@ -142,6 +142,9 @@ class WatermarkSettingsViewModel @Inject constructor(
                     if (success) {
                         _saveSuccess.value = true
                         Logger.i(TAG, "Config saved successfully")
+                        // Reload so UI matches disk
+                        val reloaded = getConfigUseCase(Unit).getOrNull()
+                        if (reloaded != null) _config.value = reloaded
                     } else {
                         _errorMessage.value = "保存失败"
                     }
