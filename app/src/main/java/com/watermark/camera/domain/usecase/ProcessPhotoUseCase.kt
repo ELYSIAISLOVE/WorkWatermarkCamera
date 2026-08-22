@@ -75,7 +75,7 @@ class ProcessPhotoUseCase @Inject constructor(
                     stage = "process",
                     exception = error
                 )
-                return Result.failure(error)
+                return Result.failure(Exception("处理失败: ${error.message}", error))
             }
 
             // Stage 2: Save to storage + EXIF

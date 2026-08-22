@@ -9,15 +9,15 @@ import android.graphics.YuvImage
 import androidx.camera.core.ImageProxy
 import com.watermark.camera.util.Logger
 import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
 
 /**
- * Decodes CameraX ImageProxy to Bitmap with memory-efficient sampling.
+ * Decodes CameraX [ImageProxy] to [Bitmap].
  *
- * Supports:
- * - YUV_420_888 -> JPEG -> Bitmap (CameraX default format)
- * - Rotation correction via Matrix
- * - Down-sampling for memory control (max dimension constraint)
- * - Automatic ImageProxy lifecycle management
+ * Handles:
+ * - JPEG single-plane captures (planes.size == 1) — common on many devices
+ * - YUV_420_888 three-plane captures
+ * - Safe plane access (never touch index >= planes.size)
  */
 class BitmapDecoder {
 
@@ -25,200 +25,183 @@ class BitmapDecoder {
         private const val TAG = "BitmapDecoder"
         private const val MAX_BITMAP_DIMENSION = 4096
         private const val INTERMEDIATE_QUALITY = 95
+
         @Volatile
         var appContext: android.content.Context? = null
     }
 
-    /**
-     * Decode ImageProxy to a corrected Bitmap.
-     *
-     * @param imageProxy The captured ImageProxy (will be closed automatically).
-     * @param maxDimension Maximum width/height limit (0 = no limit).
-     * @return Decoded and rotated Bitmap.
-     */
     fun decode(
         imageProxy: ImageProxy,
         maxDimension: Int = MAX_BITMAP_DIMENSION
     ): Bitmap {
         try {
-            val startTime = System.currentTimeMillis()
-
-            // Convert YUV to JPEG byte array
-            val jpegBytes = yuvToJpeg(imageProxy)
-
-            // Decode with sampling if needed
+            val start = System.currentTimeMillis()
+            val jpegBytes = imageProxyToJpeg(imageProxy)
             val bitmap = decodeSampled(jpegBytes, maxDimension)
-
-            // Apply rotation correction
-            val rotatedBitmap = rotateBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
-
-            // Recycle intermediate if it's a different instance
-            if (rotatedBitmap !== bitmap && !bitmap.isRecycled) {
-                bitmap.recycle()
-            }
-
-            val duration = System.currentTimeMillis() - startTime
-            Logger.perf(TAG, "Decode+Rotate", duration)
-            Logger.i(TAG, "Decoded: ${rotatedBitmap.width}x${rotatedBitmap.height}, " +
-                "rotation=${imageProxy.imageInfo.rotationDegrees}")
-
-            return rotatedBitmap
+            val rotated = rotateBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
+            if (rotated !== bitmap && !bitmap.isRecycled) bitmap.recycle()
+            Logger.i(TAG, "Decoded ${rotated.width}x${rotated.height} in ${System.currentTimeMillis() - start}ms")
+            return rotated
         } finally {
-            imageProxy.close()
+            try { imageProxy.close() } catch (_: Exception) {}
         }
     }
 
     /**
-     * Convert YUV_420_888 ImageProxy to JPEG byte array.
-     *
-     * Correctly handles NV21 interleaving (V before U) regardless of
-     * the source plane layout from CameraX.
+     * Convert ImageProxy to JPEG bytes without assuming 3 planes.
      */
-    private fun yuvToJpeg(imageProxy: ImageProxy): ByteArray {
-        val yBuffer = imageProxy.planes[0].buffer
-        val uBuffer = imageProxy.planes[1].buffer
-        val vBuffer = imageProxy.planes[2].buffer
+    private fun imageProxyToJpeg(imageProxy: ImageProxy): ByteArray {
+        val planes = imageProxy.planes
+        val format = imageProxy.format
+        Logger.d(TAG, "format=$format planes=${planes.size} ${imageProxy.width}x${imageProxy.height}")
 
-        val ySize = yBuffer.remaining()
-        val uSize = uBuffer.remaining()
-        val vSize = vBuffer.remaining()
-
-        // NV21 format: YYYYYYYY VUVUVUVU...
-        val nv21 = ByteArray(ySize + uSize + vSize)
-
-        // Copy Y plane
-        yBuffer.get(nv21, 0, ySize)
-
-        // Interleave V and U for NV21 (V comes first in each pair)
-        val uvSize = uSize.coerceAtMost(vSize)
-        var pos = ySize
-        for (i in 0 until uvSize) {
-            nv21[pos++] = vBuffer.get(i)
-            nv21[pos++] = uBuffer.get(i)
+        // JPEG buffer (single plane) — fixes "length=1; index=1"
+        if (planes.isEmpty()) {
+            throw IllegalStateException("ImageProxy has no planes")
+        }
+        if (planes.size == 1 || format == ImageFormat.JPEG) {
+            return planeToByteArray(planes[0].buffer)
         }
 
-        val yuvImage = YuvImage(
-            nv21,
-            ImageFormat.NV21,
-            imageProxy.width,
-            imageProxy.height,
-            null
-        )
+        // YUV_420_888 needs at least 3 planes
+        if (planes.size >= 3 && (format == ImageFormat.YUV_420_888 || format == ImageFormat.YUV_422_888 || format == 35)) {
+            return yuv420ToJpeg(imageProxy)
+        }
 
+        // Fallback: treat first plane as compressed data
+        Logger.w(TAG, "Unexpected format=$format planes=${planes.size}, using plane[0]")
+        return planeToByteArray(planes[0].buffer)
+    }
+
+    private fun planeToByteArray(buffer: ByteBuffer): ByteArray {
+        buffer.rewind()
+        val bytes = ByteArray(buffer.remaining())
+        buffer.get(bytes)
+        return bytes
+    }
+
+    private fun yuv420ToJpeg(imageProxy: ImageProxy): ByteArray {
+        val yPlane = imageProxy.planes[0]
+        val uPlane = imageProxy.planes[1]
+        val vPlane = imageProxy.planes[2]
+
+        val yBuffer = yPlane.buffer
+        val uBuffer = uPlane.buffer
+        val vBuffer = vPlane.buffer
+
+        val ySize = yBuffer.remaining()
+        val width = imageProxy.width
+        val height = imageProxy.height
+
+        // Build NV21
+        val nv21 = ByteArray(width * height * 3 / 2)
+        // Y
+        yBuffer.get(nv21, 0, ySize.coerceAtMost(width * height))
+
+        // VU interleaved — use row strides carefully when possible
+        val vRowStride = vPlane.rowStride
+        val uRowStride = uPlane.rowStride
+        val vPixelStride = vPlane.pixelStride
+        val uPixelStride = uPlane.pixelStride
+
+        var pos = width * height
+        val chromaHeight = height / 2
+        val chromaWidth = width / 2
+
+        if (vPixelStride == 1 && uPixelStride == 1) {
+            // Contiguous-ish: interleave manually with remaining
+            val uSize = uBuffer.remaining()
+            val vSize = vBuffer.remaining()
+            val pairs = minOf(uSize, vSize, nv21.size - pos)
+            for (i in 0 until pairs / 2) {
+                if (pos + 1 >= nv21.size) break
+                nv21[pos++] = vBuffer.get(i)
+                nv21[pos++] = uBuffer.get(i)
+            }
+        } else {
+            for (row in 0 until chromaHeight) {
+                for (col in 0 until chromaWidth) {
+                    if (pos + 1 >= nv21.size) break
+                    val vIndex = row * vRowStride + col * vPixelStride
+                    val uIndex = row * uRowStride + col * uPixelStride
+                    if (vIndex < vBuffer.capacity() && uIndex < uBuffer.capacity()) {
+                        nv21[pos++] = vBuffer.get(vIndex)
+                        nv21[pos++] = uBuffer.get(uIndex)
+                    }
+                }
+            }
+        }
+
+        val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
         return ByteArrayOutputStream().use { out ->
-            yuvImage.compressToJpeg(
-                Rect(0, 0, imageProxy.width, imageProxy.height),
-                INTERMEDIATE_QUALITY,
-                out
-            )
+            yuvImage.compressToJpeg(Rect(0, 0, width, height), INTERMEDIATE_QUALITY, out)
             out.toByteArray()
         }
     }
 
-    /**
-     * Decode JPEG bytes with optional down-sampling to control memory.
-     */
     private fun decodeSampled(jpegBytes: ByteArray, maxDimension: Int): Bitmap {
+        if (jpegBytes.isEmpty()) throw IllegalStateException("Empty image bytes")
         if (maxDimension <= 0) {
             return BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+                ?: throw IllegalStateException("Failed to decode JPEG")
         }
-
-        // First decode bounds only
-        val options = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size, bounds)
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight, maxDimension, maxDimension)
+            inJustDecodeBounds = false
+            inPreferredConfig = Bitmap.Config.ARGB_8888
         }
-        BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size, options)
-
-        // Calculate sample size
-        options.inSampleSize = calculateInSampleSize(
-            options.outWidth,
-            options.outHeight,
-            maxDimension,
-            maxDimension
-        )
-        options.inJustDecodeBounds = false
-        options.inPreferredConfig = Bitmap.Config.ARGB_8888
-
-        return BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size, options)
-            ?: throw IllegalStateException("Failed to decode JPEG bytes")
+        return BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size, opts)
+            ?: throw IllegalStateException("Failed to decode JPEG")
     }
 
-    /**
-     * Calculate power-of-2 sample size to fit within max dimensions.
-     */
-    private fun calculateInSampleSize(
-        width: Int,
-        height: Int,
-        reqWidth: Int,
-        reqHeight: Int
-    ): Int {
+    private fun calculateInSampleSize(w: Int, h: Int, reqW: Int, reqH: Int): Int {
         var inSampleSize = 1
-        while (width / inSampleSize > reqWidth || height / inSampleSize > reqHeight) {
+        if (w <= 0 || h <= 0) return 1
+        while (w / inSampleSize > reqW || h / inSampleSize > reqH) {
             inSampleSize *= 2
         }
         return inSampleSize
     }
 
-    /**
-     * Rotate bitmap by specified degrees.
-     */
     private fun rotateBitmap(source: Bitmap, degrees: Int): Bitmap {
         if (degrees == 0) return source
-
-        val matrix = Matrix().apply {
-            postRotate(degrees.toFloat())
-        }
-
-        val rotated = Bitmap.createBitmap(
-            source, 0, 0, source.width, source.height, matrix, true
-        )
-
-        if (!source.isRecycled) {
-            source.recycle()
-        }
-
+        val matrix = Matrix().apply { postRotate(degrees.toFloat()) }
+        val rotated = Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+        if (!source.isRecycled) source.recycle()
         return rotated
     }
 
-    /**
-     * Decode from file path with sampling (for collage/selection).
-     */
     fun decodeFile(path: String, maxDimension: Int = 2048): Bitmap {
         if (path.startsWith("content://") || path.startsWith("file://")) {
             return decodeUriString(path, maxDimension)
         }
-        val options = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight, maxDimension, maxDimension)
+            inJustDecodeBounds = false
+            inPreferredConfig = Bitmap.Config.ARGB_8888
         }
-        BitmapFactory.decodeFile(path, options)
-
-        options.inSampleSize = calculateInSampleSize(
-            options.outWidth,
-            options.outHeight,
-            maxDimension,
-            maxDimension
-        )
-        options.inJustDecodeBounds = false
-        options.inPreferredConfig = Bitmap.Config.ARGB_8888
-
-        return BitmapFactory.decodeFile(path, options)
+        return BitmapFactory.decodeFile(path, opts)
             ?: throw IllegalStateException("Failed to decode file: $path")
     }
 
     fun decodeUriString(uriString: String, maxDimension: Int = 2048): Bitmap {
         val ctx = appContext ?: throw IllegalStateException("BitmapDecoder.appContext not set")
         val uri = android.net.Uri.parse(uriString)
-        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         ctx.contentResolver.openInputStream(uri)?.use {
-            android.graphics.BitmapFactory.decodeStream(it, null, bounds)
+            BitmapFactory.decodeStream(it, null, bounds)
         } ?: throw IllegalStateException("Cannot open $uriString")
-        val opts = android.graphics.BitmapFactory.Options().apply {
+        val opts = BitmapFactory.Options().apply {
             inSampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight, maxDimension, maxDimension)
             inJustDecodeBounds = false
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }
         return ctx.contentResolver.openInputStream(uri)?.use {
-            android.graphics.BitmapFactory.decodeStream(it, null, opts)
+            BitmapFactory.decodeStream(it, null, opts)
         } ?: throw IllegalStateException("Failed to decode $uriString")
     }
 }

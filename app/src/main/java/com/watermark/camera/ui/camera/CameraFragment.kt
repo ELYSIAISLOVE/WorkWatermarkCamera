@@ -361,6 +361,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
      * Handle volume key events for capture.
      */
     override fun onResume() {
+        requestCameraPermissionIfNeeded()
         super.onResume()
         // Resume camera preview when returning from background
         if (ContextCompat.checkSelfPermission(

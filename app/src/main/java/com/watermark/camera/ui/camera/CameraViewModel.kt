@@ -13,7 +13,9 @@ import com.watermark.camera.ui.common.BaseViewModel
 import com.watermark.camera.util.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -130,13 +132,15 @@ class CameraViewModel @Inject constructor(
                     }
 
                     updateState { CameraState.Saving }
-                    val processResult = processPhotoUseCase(
+                    val processResult = withContext(Dispatchers.Default) {
+                        processPhotoUseCase(
                         ProcessPhotoUseCase.Params(
                             captureResult = captureResult,
                             watermarkConfig = config,
                             locationStr = locationStr,
                             locationData = locationData
                         )
+                    }
                     )
                     processResult.onSuccess {
                         updateState { CameraState.Previewing(flashMode = flashMode) }
