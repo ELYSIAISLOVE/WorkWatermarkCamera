@@ -208,20 +208,14 @@ class WatermarkCanvas {
         cardHeight: Int,
         margin: Int
     ): Pair<Float, Float> {
-        return when (position) {
-            WatermarkPosition.TOP_LEFT ->
-                margin.toFloat() to margin.toFloat()
-            WatermarkPosition.TOP_RIGHT ->
-                (photoWidth - cardWidth - margin).toFloat() to margin.toFloat()
-            WatermarkPosition.BOTTOM_LEFT ->
-                margin.toFloat() to (photoHeight - cardHeight - margin).toFloat()
-            WatermarkPosition.BOTTOM_RIGHT ->
-                (photoWidth - cardWidth - margin).toFloat() to
-                    (photoHeight - cardHeight - margin).toFloat()
-            WatermarkPosition.CENTER ->
-                ((photoWidth - cardWidth) / 2).toFloat() to
-                    ((photoHeight - cardHeight) / 2).toFloat()
-        }
+        return WatermarkLayout.cardOrigin(
+            position = position,
+            areaWidth = photoWidth.toFloat(),
+            areaHeight = photoHeight.toFloat(),
+            cardWidth = cardWidth.toFloat(),
+            cardHeight = cardHeight.toFloat(),
+            margin = margin.toFloat()
+        )
     }
 
     /**

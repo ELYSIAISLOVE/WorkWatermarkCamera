@@ -139,7 +139,11 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
         // Aspect ratio click to cycle
         binding.tvAspectRatio.setOnClickListener {
+            // Fixed 4:3
             viewModel.cycleAspectRatio()
+        }
+        binding.watermarkOverlay.onPositionChanged = { pos ->
+            viewModel.updateWatermarkPosition(pos)
         }
 
         // EV value click to show/hide slider
@@ -197,7 +201,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 binding.btnCapture.isEnabled = true
                 binding.tvZoomRatio.visibility = View.VISIBLE
                 binding.tvZoomRatio.text = String.format("%.1fx", state.zoomRatio)
-                binding.tvAspectRatio.text = state.aspectRatio
+                binding.tvAspectRatio.text = "4:3"
                 binding.tvAspectRatio.visibility = View.VISIBLE
                 binding.tvEvValue.visibility = View.VISIBLE
                 binding.tvEvValue.text = String.format("EV %+.1f", state.evValue)

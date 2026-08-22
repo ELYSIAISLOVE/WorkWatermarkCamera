@@ -4,10 +4,12 @@ import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.watermark.camera.data.model.WatermarkConfig
+import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.domain.repository.CameraRepository
 import com.watermark.camera.domain.usecase.CapturePhotoUseCase
 import com.watermark.camera.domain.usecase.GetLocationUseCase
 import com.watermark.camera.domain.usecase.GetWatermarkConfigUseCase
+import com.watermark.camera.domain.usecase.SaveWatermarkConfigUseCase
 import com.watermark.camera.domain.usecase.ProcessPhotoUseCase
 import com.watermark.camera.ui.common.BaseViewModel
 import com.watermark.camera.util.Logger
@@ -34,6 +36,7 @@ class CameraViewModel @Inject constructor(
     private val capturePhotoUseCase: CapturePhotoUseCase,
     private val processPhotoUseCase: ProcessPhotoUseCase,
     private val getWatermarkConfigUseCase: GetWatermarkConfigUseCase,
+    private val saveWatermarkConfigUseCase: SaveWatermarkConfigUseCase,
     private val getLocationUseCase: GetLocationUseCase
 ) : BaseViewModel<CameraState, CameraEvent>() {
 
@@ -75,11 +78,12 @@ class CameraViewModel @Inject constructor(
             result.onSuccess {
                 val flashMode = (_uiState.value as? CameraState.Previewing)?.flashMode
                     ?: com.watermark.camera.domain.repository.FlashMode.AUTO
+                cameraRepository.setAspectRatio("4:3")
                 cameraRepository.setFlashMode(flashMode)
                 startLowLightMonitoring()
                 startLocationSampling()
                 reloadWatermarkConfig()
-                updateState { CameraState.Previewing(flashMode = flashMode) }
+                updateState { CameraState.Previewing(flashMode = flashMode, aspectRatio = "4:3") }
             }.onFailure { e ->
                 updateState { CameraState.Error("相机启动失败: ${e.message}", recoverable = true) }
             }
@@ -136,7 +140,7 @@ class CameraViewModel @Inject constructor(
             result.onSuccess { captureResult ->
                 Logger.i(TAG, "Photo captured: ${captureResult.width}x${captureResult.height}")
                 // Unlock shutter immediately so continuous shooting is not blocked by save pipeline
-                updateState { CameraState.Previewing(flashMode = flashMode) }
+                updateState { CameraState.Previewing(flashMode = flashMode, aspectRatio = "4:3") }
 
                 // Background: watermark + save (uses cached location; no long GPS wait)
                 viewModelScope.launch(Dispatchers.Default) {
@@ -170,7 +174,7 @@ class CameraViewModel @Inject constructor(
                 }
             }.onFailure { e ->
                 Logger.e(TAG, "Capture failed", e)
-                updateState { CameraState.Previewing(flashMode = flashMode) }
+                updateState { CameraState.Previewing(flashMode = flashMode, aspectRatio = "4:3") }
                 sendEvent(CameraEvent.ShowToast("拍照失败: ${e.message ?: "未知错误"}"))
             }
         }
@@ -252,6 +256,16 @@ class CameraViewModel @Inject constructor(
      * Continuous location sampling until success or 10s timeout.
      * Updates [locationDisplay] with Chinese address (not lat/lng).
      */
+
+    fun updateWatermarkPosition(position: WatermarkPosition) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val current = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
+            val updated = current.copy(position = position)
+            saveWatermarkConfigUseCase(updated)
+            _watermarkConfigDisplay.value = updated
+        }
+    }
+
     fun reloadWatermarkConfig() {
         viewModelScope.launch(Dispatchers.IO) {
             val cfg = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
@@ -372,22 +386,11 @@ class CameraViewModel @Inject constructor(
      * Cycle through aspect ratios: 4:3 -> 16:9 -> 1:1 -> 4:3.
      */
     fun cycleAspectRatio() {
-        viewModelScope.launch {
-            val currentState = _uiState.value
-            if (currentState !is CameraState.Previewing) return@launch
-
-            val nextRatio = when (currentState.aspectRatio) {
-                "4:3" -> "16:9"
-                "16:9" -> "1:1"
-                "1:1" -> "4:3"
-                else -> "4:3"
-            }
-
-            cameraRepository.setAspectRatio(nextRatio).onSuccess {
-                updateState { currentState.copy(aspectRatio = nextRatio) }
-                sendEvent(CameraEvent.ShowToast("比例: $nextRatio"))
-                sendEvent(CameraEvent.RequestRebind)
-            }
+        // Product: fixed 4:3 only — ignore manual ratio switching
+        sendEvent(CameraEvent.ShowToast("画面比例固定为 4:3"))
+        val currentState = _uiState.value
+        if (currentState is CameraState.Previewing && currentState.aspectRatio != "4:3") {
+            updateState { currentState.copy(aspectRatio = "4:3") }
         }
     }
 
