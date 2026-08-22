@@ -15,7 +15,8 @@ class WatermarkCameraApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        com.watermark.camera.data.processing.BitmapDecoder.setAppContext(this)
+        // Assign property directly (do not call setAppContext — clashes with var setter)
+        com.watermark.camera.data.processing.BitmapDecoder.appContext = this.applicationContext
         initLogging()
     }
 

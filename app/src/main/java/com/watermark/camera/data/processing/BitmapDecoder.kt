@@ -25,11 +25,10 @@ class BitmapDecoder {
         private const val TAG = "BitmapDecoder"
         private const val MAX_BITMAP_DIMENSION = 4096
         private const val INTERMEDIATE_QUALITY = 95
+
+        /** Application context for content:// decoding. Set once in Application.onCreate. */
         @Volatile
         var appContext: android.content.Context? = null
-        fun setAppContext(c: android.content.Context) {
-            appContext = c.applicationContext
-        }
     }
 
     /**
