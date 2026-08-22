@@ -1,0 +1,304 @@
+name: Restore Grok Project and Apply Fixes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore-and-fix:
+    name: 解压 Grok 工程并注入修复
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 2. Find and extract Grok ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ZIP="$(find . -maxdepth 3 -type f -iname '*.zip' | head -1)"
+
+          if [ -z "$ZIP" ]; then
+            echo "DEBUG ERROR: 仓库中没有找到 ZIP 工程包。"
+            exit 1
+          fi
+
+          echo "DEBUG: 找到 Grok ZIP: $ZIP"
+          echo "DEBUG: 不会删除任何原始 ZIP。"
+
+          rm -rf .grok_restore_work
+          mkdir -p .grok_restore_work
+
+          unzip -q "$ZIP" -d .grok_restore_work
+
+          ROOT="$(find .grok_restore_work -name gradlew -type f -print -quit)"
+
+          if [ -z "$ROOT" ]; then
+            echo "DEBUG ERROR: ZIP 解压后没有找到 gradlew。"
+            exit 1
+          fi
+
+          ROOT="$(dirname "$ROOT")"
+          ROOT="$(cd "$ROOT" && pwd)"
+
+          echo "DEBUG: Grok 工程根目录: $ROOT"
+          echo "GROK_ROOT=$ROOT" >> "$GITHUB_ENV"
+
+      - name: 3. Inject Grok repairs
+        shell: bash
+        env:
+          ROOT: ${{ env.GROK_ROOT }}
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          root = Path(os.environ["ROOT"])
+
+          print("============================================================")
+          print("DEBUG: 开始检查并注入 Grok 修复")
+          print(f"DEBUG: 工程目录: {root}")
+          print("============================================================")
+
+          changed = 0
+
+          def write_if_changed(path, old, new, name):
+              global changed
+              if new != old:
+                  path.write_text(new, encoding="utf-8")
+                  changed += 1
+                  print(f"DEBUG: 已应用 {name}: {path}")
+
+          # C001
+          for p in root.rglob("CameraEvent.kt"):
+              s = p.read_text(encoding="utf-8")
+              if "sealed class CameraEvent {" in s and "UiEvent" not in s:
+                  write_if_changed(
+                      p, s,
+                      s.replace(
+                          "sealed class CameraEvent {",
+                          "sealed class CameraEvent : UiEvent {",
+                          1
+                      ),
+                      "C001 CameraEvent"
+                  )
+
+          # C003
+          for p in root.rglob("CapturePhotoUseCase.kt"):
+              s = p.read_text(encoding="utf-8")
+              n = s.replace("COOLDOWN_MS = 500L", "COOLDOWN_MS = 300L")
+              write_if_changed(p, s, n, "C003 拍照间隔")
+
+          # C004
+          for p in root.rglob("fragment_camera.xml"):
+              s = p.read_text(encoding="utf-8")
+              old = '<FrameLayout\n        android:id="@+id/watermarkOverlay"'
+              new = '<com.watermark.camera.ui.watermark.WatermarkOverlayView\n        android:id="@+id/watermarkOverlay"'
+              write_if_changed(p, s, s.replace(old, new, 1), "C004 水印视图")
+
+          # C005/C006
+          for filename in ("CameraFragment.kt", "GalleryFragment.kt"):
+              for p in root.rglob(filename):
+                  s = p.read_text(encoding="utf-8")
+                  n = s.replace("R.id.container", "R.id.nav_host_fragment")
+                  write_if_changed(p, s, n, f"C005/C006 {filename}")
+
+          # C008 BitmapDecoder
+          for p in root.rglob("BitmapDecoder.kt"):
+              s = p.read_text(encoding="utf-8")
+              n = s
+              n = re.sub(
+                  r'\n[ \t]*fun setAppContext\([^)]*\)\s*\{[^{}]*\}',
+                  "",
+                  n,
+                  count=1
+              )
+
+              if "lateinit var appContext" not in n and "companion object {" in n:
+                  n = n.replace(
+                      "companion object {",
+                      "companion object {\n"
+                      "        lateinit var appContext: android.content.Context",
+                      1
+                  )
+
+              write_if_changed(p, s, n, "C008 BitmapDecoder")
+
+          # C008 Application context
+          for p in root.rglob("WatermarkCameraApp.kt"):
+              s = p.read_text(encoding="utf-8")
+              n = s.replace(
+                  "BitmapDecoder.setAppContext(this)",
+                  "BitmapDecoder.appContext = this.applicationContext"
+              )
+              write_if_changed(p, s, n, "C008 Application")
+
+          # C010 毛玻璃背景资源
+          glass = root / "app/src/main/res/drawable/bg_glass_bar.xml"
+          if not glass.exists():
+              glass.parent.mkdir(parents=True, exist_ok=True)
+              glass.write_text(
+                  '<?xml version="1.0" encoding="utf-8"?>\n'
+                  '<shape xmlns:android="http://schemas.android.com/apk/res/android"\n'
+                  '    android:shape="rectangle">\n'
+                  '    <solid android:color="#99000000" />\n'
+                  '    <stroke android:width="1dp" android:color="#40FFFFFF" />\n'
+                  '    <corners android:radius="12dp" />\n'
+                  '</shape>\n',
+                  encoding="utf-8"
+              )
+              changed += 1
+              print(f"DEBUG: 已应用 C010: {glass}")
+
+          # C011 buildConfig
+          for p in root.rglob("build.gradle"):
+              s = p.read_text(encoding="utf-8")
+              if "viewBinding true" in s and "buildConfig true" not in s:
+                  n = s.replace(
+                      "viewBinding true",
+                      "viewBinding true\n        buildConfig true",
+                      1
+                  )
+                  write_if_changed(p, s, n, "C011 buildConfig")
+
+          # C012/C013 CameraX
+          for p in root.rglob("CameraXConfiguration.kt"):
+              s = p.read_text(encoding="utf-8")
+              n = s
+              n = n.replace("FlashMode.AUTO", "ImageCapture.FLASH_MODE_AUTO")
+              n = n.replace("FlashMode.ON", "ImageCapture.FLASH_MODE_ON")
+              n = n.replace("FlashMode.OFF", "ImageCapture.FLASH_MODE_OFF")
+              n = n.replace(
+                  "AspectRatioStrategy.RATIO_4_3",
+                  "AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY"
+              )
+              n = n.replace(
+                  "AspectRatioStrategy.RATIO_16_9",
+                  "AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY"
+              )
+              write_if_changed(p, s, n, "C012/C013 CameraX")
+
+          # C014
+          for p in root.rglob("CollageEngine.kt"):
+              s = p.read_text(encoding="utf-8")
+              n = re.sub(
+                  r'private\s+const\s+val\s+(\w+)\s*=\s*Color\.parseColor',
+                  r'private val \1 = Color.parseColor',
+                  s
+              )
+              write_if_changed(p, s, n, "C014 CollageEngine")
+
+          print("============================================================")
+          print(f"DEBUG: Grok 修复阶段完成，修改文件数: {changed}")
+          print("============================================================")
+          PY
+
+      - name: 4. Preserve ALL original ZIP files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "DEBUG: 正在保护仓库中全部 ZIP 文件。"
+
+          rm -rf .zip_preserve
+          mkdir -p .zip_preserve
+
+          find . -type f -iname '*.zip'             -not -path './.git/*'             -not -path './.grok_restore_work/*'             -not -path './.zip_preserve/*'             -print0 |
+          while IFS= read -r -d '' file; do
+            rel="${file#./}"
+            mkdir -p ".zip_preserve/$(dirname "$rel")"
+            cp -p "$file" ".zip_preserve/$rel"
+            echo "DEBUG: 已保护 ZIP: $rel"
+          done
+
+      - name: 5. Replace project with repaired Grok project
+        shell: bash
+        env:
+          ROOT: ${{ env.GROK_ROOT }}
+        run: |
+          set -euo pipefail
+
+          echo "DEBUG: 替换旧工程文件。"
+
+          find . -mindepth 1 -maxdepth 1             ! -name '.git'             ! -name '.grok_restore_work'             ! -name '.zip_preserve'             -exec rm -rf -- {} +
+
+          cp -a "$ROOT"/. .
+
+          echo "DEBUG: 恢复所有原始 ZIP。"
+
+          if [ -d .zip_preserve ]; then
+            cp -a .zip_preserve/. .
+          fi
+
+          rm -rf .grok_restore_work .zip_preserve
+
+          echo "DEBUG: 工程替换完成，ZIP 已恢复。"
+
+      - name: 6. Verify ZIP preservation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "DEBUG: 当前仓库 ZIP:"
+          find . -maxdepth 3 -type f -iname '*.zip' -print
+
+          COUNT="$(find . -maxdepth 3 -type f -iname '*.zip' | wc -l)"
+
+          if [ "$COUNT" -lt 1 ]; then
+            echo "DEBUG ERROR: 原 ZIP 没有被保留下来！"
+            exit 1
+          fi
+
+          echo "DEBUG: ZIP 数量 = $COUNT，保护检查通过。"
+
+      - name: 7. Build Debug APK
+        shell: bash
+        run: |
+          set -o pipefail
+
+          chmod +x gradlew
+          ./gradlew clean assembleDebug --stacktrace 2>&1 | tee grok_restore_build.log
+
+      - name: 8. Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Grok-Restored-Debug-APK
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: 9. Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Grok-Restore-Build-Log
+          path: grok_restore_build.log
+          if-no-files-found: warn
+
+      - name: 10. Commit only after successful build
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "DEBUG: 没有需要提交的变化。"
+            exit 0
+          fi
+
+          git commit -m "restore: inject Grok fixes into project"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
