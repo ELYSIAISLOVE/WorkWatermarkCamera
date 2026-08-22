@@ -45,7 +45,9 @@ class LocationRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "LocationRepo"
-        private const val FASTEST_UPDATE_INTERVAL_MS = 2000L
+        private const val FASTEST_UPDATE_INTERVAL_MS = 10000L
+        /** Continuous location read interval (ms). */
+        private const val DEFAULT_UPDATE_INTERVAL_MS = 20000L
         private const val SMALLEST_DISPLACEMENT_M = 5f
     }
 

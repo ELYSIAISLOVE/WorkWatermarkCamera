@@ -21,7 +21,7 @@ interface LocationRepository {
      *
      * @param updateIntervalMs Update interval in milliseconds (default: 5000ms).
      */
-    suspend fun startLocationUpdates(updateIntervalMs: Long = 5000L)
+    suspend fun startLocationUpdates(updateIntervalMs: Long = 20000L)
 
     /**
      * Stop location updates.
