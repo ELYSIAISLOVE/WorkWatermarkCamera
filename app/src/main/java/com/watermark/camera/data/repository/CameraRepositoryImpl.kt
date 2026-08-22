@@ -61,7 +61,7 @@ class CameraRepositoryImpl @Inject constructor(
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var currentLensFacing = CameraSelector.LENS_FACING_BACK
-    private var currentAspectRatio: String = "4:3"
+    private var currentAspectRatio: String = "4:3" // fixed product ratio
 
     // State flows
     private val _cameraState = MutableStateFlow<CameraRepoState>(CameraRepoState.Idle)
@@ -290,9 +290,9 @@ class CameraRepositoryImpl @Inject constructor(
         }
 
     override suspend fun setAspectRatio(ratio: String): Result<Unit> {
-        // Only manual switch updates this; never auto-changed elsewhere
-        currentAspectRatio = ratio
-        Logger.d(TAG, "Aspect ratio set to $ratio (rebind required)")
+        // Product decision: lock to 4:3 regardless of requested value
+        currentAspectRatio = "4:3"
+        Logger.d(TAG, "Aspect ratio locked to 4:3 (requested=$ratio)")
         return Result.success(Unit)
     }
 
