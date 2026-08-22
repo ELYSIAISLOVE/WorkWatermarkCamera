@@ -4,7 +4,7 @@ import com.watermark.camera.data.model.WatermarkConfig
 import com.watermark.camera.data.model.WatermarkPosition
 
 /**
- * Shared placement for preview + saved JPEG.
+ * Unified placement. customX/Y map to [0, area-card] so left/top edges are reachable.
  */
 object WatermarkLayout {
 
@@ -14,30 +14,24 @@ object WatermarkLayout {
         areaHeight: Float,
         cardWidth: Float,
         cardHeight: Float,
-        margin: Float
+        margin: Float = 0f
     ): Pair<Float, Float> {
-        val m = margin.coerceAtLeast(0f)
-        val maxL = (areaWidth - cardWidth - m).coerceAtLeast(m)
-        val maxT = (areaHeight - cardHeight - m).coerceAtLeast(m)
-        val spanX = (maxL - m).coerceAtLeast(1f)
-        val spanY = (maxT - m).coerceAtLeast(1f)
+        val maxL = (areaWidth - cardWidth).coerceAtLeast(0f)
+        val maxT = (areaHeight - cardHeight).coerceAtLeast(0f)
+        val inset = margin.coerceAtLeast(0f).coerceAtMost(maxL / 2f)
 
         val cx = config.customX
         val cy = config.customY
         if (cx != null && cy != null) {
-            val left = (m + cx.coerceIn(0f, 1f) * spanX).coerceIn(m, maxL)
-            val top = (m + cy.coerceIn(0f, 1f) * spanY).coerceIn(m, maxT)
-            return left to top
+            return (cx.coerceIn(0f, 1f) * maxL) to (cy.coerceIn(0f, 1f) * maxT)
         }
-
         return when (config.position) {
-            WatermarkPosition.TOP_LEFT -> m to m
-            WatermarkPosition.TOP_RIGHT -> maxL to m
-            WatermarkPosition.BOTTOM_LEFT -> m to maxT
-            WatermarkPosition.BOTTOM_RIGHT -> maxL to maxT
-            WatermarkPosition.CENTER ->
-                ((areaWidth - cardWidth) / 2f).coerceAtLeast(0f) to
-                    ((areaHeight - cardHeight) / 2f).coerceAtLeast(0f)
+            WatermarkPosition.TOP_LEFT -> inset to inset
+            WatermarkPosition.TOP_RIGHT -> (maxL - inset).coerceAtLeast(0f) to inset
+            WatermarkPosition.BOTTOM_LEFT -> inset to (maxT - inset).coerceAtLeast(0f)
+            WatermarkPosition.BOTTOM_RIGHT ->
+                (maxL - inset).coerceAtLeast(0f) to (maxT - inset).coerceAtLeast(0f)
+            WatermarkPosition.CENTER -> maxL / 2f to maxT / 2f
         }
     }
 
@@ -48,12 +42,11 @@ object WatermarkLayout {
         areaHeight: Float,
         cardWidth: Float,
         cardHeight: Float,
-        margin: Float
+        margin: Float = 0f
     ): Pair<Float, Float> {
-        val m = margin.coerceAtLeast(0f)
-        val maxL = (areaWidth - cardWidth - m).coerceAtLeast(m)
-        val maxT = (areaHeight - cardHeight - m).coerceAtLeast(m)
-        return left.coerceIn(m, maxL) to top.coerceIn(m, maxT)
+        val maxL = (areaWidth - cardWidth).coerceAtLeast(0f)
+        val maxT = (areaHeight - cardHeight).coerceAtLeast(0f)
+        return left.coerceIn(0f, maxL) to top.coerceIn(0f, maxT)
     }
 
     fun toNormalized(
@@ -63,15 +56,12 @@ object WatermarkLayout {
         areaHeight: Float,
         cardWidth: Float,
         cardHeight: Float,
-        margin: Float
+        margin: Float = 0f
     ): Pair<Float, Float> {
-        val m = margin.coerceAtLeast(0f)
-        val maxL = (areaWidth - cardWidth - m).coerceAtLeast(m)
-        val maxT = (areaHeight - cardHeight - m).coerceAtLeast(m)
-        val spanX = (maxL - m).coerceAtLeast(1f)
-        val spanY = (maxT - m).coerceAtLeast(1f)
-        val nx = ((left - m) / spanX).coerceIn(0f, 1f)
-        val ny = ((top - m) / spanY).coerceIn(0f, 1f)
+        val maxL = (areaWidth - cardWidth).coerceAtLeast(0f)
+        val maxT = (areaHeight - cardHeight).coerceAtLeast(0f)
+        val nx = if (maxL <= 0f) 0f else (left / maxL).coerceIn(0f, 1f)
+        val ny = if (maxT <= 0f) 0f else (top / maxT).coerceIn(0f, 1f)
         return nx to ny
     }
 

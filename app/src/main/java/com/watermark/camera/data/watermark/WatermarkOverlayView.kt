@@ -39,7 +39,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
             invalidate()
         }
 
-    var locationText: String = "未开启定位权限"
+    var locationText: String = "定位中…"
         set(value) {
             field = value
             invalidate()
@@ -113,7 +113,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
         val padding = (BASE_PADDING * scaleFactor).coerceAtLeast(8f)
         val lineSpacing = (BASE_LINE_SPACING * scaleFactor).coerceAtLeast(2f)
         val radius = (BASE_CARD_RADIUS * scaleFactor).coerceAtLeast(8f)
-        lastMargin = padding
+        lastMargin = 0f
 
         textPaint.textSize = fontSize
         textPaint.color = Color.WHITE
@@ -130,13 +130,14 @@ class WatermarkOverlayView @JvmOverloads constructor(
 
         val cardWidth = maxWidth + padding * 2
         val cardHeight = totalHeight + padding * 2
+        // margin=0 so watermark can reach viewfinder edges (same as save path)
         val (cardLeft, cardTop) = WatermarkLayout.cardOrigin(
             config = watermarkConfig,
             areaWidth = width.toFloat(),
             areaHeight = height.toFloat(),
             cardWidth = cardWidth,
             cardHeight = cardHeight,
-            margin = padding
+            margin = 0f
         )
         lastCardLeft = cardLeft
         lastCardTop = cardTop
@@ -204,12 +205,12 @@ class WatermarkOverlayView @JvmOverloads constructor(
                 val (clampedL, clampedT) = WatermarkLayout.clampOrigin(
                     rawL, rawT,
                     width.toFloat(), height.toFloat(),
-                    lastCardW, lastCardH, lastMargin
+                    lastCardW, lastCardH, 0f
                 )
                 val (nx, ny) = WatermarkLayout.toNormalized(
                     clampedL, clampedT,
                     width.toFloat(), height.toFloat(),
-                    lastCardW, lastCardH, lastMargin
+                    lastCardW, lastCardH, 0f
                 )
                 val slot = WatermarkLayout.nearestSlot(
                     clampedL + lastCardW / 2f,
@@ -246,8 +247,8 @@ class WatermarkOverlayView @JvmOverloads constructor(
         lines.add("${timeFormat.format(now)} | ${dateFormat.format(now)}")
         lines.add(weekFormat.format(now))
         if (watermarkConfig.showLocation) {
-            val loc = locationText.ifBlank { watermarkConfig.location }
-            if (loc.isNotBlank()) lines.add("● $loc")
+            val loc = locationText.ifBlank { watermarkConfig.location }.ifBlank { "定位中…" }
+            lines.add("● $loc")
         }
         if (watermarkConfig.name.isNotBlank()) {
             lines.add("汇报人: ${watermarkConfig.name}")

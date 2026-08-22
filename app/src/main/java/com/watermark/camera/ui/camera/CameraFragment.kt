@@ -43,10 +43,20 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         if (isGranted) {
             startCameraPreview()
             viewModel.onReturnToCamera()
-            binding.watermarkOverlay.locationText = viewModel.locationDisplay.value
-            binding.watermarkOverlay.watermarkConfig = viewModel.watermarkConfigDisplay.value.copy(
-                showLocation = true
-            )
+            binding.root.post {
+                binding.watermarkOverlay.locationText =
+                    viewModel.locationDisplay.value.ifBlank { "定位中…" }
+                binding.watermarkOverlay.watermarkConfig =
+                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true)
+                binding.watermarkOverlay.invalidate()
+            }
+            binding.root.postDelayed({
+                binding.watermarkOverlay.locationText =
+                    viewModel.locationDisplay.value.ifBlank { "定位中…" }
+                binding.watermarkOverlay.watermarkConfig =
+                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true)
+                binding.watermarkOverlay.invalidate()
+            }, 200L)
         } else {
             Toast.makeText(requireContext(), "相机权限被拒绝", Toast.LENGTH_LONG).show()
         }
@@ -114,12 +124,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
         // Settings button click
         binding.btnSettings.setOnClickListener {
-            val settingsFragment = com.watermark.camera.ui.settings.WatermarkSettingsFragment.newInstance()
-            settingsFragment.onConfigSaved = { config ->
-                binding.watermarkOverlay.watermarkConfig = config
-                viewModel.onReturnToCamera()
-            }
-            settingsFragment.show(parentFragmentManager, "WatermarkSettings")
+            openSidePanel()
         }
 
         // Top bar buttons
@@ -282,7 +287,11 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun handleEvent(event: CameraEvent) {
         when (event) {
             is CameraEvent.ShowToast -> {
-                Toast.makeText(requireContext(), event.message, Toast.LENGTH_SHORT).show()
+                val msg = event.message
+                if (msg.contains("水印") || msg.contains("已保存") || msg.contains("配置") ||
+                    msg.contains("设置已") || msg.contains("照片已")
+                ) return
+                android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_SHORT).show()
             }
             is CameraEvent.ShutterFeedback -> {
                 playShutterAnimation()
@@ -517,6 +526,94 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             }
             .start()
     }
+
+
+    private var sideEvMode = 0 // 0=关 1=自动
+    private var sideFlashMode = 0 // 0关 1开 2自动 3常亮
+    private var sideImageSize = 1 // 0小 1中 2大
+    private var sideAntiFake = false
+    private var sideThemeDark = true
+
+    private fun openSidePanel() {
+        val root = binding.sidePanelRoot
+        val sheet = binding.sidePanelSheet
+        root.visibility = android.view.View.VISIBLE
+        refreshSidePanelLabels()
+        sheet.post {
+            sheet.translationX = sheet.width.toFloat()
+            sheet.animate().translationX(0f).setDuration(220L).start()
+        }
+        binding.sidePanelScrim.setOnClickListener { closeSidePanel() }
+        binding.sideEv.setOnClickListener {
+            sideEvMode = (sideEvMode + 1) % 2
+            refreshSidePanelLabels()
+            // Auto EV placeholder: 0f when 关, else keep current
+            if (sideEvMode == 0) viewModel.setExposureCompensation(0f)
+        }
+        binding.sideFlash.setOnClickListener {
+            sideFlashMode = (sideFlashMode + 1) % 4
+            refreshSidePanelLabels()
+            val mode = when (sideFlashMode) {
+                1 -> com.watermark.camera.domain.repository.FlashMode.ON
+                2 -> com.watermark.camera.domain.repository.FlashMode.AUTO
+                3 -> com.watermark.camera.domain.repository.FlashMode.TORCH
+                else -> com.watermark.camera.domain.repository.FlashMode.OFF
+            }
+            viewModel.setFlashMode(mode)
+        }
+        binding.sideImageSize.setOnClickListener {
+            sideImageSize = (sideImageSize + 1) % 3
+            refreshSidePanelLabels()
+            viewModel.setImageSizePreset(sideImageSize)
+        }
+        binding.sideAntiFake.setOnClickListener {
+            sideAntiFake = !sideAntiFake
+            refreshSidePanelLabels()
+            viewModel.setAntiFakeWatermark(sideAntiFake)
+        }
+        binding.sideThemeBlack.setOnClickListener {
+            sideThemeDark = true
+            binding.container.setBackgroundColor(android.graphics.Color.BLACK)
+        }
+        binding.sideThemeWhite.setOnClickListener {
+            sideThemeDark = false
+            binding.container.setBackgroundColor(android.graphics.Color.WHITE)
+        }
+        binding.sideAbout.setOnClickListener {
+            android.app.AlertDialog.Builder(requireContext())
+                .setTitle("关于")
+                .setMessage("工作相机 Work Watermark Camera\n版本见应用信息")
+                .setPositiveButton("确定", null)
+                .show()
+        }
+    }
+
+    private fun closeSidePanel() {
+        val sheet = binding.sidePanelSheet
+        val root = binding.sidePanelRoot
+        sheet.animate()
+            .translationX(sheet.width.toFloat())
+            .setDuration(200L)
+            .withEndAction { root.visibility = android.view.View.GONE }
+            .start()
+    }
+
+    private fun refreshSidePanelLabels() {
+        binding.sideEv.text = "EV补偿：" + if (sideEvMode == 0) "关" else "自动"
+        binding.sideFlash.text = "闪光灯：" + when (sideFlashMode) {
+            1 -> "开"
+            2 -> "自动"
+            3 -> "常亮"
+            else -> "关"
+        }
+        binding.sideImageSize.text = "图片大小：" + when (sideImageSize) {
+            0 -> "小"
+            2 -> "大"
+            else -> "中"
+        }
+        binding.sideAntiFake.text = "防伪水印：" + if (sideAntiFake) "开" else "关"
+    }
+
 
     private fun performCaptureHaptic() {
         try {
