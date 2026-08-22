@@ -451,4 +451,39 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
     // endregion
+
+    private fun performCaptureHaptic() {
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = requireContext().getSystemService(VibratorManager::class.java)
+                vm?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                requireContext().getSystemService(Vibrator::class.java)
+            }
+            if (vibrator == null || !vibrator.hasVibrator()) return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(10L, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(10L)
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun rebindCameraPreview() {
+        try {
+            viewModel.stopPreview()
+            binding.previewView.post {
+                viewModel.startPreview(
+                    viewLifecycleOwner,
+                    binding.previewView.surfaceProvider
+                )
+            }
+        } catch (e: Exception) {
+            // ignore rebind failures
+        }
+    }
+
 }
