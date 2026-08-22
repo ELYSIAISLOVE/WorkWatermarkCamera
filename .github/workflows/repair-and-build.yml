@@ -1,26 +1,39 @@
-      - name: Repair source
-        run: |
-          set -e
+name: Build APK
 
-          echo "=== Find duplicate StorageRepository ==="
+on:
+  workflow_dispatch:
 
-          find app/src/main/java -name "*StorageRepository*.kt" -print
+permissions:
+  contents: read
 
-          echo "=== Remove old repository implementation ==="
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-          grep -R "class StorageRepositoryImpl" -n app/src/main/java || true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          find app/src/main/java \
-          -path "*data/repository/StorageRepository.kt" \
-          -delete
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
 
-          echo "=== Remove old CameraUIOptimizer ==="
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-          find app/src/main/java \
-          -name "CameraUIOptimizer.kt" \
-          -delete
+      - name: Make Gradle executable
+        run: chmod +x gradlew
 
-          echo "=== Check result ==="
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
 
-          grep -R "class StorageRepositoryImpl" \
-          -n app/src/main/java || true
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WatermarkCamera-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
