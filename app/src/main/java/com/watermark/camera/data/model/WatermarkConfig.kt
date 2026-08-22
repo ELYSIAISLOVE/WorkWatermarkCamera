@@ -15,7 +15,7 @@ import kotlinx.parcelize.Parcelize
  * @param remark Additional remarks.
  * @param location Location string (auto or manual).
  * @param transparency Watermark background transparency (0.3 to 1.0).
- * @param fontScale Font size scale (0.5 to 1.5).
+ * @param fontScale Font size scale (0.5 to 2.5).
  * @param position Watermark position on the photo.
  * @param useGyroscope Whether to use gyroscope for adaptive positioning.
  * @param showLocation Whether to show location in watermark.
@@ -53,7 +53,7 @@ data class WatermarkConfig(
         /**
          * Maximum font scale.
          */
-        const val MAX_FONT_SCALE = 1.5f
+        const val MAX_FONT_SCALE = 2.5f
 
         /**
          * Default transparency.

@@ -51,7 +51,7 @@ class CreateCollageUseCase @Inject constructor(
 
     override suspend fun execute(params: Params): Result<Uri> {
         if (params.photoPaths.isEmpty()) {
-            return Result.failure(IllegalArgumentException("No photos selected"))
+            return Result.failure(IllegalArgumentException("请先选择照片"))
         }
 
         Logger.i(TAG, "Creating collage: template=${params.template.displayName}, " +
