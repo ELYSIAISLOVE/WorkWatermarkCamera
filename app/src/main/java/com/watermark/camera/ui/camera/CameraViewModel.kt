@@ -220,6 +220,34 @@ class CameraViewModel @Inject constructor(
     /**
      * Cycle through flash modes: AUTO -> ON -> OFF -> TORCH -> AUTO.
      */
+    fun setFlashMode(mode: com.watermark.camera.domain.repository.FlashMode) {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            if (currentState !is CameraState.Previewing) return@launch
+            cameraRepository.setFlashMode(mode)
+            updateState {
+                currentState.copy(
+                    flashMode = mode,
+                    isTorchOn = mode == com.watermark.camera.domain.repository.FlashMode.TORCH
+                )
+            }
+        }
+    }
+
+    fun setImageSizePreset(preset: Int) {
+        // 0=small 1=medium 2=large — stored for pipeline; applied next process
+        imageSizePreset = preset.coerceIn(0, 2)
+    }
+
+    fun setAntiFakeWatermark(enabled: Boolean) {
+        antiFakeEnabled = enabled
+    }
+
+    @Volatile var imageSizePreset: Int = 1
+        private set
+    @Volatile var antiFakeEnabled: Boolean = false
+        private set
+
     fun cycleFlashMode() {
         viewModelScope.launch {
             val currentState = _uiState.value
@@ -432,7 +460,7 @@ class CameraViewModel @Inject constructor(
      */
     fun cycleAspectRatio() {
         // Product: fixed 4:3 only — ignore manual ratio switching
-        sendEvent(CameraEvent.ShowToast("画面比例固定为 4:3"))
+        /* suppressed */ Unit
         val currentState = _uiState.value
         if (currentState is CameraState.Previewing && currentState.aspectRatio != "4:3") {
             updateState { currentState.copy(aspectRatio = "4:3") }
