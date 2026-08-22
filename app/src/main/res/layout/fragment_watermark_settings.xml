@@ -178,7 +178,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:valueFrom="0.5"
-            android:valueTo="1.5"
+            android:valueTo="2.5"
             android:stepSize="0.1"
             app:trackColorActive="@color/color_primary"
             app:trackColorInactive="@color/glass_background"

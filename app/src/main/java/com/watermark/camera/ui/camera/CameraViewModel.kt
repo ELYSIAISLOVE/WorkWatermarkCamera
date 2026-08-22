@@ -131,32 +131,19 @@ class CameraViewModel @Inject constructor(
             val result = capturePhotoUseCase()
             result.onSuccess { captureResult ->
                 Logger.i(TAG, "Photo captured: ${captureResult.width}x${captureResult.height}")
-                updateState { CameraState.Processing(progress = 0) }
+                // Unlock shutter immediately so continuous shooting is not blocked by save pipeline
+                updateState { CameraState.Previewing(flashMode = flashMode) }
 
-                try {
-                    // Config + Chinese location in parallel (use cached preview text when ready)
-                    val configDeferred = async(Dispatchers.IO) {
-                        getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
-                    }
-                    val locationStrDeferred = async(Dispatchers.IO) {
-                        val cached = _locationDisplay.value
-                        if (cached.isNotBlank() && cached != "定位中…" && cached != "定位失败") {
-                            cached
-                        } else {
-                            getLocationUseCase.getLocationString(timeoutMs = 800L)
-                        }
-                    }
-                    val locationDataDeferred = async(Dispatchers.IO) {
-                        getLocationUseCase(GetLocationUseCase.Params(timeoutMs = 400L)).getOrNull()
-                    }
+                // Background: watermark + save (uses cached location; no long GPS wait)
+                viewModelScope.launch(Dispatchers.Default) {
+                    try {
+                        val config = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
+                        val locationStr = _locationDisplay.value.takeIf {
+                            it.isNotBlank() && it != "定位中…" && it != "定位失败"
+                        } ?: "定位中"
+                        val locationData: com.watermark.camera.domain.repository.LocationData? = null
 
-                    val config = configDeferred.await()
-                    val locationStr = locationStrDeferred.await()
-                    val locationData = locationDataDeferred.await()
-
-                    updateState { CameraState.Saving }
-                    val processResult = withContext(Dispatchers.Default) {
-                        processPhotoUseCase(
+                        val processResult = processPhotoUseCase(
                             ProcessPhotoUseCase.Params(
                                 captureResult = captureResult,
                                 watermarkConfig = config,
@@ -164,21 +151,18 @@ class CameraViewModel @Inject constructor(
                                 locationData = locationData
                             )
                         )
-                    }
-                    processResult.onSuccess {
-                        updateState { CameraState.Previewing(flashMode = flashMode) }
-                        sendEvent(CameraEvent.ShowToast("照片已保存"))
-                    }.onFailure { e ->
-                        Logger.e(TAG, "Save failed", e)
+                        processResult.onSuccess {
+                            sendEvent(CameraEvent.ShowToast("照片已保存"))
+                        }.onFailure { e ->
+                            Logger.e(TAG, "Save failed", e)
+                            try { captureResult.close() } catch (_: Exception) {}
+                            sendEvent(CameraEvent.ShowToast("保存失败: ${e.message ?: "未知错误"}"))
+                        }
+                    } catch (e: Exception) {
+                        Logger.e(TAG, "Process failed", e)
                         try { captureResult.close() } catch (_: Exception) {}
-                        updateState { CameraState.Previewing(flashMode = flashMode) }
-                        sendEvent(CameraEvent.ShowToast("保存失败: ${e.message ?: "未知错误"}"))
+                        sendEvent(CameraEvent.ShowToast("处理失败: ${e.message ?: "未知错误"}"))
                     }
-                } catch (e: Exception) {
-                    Logger.e(TAG, "Process failed", e)
-                    try { captureResult.close() } catch (_: Exception) {}
-                    updateState { CameraState.Previewing(flashMode = flashMode) }
-                    sendEvent(CameraEvent.ShowToast("处理失败: ${e.message ?: "未知错误"}"))
                 }
             }.onFailure { e ->
                 Logger.e(TAG, "Capture failed", e)

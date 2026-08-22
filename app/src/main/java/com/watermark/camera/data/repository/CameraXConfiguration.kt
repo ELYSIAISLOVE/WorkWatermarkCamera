@@ -20,7 +20,7 @@ object CameraXConfiguration {
      * JPEG capture quality (0-100).
      * PRD requires 95% for highest quality.
      */
-    const val JPEG_QUALITY = 95
+    const val JPEG_QUALITY = 90
 
     /**
      * Preview target resolution for smooth 30fps.
@@ -76,7 +76,7 @@ object CameraXConfiguration {
         flashMode: Int = ImageCapture.FLASH_MODE_AUTO
     ): ImageCapture {
         val captureBuilder = ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .setFlashMode(flashMode)
             .setJpegQuality(JPEG_QUALITY)
 

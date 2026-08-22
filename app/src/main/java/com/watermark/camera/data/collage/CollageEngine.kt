@@ -204,7 +204,11 @@ class CollageEngine(
             val top = row * (cellHeight + CELL_SPACING)
 
             // Decode with sampling to fit cell
-            val sourceBitmap = decoder.decodeFile(path, maxOf(cellWidth, cellHeight) * 2)
+            val sourceBitmap = try {
+                decoder.decodeFile(path, maxOf(cellWidth, cellHeight) * 2)
+            } catch (e: Exception) {
+                throw IllegalStateException("无法解码图片: $path (${e.message})", e)
+            }
             try {
                 // Scale and center-crop to cell
                 val scaled = scaleAndCenterCrop(sourceBitmap, cellWidth, cellHeight)
@@ -279,7 +283,11 @@ class CollageEngine(
 
         photoPaths.forEachIndexed { index, path ->
             val top = index * (photoHeight + CELL_SPACING)
-            val sourceBitmap = decoder.decodeFile(path, photoHeight * 2)
+            val sourceBitmap = try {
+                decoder.decodeFile(path, photoHeight * 2)
+            } catch (e: Exception) {
+                throw IllegalStateException("无法解码图片: $path (${e.message})", e)
+            }
             try {
                 val scaled = scaleAndCenterCrop(sourceBitmap, photoWidth, photoHeight)
                 canvas.drawBitmap(scaled, 0f, top.toFloat(), null)
