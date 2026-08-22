@@ -1,0 +1,114 @@
+name: Unzip and Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find and unzip source
+        run: |
+          set -e
+          echo "=== 仓库根目录 ==="
+          ls -la
+
+          ZIP=""
+          for name in source.zip WorkCamera-Fixed-Source.zip "WatermarkCamera_Project (1).zip"; do
+            if [ -f "$name" ]; then
+              ZIP="$name"
+              break
+            fi
+          done
+          if [ -z "$ZIP" ]; then
+            ZIP=$(ls -1 *.zip 2>/dev/null | head -1 || true)
+          fi
+          if [ -z "$ZIP" ] || [ ! -f "$ZIP" ]; then
+            echo "❌ 根目录没有 zip，请上传 source.zip"
+            exit 1
+          fi
+          echo "使用 ZIP: $ZIP"
+
+          rm -rf /tmp/src
+          mkdir -p /tmp/src
+          unzip -q -o "$ZIP" -d /tmp/src
+
+          ROOT=$(find /tmp/src -name gradlew -type f | head -1 | xargs dirname)
+          if [ -z "$ROOT" ]; then
+            echo "❌ zip 里没有 gradlew"
+            find /tmp/src -maxdepth 4 | head -50
+            exit 1
+          fi
+          echo "工程根目录: $ROOT"
+
+          rm -rf "$GITHUB_WORKSPACE/project"
+          mkdir -p "$GITHUB_WORKSPACE/project"
+          cp -a "$ROOT"/. "$GITHUB_WORKSPACE/project/"
+          test -d "$GITHUB_WORKSPACE/project/app" || { echo "❌ 缺少 app/"; exit 1; }
+
+      - name: Fix BitmapDecoder setter clash
+        working-directory: project
+        run: |
+          python3 << 'PY'
+          from pathlib import Path
+          import re
+
+          p = Path("app/src/main/java/com/watermark/camera/data/processing/BitmapDecoder.kt")
+          if p.exists():
+              t = p.read_text(encoding="utf-8")
+              t2, n = re.subn(
+                  r"\n[ \t]*fun setAppContext\([^)]*\)\s*\{[^{}]*\}",
+                  "",
+                  t,
+                  count=1,
+              )
+              p.write_text(t2, encoding="utf-8")
+              print(f"BitmapDecoder: removed setAppContext count={n}")
+          else:
+              print("BitmapDecoder.kt missing")
+
+          app = Path("app/src/main/java/com/watermark/camera/WatermarkCameraApp.kt")
+          if app.exists():
+              at = app.read_text(encoding="utf-8")
+              at = at.replace(
+                  "com.watermark.camera.data.processing.BitmapDecoder.setAppContext(this)",
+                  "com.watermark.camera.data.processing.BitmapDecoder.appContext = this.applicationContext",
+              )
+              at = at.replace(
+                  "BitmapDecoder.setAppContext(this)",
+                  "BitmapDecoder.appContext = this.applicationContext",
+              )
+              app.write_text(at, encoding="utf-8")
+              print("App: fixed setAppContext call")
+          print("fix done")
+          PY
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build Debug APK
+        working-directory: project
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: workcamera-debug
+          path: project/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
