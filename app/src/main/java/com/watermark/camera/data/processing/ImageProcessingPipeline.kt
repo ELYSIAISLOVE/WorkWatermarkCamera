@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import com.watermark.camera.data.model.WatermarkConfig
+import com.watermark.camera.util.OrientationHelper
 import com.watermark.camera.domain.model.CaptureResult
 import com.watermark.camera.domain.model.ProcessedPhoto
 import com.watermark.camera.domain.repository.LocationData
@@ -59,7 +60,9 @@ class ImageProcessingPipeline @Inject constructor(
         captureResult: CaptureResult,
         watermarkConfig: WatermarkConfig,
         locationStr: String = "",
-        locationData: LocationData? = null
+        locationData: LocationData? = null,
+        deviceOrientation: OrientationHelper.DeviceOrientation =
+            OrientationHelper.DeviceOrientation.PORTRAIT
     ): Result<ProcessedPhoto> = withContext(Dispatchers.Default) {
         val pipelineStart = System.currentTimeMillis()
         val operationId = "proc_${captureResult.timestamp}"
@@ -82,7 +85,8 @@ class ImageProcessingPipeline @Inject constructor(
             watermarkedBitmap = watermarkCanvas.drawWatermark(
                 sourceBitmap = sourceBitmap,
                 config = watermarkConfig,
-                locationStr = locationStr
+                locationStr = locationStr,
+                deviceOrientation = deviceOrientation
             )
             // Explicitly recycle source bitmap to free native memory
             memoryManager.recycle(sourceBitmap)
