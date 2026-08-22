@@ -29,7 +29,7 @@ class CapturePhotoUseCase @Inject constructor(
 
     companion object {
         private const val TAG = "CapturePhotoUC"
-        private const val COOLDOWN_MS = 300L
+        private const val COOLDOWN_MS = 0L
         private const val CAPTURE_TIMEOUT_MS = 5000L
     }
 

@@ -102,4 +102,9 @@ sealed class CameraEvent : com.watermark.camera.ui.common.UiEvent {
      * Play shutter sound or visual feedback.
      */
     data object ShutterFeedback : CameraEvent()
+
+    /** Short haptic on capture (10ms). */
+    data object CaptureHaptic : CameraEvent()
+
+    data object RequestRebind : CameraEvent()
 }

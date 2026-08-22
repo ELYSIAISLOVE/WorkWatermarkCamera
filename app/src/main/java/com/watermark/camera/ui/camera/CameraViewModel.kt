@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -39,6 +40,9 @@ class CameraViewModel @Inject constructor(
 
     override val _uiState = MutableStateFlow<CameraState>(CameraState.Idle)
 
+    private var lastLifecycleOwner: LifecycleOwner? = null
+    private var lastPreviewSurface: Preview.SurfaceProvider? = null
+
     /**
      * Start camera preview.
      *
@@ -49,6 +53,8 @@ class CameraViewModel @Inject constructor(
         lifecycleOwner: LifecycleOwner,
         previewSurface: Preview.SurfaceProvider
     ) {
+        lastLifecycleOwner = lifecycleOwner
+        lastPreviewSurface = previewSurface
         viewModelScope.launch {
             val result = cameraRepository.startPreview(
                 lifecycleOwner = lifecycleOwner,
@@ -90,6 +96,7 @@ class CameraViewModel @Inject constructor(
      * Trigger photo capture.
      * State transition: PREVIEWING -> CAPTURING -> PROCESSING -> SAVING -> PREVIEWING.
      */
+
     fun capturePhoto() {
         val currentState = _uiState.value
         if (currentState !is CameraState.Previewing) {
@@ -99,13 +106,16 @@ class CameraViewModel @Inject constructor(
 
         if (!capturePhotoUseCase.isCaptureAvailable()) {
             val remaining = capturePhotoUseCase.getRemainingCooldownMs()
-            sendEvent(CameraEvent.ShowToast("请稍后再拍 (${remaining}ms)"))
-            return
+            if (remaining > 0) {
+                sendEvent(CameraEvent.ShowToast("请稍后再拍 (${remaining}ms)"))
+                return
+            }
         }
 
         val flashMode = currentState.flashMode
         updateState { CameraState.Capturing }
         sendEvent(CameraEvent.ShutterFeedback)
+        sendEvent(CameraEvent.CaptureHaptic)
 
         viewModelScope.launch {
             val result = capturePhotoUseCase()
@@ -114,14 +124,18 @@ class CameraViewModel @Inject constructor(
                 updateState { CameraState.Processing(progress = 0) }
 
                 try {
-                    val config = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
+                    // Location in parallel with config load (short timeout; never block save long)
+                    val configDeferred = async(Dispatchers.IO) {
+                        getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
+                    }
+                    val locationDeferred = async(Dispatchers.IO) {
+                        getLocationUseCase(GetLocationUseCase.Params(timeoutMs = 600L)).getOrNull()
+                    }
 
-                    // Single location request (avoid double GPS wait — was ~4s)
-                    val locationData = getLocationUseCase(
-                        GetLocationUseCase.Params(timeoutMs = 2500L)
-                    ).getOrNull()
+                    val config = configDeferred.await()
+                    val locationData = locationDeferred.await()
                     val locationStr = if (locationData == null) {
-                        "定位失败"
+                        "定位中"
                     } else {
                         String.format(
                             java.util.Locale.US,
@@ -330,6 +344,7 @@ class CameraViewModel @Inject constructor(
             cameraRepository.setAspectRatio(nextRatio).onSuccess {
                 updateState { currentState.copy(aspectRatio = nextRatio) }
                 sendEvent(CameraEvent.ShowToast("比例: $nextRatio"))
+                sendEvent(CameraEvent.RequestRebind)
             }
         }
     }

@@ -8,9 +8,8 @@ import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 /**
- * UseCase for obtaining location data for watermark and EXIF.
- *
- * On failure, retries up to [MAX_ATTEMPTS] times, then returns failure.
+ * Location for watermark/EXIF.
+ * Prefer last-known (fast), then current location with up to 3 retries.
  */
 class GetLocationUseCase @Inject constructor(
     private val locationRepository: LocationRepository,
@@ -19,10 +18,9 @@ class GetLocationUseCase @Inject constructor(
 
     companion object {
         private const val TAG = "GetLocationUC"
-        private const val DEFAULT_TIMEOUT_MS = 3000L
-        /** Max attempts including the first try (fail 3 times → give up). */
+        private const val DEFAULT_TIMEOUT_MS = 2000L
         private const val MAX_ATTEMPTS = 3
-        private const val RETRY_DELAY_MS = 400L
+        private const val RETRY_DELAY_MS = 300L
     }
 
     data class Params(
@@ -31,48 +29,42 @@ class GetLocationUseCase @Inject constructor(
         val maxAttempts: Int = MAX_ATTEMPTS
     )
 
-    data class LocationResult(
-        val data: LocationData,
-        val displayString: String
-    )
-
     override suspend fun execute(params: Params): Result<LocationData> {
         if (!locationRepository.hasLocationPermission()) {
             Logger.w(TAG, "Location permission not granted")
             return Result.failure(SecurityException("定位权限未授予"))
         }
 
+        // Fast path: last known
+        try {
+            val last = locationRepository.getLastKnownLocation()
+            if (last != null) {
+                Logger.i(TAG, "Using last known location")
+                return Result.success(last)
+            }
+        } catch (_: Exception) {
+        }
+
         val attempts = params.maxAttempts.coerceIn(1, 5)
         var lastError: Throwable = IllegalStateException("定位失败")
 
         for (attempt in 1..attempts) {
-            Logger.i(TAG, "Location attempt $attempt/$attempts, timeout=${params.timeoutMs}ms")
+            Logger.i(TAG, "Location attempt $attempt/$attempts")
             val result = locationRepository.getCurrentLocation(params.timeoutMs)
             if (result.isSuccess) {
-                val data = result.getOrThrow()
-                Logger.i(TAG, "Location OK on attempt $attempt: ${data.latitude}, ${data.longitude}")
-                return Result.success(data)
+                return Result.success(result.getOrThrow())
             }
             lastError = result.exceptionOrNull() ?: lastError
-            Logger.w(TAG, "Location attempt $attempt failed: ${lastError.message}")
-            if (attempt < attempts) {
-                delay(RETRY_DELAY_MS)
-            }
+            if (attempt < attempts) delay(RETRY_DELAY_MS)
         }
 
-        Logger.e(TAG, "Location failed after $attempts attempts")
         return Result.failure(
-            lastError.message?.let { IllegalStateException("定位失败（已重试${attempts}次）: $it") }
-                ?: IllegalStateException("定位失败（已重试${attempts}次）")
+            IllegalStateException("定位失败（已重试${attempts}次）: ${lastError.message}")
         )
     }
 
-    /**
-     * Formatted string for watermark; after max retries returns failure text.
-     */
     suspend fun getLocationString(timeoutMs: Long = DEFAULT_TIMEOUT_MS): String {
-        val result = execute(Params(timeoutMs = timeoutMs))
-        return result.fold(
+        return execute(Params(timeoutMs = timeoutMs)).fold(
             onSuccess = { locationRepository.formatForWatermark(it) },
             onFailure = { "定位失败" }
         )
