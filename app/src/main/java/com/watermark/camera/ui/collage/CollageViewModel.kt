@@ -149,7 +149,7 @@ class CollageViewModel @Inject constructor(
                     Logger.i(TAG, "Collage created: $uri")
                 },
                 onFailure = { error ->
-                    _errorMessage.value = error.message ?: "拼图生成失败"
+                    _errorMessage.value = error.message ?: "拼图生成或保存失败"
                     Logger.e(TAG, "Collage failed", error)
                 }
             )

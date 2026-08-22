@@ -200,6 +200,8 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
 
             binding.sliderFontScale.value = config.fontScale
             binding.tvFontScaleValue.text = String.format("%.1fx", config.fontScale)
+            // Live preview on camera overlay (silent; also after auto-save)
+            onConfigSaved?.invoke(config)
 
             // Update switch
             binding.switchShowLocation.isChecked = config.showLocation

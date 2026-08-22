@@ -122,6 +122,7 @@ class CollageEngine(
             )
         }
 
+        Logger.i(TAG, "Collage paths=${photoPaths.size} first=${photoPaths.firstOrNull()}")
         memoryManager.checkMemory("collage_${template.displayName}")
         val startTime = System.currentTimeMillis()
 

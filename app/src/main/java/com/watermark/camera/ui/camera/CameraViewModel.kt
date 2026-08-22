@@ -251,19 +251,32 @@ class CameraViewModel @Inject constructor(
     private fun startLocationSampling() {
         locationSampleJob?.cancel()
         locationSampleJob = viewModelScope.launch(Dispatchers.IO) {
-            _locationDisplay.value = "定位中…"
-            val deadline = System.currentTimeMillis() + 10_000L
-            while (isActive && System.currentTimeMillis() < deadline) {
+            if (_locationDisplay.value.isBlank() || _locationDisplay.value == "定位失败") {
+                _locationDisplay.value = "定位中…"
+            }
+            val firstDeadline = System.currentTimeMillis() + 10_000L
+            var gotFix = false
+            // First fix within 10s
+            while (isActive && System.currentTimeMillis() < firstDeadline && !gotFix) {
                 val text = getLocationUseCase.getLocationString(timeoutMs = 2_000L)
                 if (text.isNotBlank() && text != "定位失败" && text != "未获取位置") {
                     _locationDisplay.value = text
+                    gotFix = true
                     Logger.i(TAG, "Location display updated: $text")
-                    return@launch
+                } else {
+                    delay(400L)
                 }
-                delay(400L)
             }
-            if (_locationDisplay.value == "定位中…") {
+            if (!gotFix && (_locationDisplay.value == "定位中…" || _locationDisplay.value.isBlank())) {
                 _locationDisplay.value = "定位失败"
+            }
+            // Keep refreshing every 5s while preview is active
+            while (isActive) {
+                delay(5_000L)
+                val text = getLocationUseCase.getLocationString(timeoutMs = 2_000L)
+                if (text.isNotBlank() && text != "定位失败" && text != "未获取位置") {
+                    _locationDisplay.value = text
+                }
             }
         }
     }
