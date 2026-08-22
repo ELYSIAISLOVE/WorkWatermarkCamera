@@ -1,8 +1,5 @@
-README.md 已生成
-# 工作相机
+# shuiyinxiangji
 
-一个没有广告并且轻量化的工作相机，当前还在测试中。
+项目源码已清理，等待恢复新的 Android 工程。
 
----
-
-**English**: A lightweight, ad-free work camera app. Currently in testing.
+当前仓库处于重新整理阶段。
