@@ -1,0 +1,104 @@
+name: Clean Repository to Fresh GitHub State
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: '请输入 CLEAN 确认执行清理'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: 清空当前分支，恢复为新仓库基础状态
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. 检出当前分支
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 2. 检查确认词
+        shell: bash
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "CLEAN" ]; then
+            echo "ERROR: 未输入正确的确认词 CLEAN。"
+            echo "为了防止误删仓库，本次操作已停止。"
+            exit 1
+          fi
+
+          echo "DEBUG: 已确认清理当前分支。"
+
+      - name: 3. 删除当前分支全部仓库文件
+        shell: bash
+        run: |
+          set -e
+
+          echo "DEBUG: 当前分支：${GITHUB_REF_NAME}"
+          echo "DEBUG: 当前提交：${GITHUB_SHA}"
+          echo "DEBUG: 开始清理..."
+
+          # 删除工作区中除 .git 外的全部内容。
+          # .git 不会被删除，因此 GitHub Actions 仍然可以提交结果。
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf -- {} +
+
+          echo "DEBUG: 原有项目文件已经全部删除。"
+
+      - name: 4. 创建最基础的 GitHub 仓库文件
+        shell: bash
+        run: |
+          set -e
+
+          cat > README.md <<'EOF'
+          # shuiyinxiangji
+
+          项目源码已清理，等待恢复新的 Android 工程。
+
+          当前仓库处于重新整理阶段。
+          EOF
+
+          cat > .gitignore <<'EOF'
+          # Gradle
+          .gradle/
+          build/
+          **/build/
+
+          # Android Studio
+          .idea/
+          *.iml
+
+          # Local configuration
+          local.properties
+
+          # OS
+          .DS_Store
+          Thumbs.db
+          EOF
+
+          echo "DEBUG: 已创建 README.md"
+          echo "DEBUG: 已创建 .gitignore"
+
+      - name: 5. 提交清理结果
+        shell: bash
+        run: |
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "DEBUG: 没有需要提交的变化。"
+            exit 0
+          fi
+
+          git commit -m "chore: reset repository for project recovery"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          echo "DEBUG: 清理完成。"
+          echo "DEBUG: 当前分支已经恢复为最基础的 GitHub 项目状态。"
