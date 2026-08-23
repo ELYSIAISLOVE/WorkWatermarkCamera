@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.watermark.camera.data.model.WatermarkConfig
 import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.data.model.WatermarkTemplate
+import com.watermark.camera.data.model.TimeStyle
 import com.watermark.camera.domain.usecase.GetWatermarkConfigUseCase
 import com.watermark.camera.domain.usecase.SaveWatermarkConfigUseCase
 import com.watermark.camera.util.Logger
@@ -84,6 +85,11 @@ class WatermarkSettingsViewModel @Inject constructor(
     // endregion
 
     // region Field Updates
+
+    fun selectTimeStyle(style: TimeStyle) {
+        val current = _config.value
+        updateConfig(current.copy(timeStyle = style))
+    }
 
     fun selectTemplate(template: WatermarkTemplate) {
         _config.value = _config.value.copy(template = template)

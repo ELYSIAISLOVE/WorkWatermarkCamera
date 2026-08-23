@@ -106,6 +106,7 @@ class WatermarkConfigDataSource @Inject constructor(
     private fun configToJson(config: WatermarkConfig): JSONObject {
         return JSONObject().apply {
             put("template", config.template.name)
+            put("timeStyle", config.timeStyle.name)
             put("name", config.name)
             put("projectName", config.projectName)
             put("remark", config.remark)
@@ -127,6 +128,11 @@ class WatermarkConfigDataSource @Inject constructor(
                 WatermarkTemplate.valueOf(json.getString("template"))
             } catch (e: Exception) {
                 WatermarkTemplate.GENERAL
+            },
+            timeStyle = try {
+                TimeStyle.valueOf(json.optString("timeStyle", "DEFAULT"))
+            } catch (e: Exception) {
+                TimeStyle.DEFAULT
             },
             name = json.optString("name", ""),
             projectName = json.optString("projectName", ""),

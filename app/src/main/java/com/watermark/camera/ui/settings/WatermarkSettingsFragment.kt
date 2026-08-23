@@ -14,6 +14,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.watermark.camera.data.model.WatermarkConfig
 import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.data.model.WatermarkTemplate
+import com.watermark.camera.data.model.TimeStyle
 import com.watermark.camera.databinding.FragmentWatermarkSettingsBinding
 import com.watermark.camera.util.Logger
 import dagger.hilt.android.AndroidEntryPoint
@@ -75,7 +76,7 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
     // region UI Setup
 
     private fun setupTemplateSpinner() {
-        val templates = WatermarkTemplate.entries.toList()
+        val templates = WatermarkTemplate.menuEntries()
         val adapter = ArrayAdapter(
             requireContext(),
             android.R.layout.simple_spinner_item,

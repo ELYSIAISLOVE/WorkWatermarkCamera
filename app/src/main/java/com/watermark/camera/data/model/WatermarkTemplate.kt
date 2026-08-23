@@ -3,97 +3,88 @@ package com.watermark.camera.data.model
 import androidx.annotation.ColorInt
 
 /**
- * Predefined watermark templates.
- *
- * Each template defines the visual style of the watermark card.
+ * Watermark templates aligned with assets/design/watermark_templates.
+ * ENGINEERING/GENERAL kept for saved-config compatibility.
  */
 enum class WatermarkTemplate(
     val displayName: String,
     @ColorInt val backgroundColor: Int,
     @ColorInt val textColor: Int,
-    val description: String
+    val description: String,
+    val designAsset: String = ""
 ) {
-    /**
-     * Blue glassmorphism — for security/patrol scenarios.
-     */
+    PROPERTY_INSPECTION(
+        "物业巡检", 0xFF1B4F72.toInt(), 0xFFFFFFFF.toInt(),
+        "物业、巡检记录",
+        "design/watermark_templates/watermark_property_inspection.svg"
+    ),
     DUTY(
-        displayName = "执勤",
-        backgroundColor = 0xFF2B6AFF.toInt(),
-        textColor = 0xFFFFFFFF.toInt(),
-        description = "安保、巡逻"
+        "执勤", 0xFF2B6AFF.toInt(), 0xFFFFFFFF.toInt(),
+        "安保、巡逻",
+        "design/watermark_templates/watermark_duty.svg"
     ),
-
-    /**
-     * Orange glassmorphism — for construction/supervision scenarios.
-     */
-    ENGINEERING(
-        displayName = "工程",
-        backgroundColor = 0xFFFF8C42.toInt(),
-        textColor = 0xFF000000.toInt(),
-        description = "施工、监理"
-    ),
-
-    /**
-     * Green glassmorphism — for attendance/check-in scenarios.
-     */
     ATTENDANCE(
-        displayName = "考勤",
-        backgroundColor = 0xFF52C41A.toInt(),
-        textColor = 0xFFFFFFFF.toInt(),
-        description = "打卡、签到"
+        "考勤", 0xFF52C41A.toInt(), 0xFFFFFFFF.toInt(),
+        "打卡、签到",
+        "design/watermark_templates/watermark_attendance.svg"
     ),
-
-    /**
-     * Gray glassmorphism — general purpose.
-     */
+    WORK_REPORT(
+        "工作汇报", 0xFF7A4B2C.toInt(), 0xFFFFFFFF.toInt(),
+        "工作汇报记录",
+        "design/watermark_templates/watermark_work_report.svg"
+    ),
+    EVIDENCE(
+        "取证", 0xFF8B1A1A.toInt(), 0xFFFFFFFF.toInt(),
+        "拍照取证",
+        "design/watermark_templates/watermark_evidence.svg"
+    ),
+    ENGINEERING(
+        "工程", 0xFFFF8C42.toInt(), 0xFF000000.toInt(),
+        "施工、监理"
+    ),
     GENERAL(
-        displayName = "通用",
-        backgroundColor = 0xFF595959.toInt(),
-        textColor = 0xFFFFFFFF.toInt(),
-        description = "通用场景"
+        "通用", 0xFF595959.toInt(), 0xFFFFFFFF.toInt(),
+        "通用场景"
     );
 
     companion object {
-        /**
-         * Get template by display name.
-         */
-        fun fromDisplayName(name: String): WatermarkTemplate {
-            return entries.find { it.displayName == name } ?: GENERAL
-        }
+        fun fromDisplayName(name: String): WatermarkTemplate =
+            entries.find { it.displayName == name } ?: GENERAL
 
-        /**
-         * Get default template.
-         */
-        fun default(): WatermarkTemplate = GENERAL
+        fun default(): WatermarkTemplate = WORK_REPORT
+
+        fun menuEntries(): List<WatermarkTemplate> = listOf(
+            PROPERTY_INSPECTION, DUTY, ATTENDANCE, WORK_REPORT, EVIDENCE, ENGINEERING, GENERAL
+        )
     }
 }
 
-/**
- * Watermark color themes.
- */
 enum class WatermarkTheme(
     val displayName: String,
     @ColorInt val backgroundColor: Int,
     @ColorInt val textColor: Int
 ) {
-    DEEP_BLUE_GLASS(
-        displayName = "深蓝毛玻璃",
-        backgroundColor = 0xFF2B6AFF.toInt(),
-        textColor = 0xFFFFFFFF.toInt()
-    ),
-    DEEP_GRAY_GLASS(
-        displayName = "深灰毛玻璃",
-        backgroundColor = 0xFF595959.toInt(),
-        textColor = 0xFFFFFFFF.toInt()
-    ),
-    WHITE_GLASS(
-        displayName = "纯白毛玻璃",
-        backgroundColor = 0xFFFFFFFF.toInt(),
-        textColor = 0xFF000000.toInt()
-    ),
-    TRANSPARENT_BLACK(
-        displayName = "透明黑",
-        backgroundColor = 0x00000000,
-        textColor = 0xFFFFFFFF.toInt()
-    )
+    DEEP_BLUE_GLASS("深蓝毛玻璃", 0xFF2B6AFF.toInt(), 0xFFFFFFFF.toInt()),
+    DEEP_GRAY_GLASS("深灰毛玻璃", 0xFF595959.toInt(), 0xFFFFFFFF.toInt()),
+    WHITE_GLASS("纯白毛玻璃", 0xFFFFFFFF.toInt(), 0xFF000000.toInt()),
+    TRANSPARENT_BLACK("透明黑", 0x00000000, 0xFFFFFFFF.toInt())
+}
+
+/**
+ * Time digit styles — design assets reserved for future graphic rendering.
+ */
+enum class TimeStyle(
+    val displayName: String,
+    val designAsset: String
+) {
+    DEFAULT("默认", "design/time_styles/time_default.svg"),
+    DIGITAL_TUBE("数码管", "design/time_styles/time_digital_tube.svg"),
+    FLIP_CALENDAR("翻页日历", "design/time_styles/time_flip_calendar.svg"),
+    RETRO_SLASH("复古斜线", "design/time_styles/time_retro_slash.svg");
+
+    companion object {
+        fun default(): TimeStyle = DEFAULT
+        fun fromName(name: String): TimeStyle =
+            entries.find { it.name == name || it.displayName == name } ?: DEFAULT
+    }
 }

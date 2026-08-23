@@ -15,6 +15,22 @@
         android:layout_height="match_parent"
         app:scaleType="fitCenter" />
 
+    <!-- Rounded viewfinder mask (transparent hole + opaque corners) -->
+    <ImageView
+        android:id="@+id/previewRoundedMask"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:contentDescription="@null"
+        android:scaleType="fitXY"
+        android:src="@drawable/preview_mask_black_01"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+
     <!-- ==================== Focus Frame Overlay ==================== -->
     <View
         android:id="@+id/focusFrame"
