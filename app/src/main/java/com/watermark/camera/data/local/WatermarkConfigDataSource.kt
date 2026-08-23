@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.watermark.camera.data.model.WatermarkConfig
 import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.data.model.WatermarkTemplate
+import com.watermark.camera.data.model.TimeStyle
 import com.watermark.camera.util.Logger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
