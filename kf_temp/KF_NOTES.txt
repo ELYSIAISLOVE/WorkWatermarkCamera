@@ -1,0 +1,3 @@
+KF V5d-fix2
+- Remove R.id.saveQueueIndicator (only saveQueueIndicatorRoot exists in layout)
+- Rewrite WatermarkPickerSheet: no menuEntries(), explicit template list, config.template typed
