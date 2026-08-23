@@ -1,8 +1,0 @@
-app/src/main/java/com/watermark/camera/data/watermark/CoordinateMapper.kt
-app/src/main/java/com/watermark/camera/data/watermark/WatermarkSnapshot.kt
-app/src/main/java/com/watermark/camera/data/watermark/WatermarkOverlayView.kt
-app/src/main/java/com/watermark/camera/ui/camera/CameraTemplateStripAdapter.kt
-app/src/main/java/com/watermark/camera/ui/camera/CameraFragment.kt
-app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
-app/src/main/res/layout/fragment_camera.xml
-app/src/main/res/layout/item_camera_template.xml
