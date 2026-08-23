@@ -42,6 +42,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     ) { isGranted ->
         if (isGranted) {
             startCameraPreview()
+            applyRoundedPreviewClip()
             viewModel.onReturnToCamera()
             runCatching { binding.previewRoundedMask.visibility = android.view.View.VISIBLE }
             binding.root.post {
@@ -282,11 +283,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun handleEvent(event: CameraEvent) {
         when (event) {
             is CameraEvent.ShowToast -> {
-                val msg = event.message
-                if (msg.contains("水印") || msg.contains("已保存") || msg.contains("配置") ||
-                    msg.contains("设置已") || msg.contains("照片已")
-                ) return
-                android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_SHORT).show()
+                // All popup toasts suppressed per product requirement
             }
             is CameraEvent.ShutterFeedback -> {
                 playShutterAnimation()
@@ -569,20 +566,12 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         binding.sideThemeBlack.setOnClickListener {
             sideThemeDark = true
             binding.container.setBackgroundColor(android.graphics.Color.BLACK)
-            runCatching {
-                binding.previewRoundedMask.setImageResource(
-                    com.watermark.camera.R.drawable.preview_mask_black_01
-                )
-            }
+runCatching { binding.previewRoundedMask.setBackgroundResource(com.watermark.camera.R.drawable.bg_preview_rounded_stroke) }
         }
         binding.sideThemeWhite.setOnClickListener {
             sideThemeDark = false
             binding.container.setBackgroundColor(android.graphics.Color.WHITE)
-            runCatching {
-                binding.previewRoundedMask.setImageResource(
-                    com.watermark.camera.R.drawable.preview_mask_white_01
-                )
-            }
+runCatching { binding.previewRoundedMask.setBackgroundResource(com.watermark.camera.R.drawable.bg_preview_rounded_stroke) }
         }
         binding.sideAbout.setOnClickListener {
             android.app.AlertDialog.Builder(requireContext())
@@ -619,6 +608,23 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         binding.sideAntiFake.text = "防伪水印：" + if (sideAntiFake) "开" else "关"
     }
 
+
+
+    private fun applyRoundedPreviewClip() {
+        val preview = binding.previewView
+        preview.post {
+            val radius = 20f * resources.displayMetrics.density
+            preview.outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, radius)
+                }
+            }
+            preview.clipToOutline = true
+            // Watermark follows same visual bounds
+            binding.watermarkOverlay.outlineProvider = preview.outlineProvider
+            binding.watermarkOverlay.clipToOutline = true
+        }
+    }
 
     private fun performCaptureHaptic() {
         try {
