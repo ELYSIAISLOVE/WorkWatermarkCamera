@@ -1,0 +1,42 @@
+KF V5b — template strip + shutter snapshot (option 3)
+====================================================
+Repo: https://github.com/ELYSIYISLOVE/WorkWatermarkCamera
+Package: com.watermark.camera
+
+What changed
+------------
+1) Bottom horizontal template strip (RecyclerView)
+   - Short press 水印: show/hide strip above bottom bar
+   - Tap a chip: switch WatermarkTemplate, persist, update preview
+   - Long press 水印: open full WatermarkSettingsFragment (old behavior)
+
+2) Shutter-moment snapshot
+   - capturePhoto() freezes _watermarkConfigDisplay + location + orientation
+     at button press, then async process uses frozen values
+   - Drag updates live display flow so freeze sees current position
+
+3) New helpers
+   - CoordinateMapper.kt (preview/photo percent mapping utility)
+   - WatermarkSnapshot.kt (data class for freeze)
+   - CameraTemplateStripAdapter + item_camera_template.xml
+
+Not in this package
+-------------------
+- Full Group/Element tree from Demo
+- Changing CI workflows
+- SVG runtime render
+
+Test checklist (V5b)
+--------------------
+[ ] Compile assembleDebug
+[ ] 水印 short press shows/hides template chips
+[ ] Select 执勤/考勤 etc → preview color/title changes
+[ ] Long press 水印 still opens settings
+[ ] Drag watermark then rapid shoot → position matches preview
+[ ] GONE strip does not leave empty gap (preview fills to bottom bar)
+
+Apply methods
+-------------
+A) Issue + KF Auto Repair: paste zip URL in new Issue body
+B) Put kf_v5b_*.zip at repo root → run "Apply KF Update Package"
+   then "Build Stable APK"
