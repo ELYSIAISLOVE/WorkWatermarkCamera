@@ -1,0 +1,104 @@
+name: KF Auto Repair Build
+
+on:
+  issues:
+    types: [opened, labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check trigger
+        run: |
+          echo "KF workflow started"
+
+      - name: Read Issue
+        run: |
+          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"           https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number || inputs.issue_number }}           > issue.json
+
+      - name: Download KF zip
+        run: |
+          URL=$(grep -oE 'https?[^"]+\.zip' issue.json | head -1)
+
+          if [ -z "$URL" ]; then
+            echo "No KF zip found"
+            exit 1
+          fi
+
+          curl -L --max-time 120 "$URL" -o kf_patch.zip
+
+      - name: Validate package
+        run: |
+          mkdir kf_temp
+          unzip -q kf_patch.zip -d kf_temp
+
+          if [ ! -f kf_temp/kf_manifest.txt ]; then
+            echo "Invalid KF package"
+            exit 1
+          fi
+
+      - name: Apply patch
+        run: |
+          while read FILE
+          do
+            case "$FILE" in
+              .github/workflows/*|README*|*.md)
+                continue
+                ;;
+            esac
+
+            mkdir -p "$(dirname "$FILE")"
+            cp "kf_temp/$FILE" "$FILE"
+
+          done < kf_temp/kf_manifest.txt
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Commit success
+        if: success()
+        run: |
+          git config user.name KF-Bot
+          git config user.email kf-bot@github.com
+          git add .
+          git commit -m "Apply KF patch"
+          git push
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KF-build-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 3
+
+      - name: Comment result
+        if: always()
+        run: |
+          echo "Workflow finished"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf kf_patch.zip
+          rm -rf kf_temp
+          rm -rf issue.json
