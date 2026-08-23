@@ -11,7 +11,6 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.ScaleGestureDetector
 import android.view.View
-import androidx.recyclerview.widget.LinearLayoutManager
 import android.view.ViewGroup
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
@@ -115,13 +114,15 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
         // Watermark: short click toggles template strip; long click opens full settings
         binding.btnWatermark.setOnClickListener {
-            toggleTemplateStrip()
+            openWatermarkPickerSheet()
         }
         binding.btnWatermark.setOnLongClickListener {
             openWatermarkSettings()
             true
         }
-        setupTemplateStrip()
+        // Legacy horizontal strip kept in layout but hidden; sheet is primary picker
+        runCatching { binding.templateStrip.visibility = View.GONE }
+        setupSaveQueueIndicator()
 
         // Collage button click
         binding.btnCollageBottom.setOnClickListener {
@@ -466,37 +467,78 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
 
-    private var templateStripAdapter: CameraTemplateStripAdapter? = null
-    private var templateStripVisible = false
 
-    private fun setupTemplateStrip() {
-        val rv = binding.templateStrip
-        rv.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
-        val adapter = CameraTemplateStripAdapter { template ->
-            viewModel.applyTemplate(template)
-            binding.watermarkOverlay.watermarkConfig =
-                binding.watermarkOverlay.watermarkConfig.copy(template = template, showLocation = true, fontScale = 2.5f)
+
+
+
+    private fun openWatermarkPickerSheet() {
+        val sheet = WatermarkPickerSheet.newInstance()
+        sheet.initialConfig = binding.watermarkOverlay.watermarkConfig
+        sheet.onSelectionChanged = { cfg ->
+            binding.watermarkOverlay.watermarkConfig = cfg
+            viewModel.applyConfigFromPicker(cfg)
         }
-        templateStripAdapter = adapter
-        rv.adapter = adapter
-        // Sync selection with current config when strip shown
+        sheet.show(parentFragmentManager, "WatermarkPicker")
+    }
+
+    private val queueSlotViews = mutableListOf<View>()
+
+    private fun setupSaveQueueIndicator() {
+        queueSlotViews.clear()
+        val ids = intArrayOf(
+            com.watermark.camera.R.id.queueSlot0,
+            com.watermark.camera.R.id.queueSlot1,
+            com.watermark.camera.R.id.queueSlot2,
+            com.watermark.camera.R.id.queueSlot3,
+            com.watermark.camera.R.id.queueSlot4,
+            com.watermark.camera.R.id.queueSlot5,
+            com.watermark.camera.R.id.queueSlot6,
+            com.watermark.camera.R.id.queueSlot7,
+            com.watermark.camera.R.id.queueSlot8,
+            com.watermark.camera.R.id.queueSlot9
+        )
+        for (id in ids) {
+            val slot = binding.root.findViewById<View>(id)
+            if (slot != null) queueSlotViews.add(slot)
+        }
+        runCatching {
+            val indicator = binding.root.findViewById<View>(com.watermark.camera.R.id.saveQueueIndicatorRoot)
+                ?: binding.root.findViewById<View>(com.watermark.camera.R.id.saveQueueIndicator)
+            indicator?.visibility = View.VISIBLE
+            indicator?.isClickable = false
+            indicator?.isFocusable = false
+        }
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.watermarkConfigDisplay.collect { cfg ->
-                templateStripAdapter?.setSelected(cfg.template)
+            viewModel.saveQueueDepth.collect { depth ->
+                updateQueueIndicator(depth)
             }
         }
     }
 
-    private fun toggleTemplateStrip() {
-        templateStripVisible = !templateStripVisible
-        binding.templateStrip.visibility = if (templateStripVisible) View.VISIBLE else View.GONE
+    private fun updateQueueIndicator(depth: Int) {
+        val d = depth.coerceIn(0, 10)
+        val empty = 0x33FFFFFF
+        val filled = if (d >= 10) 0xFFFF4444.toInt() else 0xFF4CAF50.toInt()
+        // slot0 = bottom = first filled
+        queueSlotViews.forEachIndexed { index, view ->
+            // index 0 is queueSlot0 bottom
+            view.setBackgroundColor(if (index < d) filled else empty)
+        }
+        // ensure indicator stays visible and non-blocking
+        runCatching {
+            binding.root.findViewById<View>(com.watermark.camera.R.id.saveQueueIndicatorRoot)?.let {
+                it.visibility = View.VISIBLE
+                it.isClickable = false
+                it.isFocusable = false
+            }
+        }
     }
 
     private fun openWatermarkSettings() {
         val settingsFragment = com.watermark.camera.ui.settings.WatermarkSettingsFragment.newInstance()
         settingsFragment.onConfigSaved = { config ->
             binding.watermarkOverlay.watermarkConfig = config
-            templateStripAdapter?.setSelected(config.template)
+            viewModel.applyConfigFromPicker(config)
         }
         settingsFragment.show(parentFragmentManager, "WatermarkSettings")
     }

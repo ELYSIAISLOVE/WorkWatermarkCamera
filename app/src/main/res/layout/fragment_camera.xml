@@ -31,16 +31,11 @@
 
 
     <!-- Horizontal template strip (toggle via 水印 button); height 0 when GONE via code optional -->
+    <!-- legacy strip: kept GONE for binding compatibility -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/templateStrip"
         android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:background="#E6101010"
-        android:clipToPadding="false"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
+        android:layout_height="0dp"
         android:visibility="gone"
         app:layout_constraintBottom_toTopOf="@id/bottomBar"
         app:layout_constraintStart_toStartOf="parent"
@@ -184,7 +179,7 @@
         android:layout_height="0dp"
         app:scaleType="fillCenter"
         app:layout_constraintTop_toBottomOf="@id/topBar"
-        app:layout_constraintBottom_toTopOf="@id/templateStrip"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
@@ -201,7 +196,38 @@
         app:layout_constraintStart_toStartOf="@id/previewView"
         app:layout_constraintEnd_toEndOf="@id/previewView" />
 
-    <com.watermark.camera.data.watermark.WatermarkOverlayView
+
+    <!-- Save queue 10-slot meter (left of preview, non-blocking) -->
+    <!-- Save queue 10-slot meter (left of preview, non-blocking) -->
+    <LinearLayout
+        android:id="@+id/saveQueueIndicatorRoot"
+        android:layout_width="14dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:background="#66000000"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:clickable="false"
+        android:focusable="false"
+        app:layout_constraintTop_toTopOf="@id/previewView"
+        app:layout_constraintBottom_toBottomOf="@id/previewView"
+        app:layout_constraintStart_toStartOf="@id/previewView"
+        app:layout_constraintVertical_bias="0.35">
+        <View android:id="@+id/queueSlot9" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+        <View android:id="@+id/queueSlot8" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+        <View android:id="@+id/queueSlot7" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+        <View android:id="@+id/queueSlot6" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+        <View android:id="@+id/queueSlot5" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+        <View android:id="@+id/queueSlot4" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+        <View android:id="@+id/queueSlot3" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+        <View android:id="@+id/queueSlot2" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+        <View android:id="@+id/queueSlot1" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+        <View android:id="@+id/queueSlot0" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="#33FFFFFF" />
+    </LinearLayout>
+
+<com.watermark.camera.data.watermark.WatermarkOverlayView
         android:id="@+id/watermarkOverlay"
         android:layout_width="0dp"
         android:layout_height="0dp"

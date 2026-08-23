@@ -5,6 +5,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.watermark.camera.data.model.WatermarkConfig
 import com.watermark.camera.data.model.WatermarkTemplate
+import com.watermark.camera.data.model.TimeStyle
 import com.watermark.camera.util.OrientationHelper
 import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.data.watermark.WatermarkSnapshot
@@ -26,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.Semaphore
 import javax.inject.Inject
 
 /**
@@ -60,6 +62,11 @@ class CameraViewModel @Inject constructor(
     private var locationSampleJob: Job? = null
 
     private val saveQueueCount = AtomicInteger(0)
+    /** Occupied slots 0..MAX_SAVE_QUEUE for left-side meter. */
+    private val _saveQueueDepth = MutableStateFlow(0)
+    val saveQueueDepth: kotlinx.coroutines.flow.StateFlow<Int> = _saveQueueDepth
+    /** Max concurrent watermark/encode workers. */
+    private val processSemaphore = Semaphore(5)
 
     @Volatile
     private var currentDeviceOrientation: OrientationHelper.DeviceOrientation =
@@ -137,6 +144,12 @@ class CameraViewModel @Inject constructor(
             return
         }
 
+        // Queue full: no shutter reaction (indicator shows 10/10)
+        if (saveQueueCount.get() >= MAX_SAVE_QUEUE) {
+            _saveQueueDepth.value = MAX_SAVE_QUEUE
+            return
+        }
+
         if (!capturePhotoUseCase.isCaptureAvailable()) {
             val remaining = capturePhotoUseCase.getRemainingCooldownMs()
             if (remaining > 0) {
@@ -164,14 +177,17 @@ class CameraViewModel @Inject constructor(
                 // Unlock shutter immediately for continuous shooting
                 updateState { CameraState.Previewing(flashMode = flashMode, aspectRatio = "4:3") }
 
-                if (saveQueueCount.get() >= MAX_SAVE_QUEUE) {
+                // Reserve a queue slot (already checked before shutter; re-check race)
+                if (saveQueueCount.incrementAndGet() > MAX_SAVE_QUEUE) {
+                    saveQueueCount.decrementAndGet()
+                    _saveQueueDepth.value = saveQueueCount.get().coerceIn(0, MAX_SAVE_QUEUE)
                     try { captureResult.close() } catch (_: Exception) {}
-                    sendEvent(CameraEvent.ShowToast("保存队列已满，请稍候"))
                     return@onSuccess
                 }
-                saveQueueCount.incrementAndGet()
-                // Fully async: watermark + encode + MediaStore on Default (uses shutter freeze)
+                _saveQueueDepth.value = saveQueueCount.get().coerceIn(0, MAX_SAVE_QUEUE)
+                // Up to 5 concurrent process workers
                 viewModelScope.launch(Dispatchers.Default) {
+                    processSemaphore.acquireUninterruptibly()
                     try {
                         val locationData: com.watermark.camera.domain.repository.LocationData? = null
 
@@ -196,7 +212,9 @@ class CameraViewModel @Inject constructor(
                         try { captureResult.close() } catch (_: Exception) {}
                         sendEvent(CameraEvent.ShowToast("处理失败: ${e.message ?: "未知错误"}"))
                     } finally {
-                        saveQueueCount.decrementAndGet()
+                        processSemaphore.release()
+                        val left = saveQueueCount.decrementAndGet().coerceAtLeast(0)
+                        _saveQueueDepth.value = left.coerceIn(0, MAX_SAVE_QUEUE)
                     }
                 }
             }.onFailure { e ->
@@ -347,6 +365,24 @@ class CameraViewModel @Inject constructor(
     /**
      * Apply template from camera bottom strip; persist and refresh preview flow.
      */
+
+    fun applyTimeStyle(style: TimeStyle) {
+        viewModelScope.launch {
+            val current = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
+            val updated = current.copy(timeStyle = style, showLocation = true, fontScale = 2.5f)
+            saveWatermarkConfigUseCase(updated)
+            _watermarkConfigDisplay.value = updated
+        }
+    }
+
+    fun applyConfigFromPicker(config: WatermarkConfig) {
+        viewModelScope.launch {
+            val updated = config.copy(showLocation = true, fontScale = 2.5f)
+            saveWatermarkConfigUseCase(updated)
+            _watermarkConfigDisplay.value = updated
+        }
+    }
+
     fun applyTemplate(template: WatermarkTemplate) {
         viewModelScope.launch {
             val current = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
