@@ -157,4 +157,10 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refresh()
+    }
+
 }

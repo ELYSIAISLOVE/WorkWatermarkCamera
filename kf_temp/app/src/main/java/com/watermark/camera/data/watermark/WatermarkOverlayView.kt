@@ -84,7 +84,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
             areaHeight = height.toFloat(),
             config = watermarkConfig,
             locationText = locationText,
-            deviceOrientation = deviceOrientation,
+            deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
             timeMs = System.currentTimeMillis()
         )
     }
@@ -148,7 +148,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
         return WatermarkSnapshot(
             config = watermarkConfig.copy(showLocation = true, fontScale = 2.5f),
             locationText = locationText,
-            deviceOrientation = deviceOrientation,
+            deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
             capturedAtMs = System.currentTimeMillis()
         )
     }

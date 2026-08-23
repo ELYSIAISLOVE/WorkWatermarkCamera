@@ -3,9 +3,10 @@ app/src/main/java/com/watermark/camera/data/watermark/WatermarkSnapshot.kt
 app/src/main/java/com/watermark/camera/data/watermark/WatermarkRenderer.kt
 app/src/main/java/com/watermark/camera/data/watermark/WatermarkOverlayView.kt
 app/src/main/java/com/watermark/camera/data/watermark/WatermarkCanvas.kt
+app/src/main/java/com/watermark/camera/data/processing/ImageProcessingPipeline.kt
 app/src/main/java/com/watermark/camera/ui/watermark/WatermarkPickerSheet.kt
-app/src/main/java/com/watermark/camera/ui/camera/CameraFragment.kt
 app/src/main/java/com/watermark/camera/ui/camera/CameraViewModel.kt
+app/src/main/java/com/watermark/camera/ui/camera/CameraFragment.kt
 app/src/main/java/com/watermark/camera/ui/gallery/GalleryFragment.kt
 app/src/main/java/com/watermark/camera/ui/gallery/GalleryViewModel.kt
 app/src/main/java/com/watermark/camera/ui/gallery/GalleryAdapter.kt

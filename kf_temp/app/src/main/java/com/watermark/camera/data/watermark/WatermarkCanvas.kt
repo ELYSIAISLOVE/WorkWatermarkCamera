@@ -7,8 +7,8 @@ import com.watermark.camera.util.Logger
 import com.watermark.camera.util.OrientationHelper
 
 /**
- * Photo burn-in entry. Delegates all drawing to [WatermarkRenderer]
- * so output matches the live overlay for the same config + area math.
+ * Photo burn-in. Same [WatermarkRenderer] as live preview.
+ * [capturedAtMs] must be shutter time so clock matches the freeze.
  */
 class WatermarkCanvas {
 
@@ -23,15 +23,16 @@ class WatermarkCanvas {
         config: WatermarkConfig,
         locationStr: String = "",
         deviceOrientation: OrientationHelper.DeviceOrientation =
-            OrientationHelper.DeviceOrientation.PORTRAIT
+            OrientationHelper.DeviceOrientation.PORTRAIT,
+        capturedAtMs: Long = System.currentTimeMillis()
     ): Bitmap {
         return drawWatermark(
-            sourceBitmap = sourceBitmap,
-            snapshot = WatermarkSnapshot(
-                config = config.copy(showLocation = true, fontScale = 2.5f),
+            sourceBitmap,
+            WatermarkSnapshot(
+                config = config,
                 locationText = locationStr,
                 deviceOrientation = deviceOrientation,
-                capturedAtMs = System.currentTimeMillis()
+                capturedAtMs = capturedAtMs
             )
         )
     }
@@ -45,28 +46,34 @@ class WatermarkCanvas {
             areaHeight = resultBitmap.height.toFloat(),
             config = snapshot.config,
             locationText = snapshot.locationText,
-            deviceOrientation = snapshot.deviceOrientation,
+            deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
             timeMs = snapshot.capturedAtMs
         )
         if (metrics != null) {
             Logger.i(
                 TAG,
-                "Watermark drawn via unified renderer: ${metrics.lines.size} lines " +
-                    "at (${metrics.left.toInt()},${metrics.top.toInt()}) " +
+                "Watermark: ${metrics.lines.size} lines font=${metrics.fontSize.toInt()} " +
                     "${resultBitmap.width}x${resultBitmap.height}"
             )
         }
         return resultBitmap
     }
 
+    /**
+     * Estimate watermark card size for preview layout / ApplyWatermarkUseCase.
+     * Uses the same measure path as draw so proportions stay consistent.
+     */
     fun estimateDimensions(
         photoWidth: Int,
         config: WatermarkConfig,
         locationStr: String = ""
     ): Pair<Int, Int> {
+        val w = photoWidth.coerceAtLeast(1).toFloat()
+        // Approximate portrait area when only width is known
+        val h = w * 4f / 3f
         val m = renderer.measure(
-            areaWidth = photoWidth.toFloat(),
-            areaHeight = photoWidth * 4f / 3f,
+            areaWidth = w,
+            areaHeight = h,
             config = config,
             locationText = locationStr
         ) ?: return 0 to 0

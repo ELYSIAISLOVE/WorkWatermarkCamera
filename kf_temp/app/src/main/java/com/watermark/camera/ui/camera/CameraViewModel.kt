@@ -161,7 +161,7 @@ class CameraViewModel @Inject constructor(
         // Freeze watermark the instant shutter is pressed (before capture/async)
         val frozenConfig = _watermarkConfigDisplay.value.copy(
             showLocation = true,
-            fontScale = 2.5f
+            
         )
         val frozenLocation = _locationDisplay.value.ifBlank { "定位中…" }
         val frozenOrientation = currentDeviceOrientation
@@ -336,7 +336,7 @@ class CameraViewModel @Inject constructor(
             customX = normX.coerceIn(0f, 1f),
             customY = normY.coerceIn(0f, 1f),
             showLocation = true,
-            fontScale = 2.5f
+            
         )
         _watermarkConfigDisplay.value = live
         viewModelScope.launch(Dispatchers.IO) {
@@ -368,17 +368,18 @@ class CameraViewModel @Inject constructor(
     fun applyTimeStyle(style: TimeStyle) {
         viewModelScope.launch {
             val current = getWatermarkConfigUseCase().getOrDefault(WatermarkConfig())
-            val updated = current.copy(timeStyle = style, showLocation = true, fontScale = 2.5f)
+            val updated = current.copy(timeStyle = style, showLocation = true)
             saveWatermarkConfigUseCase(updated)
             _watermarkConfigDisplay.value = updated
         }
     }
 
     fun applyConfigFromPicker(config: WatermarkConfig) {
+        val updated = config.copy(showLocation = true)
+        // Sync UI immediately so preview/shutter match selection (don't wait for disk)
+        _watermarkConfigDisplay.value = updated
         viewModelScope.launch {
-            val updated = config.copy(showLocation = true, fontScale = 2.5f)
             saveWatermarkConfigUseCase(updated)
-            _watermarkConfigDisplay.value = updated
         }
     }
 
@@ -388,7 +389,7 @@ class CameraViewModel @Inject constructor(
             val updated = current.copy(
                 template = template,
                 showLocation = true,
-                fontScale = 2.5f
+                
             )
             saveWatermarkConfigUseCase(updated)
             _watermarkConfigDisplay.value = updated
@@ -399,7 +400,7 @@ class CameraViewModel @Inject constructor(
      * Push live overlay config into display flow (used during drag / before shutter).
      */
     fun applyLiveOverlayConfig(config: WatermarkConfig) {
-        _watermarkConfigDisplay.value = config.copy(showLocation = true, fontScale = 2.5f)
+        _watermarkConfigDisplay.value = config.copy(showLocation = true)
     }
 
     fun reloadWatermarkConfig() {
@@ -410,7 +411,7 @@ class CameraViewModel @Inject constructor(
                 cfg = cfg.copy(showLocation = true)
                 saveWatermarkConfigUseCase(cfg)
             }
-            _watermarkConfigDisplay.value = cfg.copy(fontScale = 2.5f, showLocation = true)
+            _watermarkConfigDisplay.value = cfg.copy(showLocation = true)
         }
     }
 

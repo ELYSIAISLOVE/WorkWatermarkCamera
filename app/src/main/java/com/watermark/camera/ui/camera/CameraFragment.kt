@@ -53,14 +53,14 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 binding.watermarkOverlay.locationText =
                     viewModel.locationDisplay.value.ifBlank { "定位中…" }
                 binding.watermarkOverlay.watermarkConfig =
-                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true, fontScale = 2.5f)
+                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true)
                 binding.watermarkOverlay.invalidate()
             }
             binding.root.postDelayed({
                 binding.watermarkOverlay.locationText =
                     viewModel.locationDisplay.value.ifBlank { "定位中…" }
                 binding.watermarkOverlay.watermarkConfig =
-                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true, fontScale = 2.5f)
+                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true)
                 binding.watermarkOverlay.invalidate()
             }, 200L)
         } else {
@@ -277,7 +277,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
     private suspend fun observeWatermarkConfigDisplay() {
         viewModel.watermarkConfigDisplay.collect { config ->
-            binding.watermarkOverlay.watermarkConfig = config.copy(showLocation = true, fontScale = 2.5f)
+            binding.watermarkOverlay.watermarkConfig = config.copy(showLocation = true)
         }
     }
 
@@ -426,6 +426,25 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         ) {
             startCameraPreview()
             viewModel.onReturnToCamera()
+            // Force overlay to match persisted/display config after returning from gallery/settings
+            binding.root.post {
+                runCatching {
+                    val cfg = viewModel.watermarkConfigDisplay.value.copy(showLocation = true)
+                    binding.watermarkOverlay.watermarkConfig = cfg
+                    binding.watermarkOverlay.locationText =
+                        viewModel.locationDisplay.value.ifBlank { "定位中…" }
+                    binding.watermarkOverlay.invalidate()
+                }
+            }
+            binding.root.postDelayed({
+                runCatching {
+                    val cfg = viewModel.watermarkConfigDisplay.value.copy(showLocation = true)
+                    binding.watermarkOverlay.watermarkConfig = cfg
+                    binding.watermarkOverlay.locationText =
+                        viewModel.locationDisplay.value.ifBlank { "定位中…" }
+                    binding.watermarkOverlay.invalidate()
+                }
+            }, 400)
         }
         requireView().isFocusableInTouchMode = true
         requireView().requestFocus()
@@ -476,8 +495,10 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         val sheet = WatermarkPickerSheet.newInstance()
         sheet.initialConfig = binding.watermarkOverlay.watermarkConfig
         sheet.onSelectionChanged = { cfg ->
-            binding.watermarkOverlay.watermarkConfig = cfg
-            viewModel.applyConfigFromPicker(cfg)
+            val synced = cfg.copy(showLocation = true)
+            binding.watermarkOverlay.watermarkConfig = synced
+            binding.watermarkOverlay.invalidate()
+            viewModel.applyConfigFromPicker(synced)
         }
         sheet.show(parentFragmentManager, "WatermarkPicker")
     }

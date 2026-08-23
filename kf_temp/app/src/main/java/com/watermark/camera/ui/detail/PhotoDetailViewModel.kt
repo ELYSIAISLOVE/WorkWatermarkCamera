@@ -61,33 +61,60 @@ class PhotoDetailViewModel @Inject constructor(
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     fun setPhotoList(startUri: String, all: List<String>) {
-        val list = if (all.isEmpty()) listOf(startUri) else all
+        val list = if (all.isEmpty()) listOf(startUri) else all.distinct()
         _uriList.value = list
         val i = list.indexOf(startUri).coerceAtLeast(0)
         _index.value = i
         showAt(i)
     }
 
-    fun next() {
+    fun next() = move(+1)
+
+    fun prev() = move(-1)
+
+    private fun move(delta: Int) {
         val list = _uriList.value
         if (list.isEmpty()) return
-        val i = (_index.value + 1) % list.size
-        _index.value = i
-        showAt(i)
+        var i = _index.value
+        repeat(list.size) {
+            i = (i + delta + list.size) % list.size
+            if (uriExists(list[i])) {
+                _index.value = i
+                showAt(i)
+                return
+            }
+        }
+        _errorMessage.value = "没有可显示的照片"
+        _deleteSuccess.value = true
     }
 
-    fun prev() {
-        val list = _uriList.value
-        if (list.isEmpty()) return
-        val i = if (_index.value <= 0) list.lastIndex else _index.value - 1
-        _index.value = i
-        showAt(i)
+    private fun uriExists(uriStr: String): Boolean {
+        return try {
+            val uri = Uri.parse(uriStr)
+            context.contentResolver.openInputStream(uri)?.use { true } ?: false
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun showAt(i: Int) {
         val list = _uriList.value
         if (i !in list.indices) return
-        val uri = Uri.parse(list[i])
+        val uriStr = list[i]
+        if (!uriExists(uriStr)) {
+            // Drop missing and jump
+            val cleaned = list.filter { uriExists(it) }
+            _uriList.value = cleaned
+            if (cleaned.isEmpty()) {
+                _deleteSuccess.value = true
+                return
+            }
+            val ni = i.coerceAtMost(cleaned.lastIndex)
+            _index.value = ni
+            showAt(ni)
+            return
+        }
+        val uri = Uri.parse(uriStr)
         _photoUri.value = uri
         _verificationResult.value = null
         loadExif(uri)
@@ -102,7 +129,7 @@ class PhotoDetailViewModel @Inject constructor(
                 onSuccess = { _metadata.value = it },
                 onFailure = { e ->
                     _metadata.value = null
-                    _errorMessage.value = "读取信息失败: ${e.message}"
+                    // Don't toast hard errors for transient; keep soft
                     Logger.e(TAG, "EXIF failed", e)
                 }
             )
@@ -115,11 +142,17 @@ class PhotoDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isVerifying.value = true
             _verificationResult.value = null
+            if (!uriExists(uri.toString())) {
+                _verificationResult.value = VerificationResult.Failed("文件不存在")
+                _isVerifying.value = false
+                return@launch
+            }
             val result = metadataRepository.verifyIntegrity(uri)
             result.fold(
                 onSuccess = { _verificationResult.value = it },
                 onFailure = { e ->
-                    _errorMessage.value = "验真失败: ${e.message}"
+                    _verificationResult.value =
+                        VerificationResult.Failed(e.message ?: "验真失败")
                     Logger.e(TAG, "verify failed", e)
                 }
             )
@@ -128,7 +161,12 @@ class PhotoDetailViewModel @Inject constructor(
     }
 
     fun sharePhoto() {
-        _shareEvent.value = _photoUri.value
+        val uri = _photoUri.value ?: return
+        if (!uriExists(uri.toString())) {
+            _errorMessage.value = "文件不存在，无法分享"
+            return
+        }
+        _shareEvent.value = uri
     }
 
     fun consumeShareEvent() {
@@ -144,31 +182,22 @@ class PhotoDetailViewModel @Inject constructor(
         val uriStr = uri.toString()
         viewModelScope.launch {
             _isLoading.value = true
-            val ok = withContext(Dispatchers.IO) {
-                try {
-                    context.contentResolver.delete(uri, null, null)
-                    databaseRepository.deletePhoto(uriStr)
-                    true
-                } catch (e: Exception) {
-                    Logger.e(TAG, "delete failed", e)
-                    false
-                }
+            withContext(Dispatchers.IO) {
+                runCatching { context.contentResolver.delete(uri, null, null) }
+                runCatching { databaseRepository.deletePhoto(uriStr) }
             }
             _isLoading.value = false
-            if (ok) {
-                val list = _uriList.value.toMutableList()
-                list.remove(uriStr)
-                if (list.isEmpty()) {
-                    _deleteSuccess.value = true
-                } else {
-                    _uriList.value = list
-                    val i = _index.value.coerceAtMost(list.lastIndex)
-                    _index.value = i
-                    showAt(i)
-                    _errorMessage.value = "已删除"
-                }
+            val list = _uriList.value.toMutableList()
+            list.removeAll { it == uriStr }
+            if (list.isEmpty()) {
+                _uriList.value = emptyList()
+                _deleteSuccess.value = true
             } else {
-                _errorMessage.value = "删除失败"
+                _uriList.value = list
+                val i = _index.value.coerceAtMost(list.lastIndex)
+                _index.value = i
+                _errorMessage.value = "已删除"
+                showAt(i)
             }
         }
     }

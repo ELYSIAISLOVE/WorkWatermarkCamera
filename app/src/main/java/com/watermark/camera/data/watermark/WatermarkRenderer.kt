@@ -2,29 +2,31 @@ package com.watermark.camera.data.watermark
 
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.Typeface
 import com.watermark.camera.data.model.TimeStyle
 import com.watermark.camera.data.model.WatermarkConfig
+import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.util.OrientationHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * Single drawing engine for both live preview and photo burn-in.
- * Overlay and Canvas must only call [draw] — no duplicate layout math.
+ * Single draw path for preview Overlay and saved JPEG.
+ * Scale is always: shortSide / BASE_SHORT * config.fontScale — identical for both surfaces.
+ * No device-orientation canvas rotation (bitmap/preview already upright).
  */
 class WatermarkRenderer {
 
     companion object {
-        private const val BASE_WIDTH = 1080f
+        /** Design reference short side (px). */
+        private const val BASE_SHORT = 1080f
         private const val BASE_FONT_SIZE = 28f
         private const val BASE_LINE_SPACING = 8f
         private const val BASE_PADDING = 20f
         private const val BASE_CARD_RADIUS = 16f
-        private const val MIN_FONT = 12f
-        private const val MAX_FONT = 96f
+        private const val MIN_FONT = 10f
+        private const val MAX_FONT = 120f
     }
 
     private val glassRenderer = GlassmorphismRenderer()
@@ -45,10 +47,6 @@ class WatermarkRenderer {
         val lines: List<String>
     )
 
-    /**
-     * Draw watermark into [canvas] within [areaWidth] x [areaHeight].
-     * Same code path for OverlayView and saved JPEG.
-     */
     fun draw(
         canvas: Canvas,
         areaWidth: Float,
@@ -61,17 +59,7 @@ class WatermarkRenderer {
     ): CardMetrics? {
         if (areaWidth <= 0f || areaHeight <= 0f) return null
         val metrics = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
-
-        val rotation = uprightRotation(deviceOrientation)
-        val save = canvas.save()
-        if (rotation != 0f) {
-            canvas.rotate(
-                rotation,
-                metrics.left + metrics.width / 2f,
-                metrics.top + metrics.height / 2f
-            )
-        }
-
+        // deviceOrientation kept in signature for API compat; do NOT rotate — preview & JPEG are upright
         glassRenderer.drawGlassCard(
             canvas = canvas,
             left = metrics.left,
@@ -80,18 +68,17 @@ class WatermarkRenderer {
             height = metrics.height.toInt().coerceAtLeast(1),
             radius = metrics.radius,
             borderWidth = 1f,
-            transparency = config.transparency,
+            transparency = config.transparency.coerceIn(0.3f, 1f),
             template = config.template
         )
-
         textPaint.textSize = metrics.fontSize
         textPaint.color = textColor(config)
-        var y = metrics.top + metrics.padding + metrics.fontSize
+        var y = metrics.top + metrics.padding - textPaint.ascent()
+        val x = metrics.left + metrics.padding
         for (line in metrics.lines) {
-            canvas.drawText(line, metrics.left + metrics.padding, y, textPaint)
+            canvas.drawText(line, x, y, textPaint)
             y += metrics.fontSize + metrics.lineSpacing
         }
-        canvas.restoreToCount(save)
         return metrics
     }
 
@@ -105,33 +92,57 @@ class WatermarkRenderer {
         val lines = buildLines(config, locationText, timeMs)
         if (lines.isEmpty()) return null
 
-        val scale = areaWidth / BASE_WIDTH
-        val fontScale = 2.5f
-        val fontSize = (BASE_FONT_SIZE * scale * fontScale).coerceIn(MIN_FONT, MAX_FONT)
-        val padding = (BASE_PADDING * scale).coerceAtLeast(8f)
-        val lineSpacing = (BASE_LINE_SPACING * scale).coerceAtLeast(2f)
-        val radius = (BASE_CARD_RADIUS * scale).coerceAtLeast(8f)
+        // Same formula for preview and photo: relative to short side of the draw area
+        val shortSide = minOf(areaWidth, areaHeight)
+        val scale = (shortSide / BASE_SHORT).coerceAtLeast(0.25f)
+        val userScale = config.fontScale.coerceIn(0.5f, 8f)
+        val fontSize = (BASE_FONT_SIZE * scale * userScale).coerceIn(MIN_FONT, MAX_FONT)
+        val lineSpacing = BASE_LINE_SPACING * scale * userScale
+        val padding = BASE_PADDING * scale
+        val radius = BASE_CARD_RADIUS * scale
 
         textPaint.textSize = fontSize
-        var maxW = 0f
-        val bounds = Rect()
+        var maxTextW = 0f
         for (line in lines) {
-            textPaint.getTextBounds(line, 0, line.length, bounds)
-            maxW = maxOf(maxW, bounds.width().toFloat())
+            maxTextW = maxOf(maxTextW, textPaint.measureText(line))
         }
-        val textH = fontSize * lines.size + lineSpacing * (lines.size - 1)
-        val cardW = maxW + padding * 2
-        val cardH = textH + padding * 2
+        val cardW = (maxTextW + padding * 2f).coerceAtMost(areaWidth * 0.95f)
+        val cardH = padding * 2f + lines.size * fontSize + (lines.size - 1).coerceAtLeast(0) * lineSpacing
 
-        val (left, top) = WatermarkLayout.cardOrigin(
+        val (left, top) = resolveOrigin(
             config = config,
             areaWidth = areaWidth,
             areaHeight = areaHeight,
             cardWidth = cardW,
-            cardHeight = cardH,
-            margin = 0f
+            cardHeight = cardH
         )
         return CardMetrics(left, top, cardW, cardH, padding, fontSize, lineSpacing, radius, lines)
+    }
+
+    private fun resolveOrigin(
+        config: WatermarkConfig,
+        areaWidth: Float,
+        areaHeight: Float,
+        cardWidth: Float,
+        cardHeight: Float
+    ): Pair<Float, Float> {
+        val margin = minOf(areaWidth, areaHeight) * 0.03f
+        val cx = config.customX
+        val cy = config.customY
+        if (cx != null && cy != null) {
+            val left = (cx * areaWidth).coerceIn(0f, (areaWidth - cardWidth).coerceAtLeast(0f))
+            val top = (cy * areaHeight).coerceIn(0f, (areaHeight - cardHeight).coerceAtLeast(0f))
+            return left to top
+        }
+        return when (config.position) {
+            WatermarkPosition.TOP_LEFT -> margin to margin
+            WatermarkPosition.TOP_RIGHT -> (areaWidth - cardWidth - margin) to margin
+            WatermarkPosition.BOTTOM_RIGHT ->
+                (areaWidth - cardWidth - margin) to (areaHeight - cardHeight - margin)
+            WatermarkPosition.CENTER ->
+                ((areaWidth - cardWidth) / 2f) to ((areaHeight - cardHeight) / 2f)
+            else -> margin to (areaHeight - cardHeight - margin) // BOTTOM_LEFT default
+        }
     }
 
     private fun textColor(config: WatermarkConfig): Int = when (config.timeStyle) {
@@ -139,13 +150,6 @@ class WatermarkRenderer {
         TimeStyle.RETRO_SLASH -> 0xFFD4A574.toInt()
         TimeStyle.FLIP_CALENDAR -> 0xFFFFFFFF.toInt()
         else -> config.template.textColor
-    }
-
-    private fun uprightRotation(o: OrientationHelper.DeviceOrientation): Float = when (o) {
-        OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
-        OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
-        OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
-        else -> 0f
     }
 
     private fun buildLines(config: WatermarkConfig, locationText: String, timeMs: Long): List<String> {
