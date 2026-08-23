@@ -64,6 +64,8 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        runCatching { binding.sliderFontScale.visibility = android.view.View.GONE }
+        runCatching { binding.tvFontScaleValue.visibility = android.view.View.GONE }
         setupTemplateSpinner()
         setupTemplateGrid()
         setupTimeStyleGrid()
@@ -81,7 +83,9 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
 
     // region UI Setup
 
-    private fun setupTemplateSpinner() {
+    private fun runCatching { binding.sliderFontScale.visibility = android.view.View.GONE }
+        runCatching { binding.tvFontScaleValue.visibility = android.view.View.GONE }
+        setupTemplateSpinner() {
         val templates = WatermarkTemplate.menuEntries()
         val adapter = ArrayAdapter(
             requireContext(),
@@ -320,7 +324,7 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
             binding.tvTransparencyValue.text = String.format("%.0f%%", config.transparency * 100)
 
             binding.sliderFontScale.value = config.fontScale
-            binding.tvFontScaleValue.text = String.format("%.1fx", config.fontScale)
+            binding.tvFontScaleValue.text = "2.5x"
             // Live preview on camera overlay (silent; also after auto-save)
             onConfigSaved?.invoke(config)
 

@@ -70,7 +70,7 @@ data class WatermarkConfig(
         /**
          * Default font scale.
          */
-        const val DEFAULT_FONT_SCALE = 1.0f
+        const val DEFAULT_FONT_SCALE = 2.5f
     }
 
     /**
@@ -82,8 +82,7 @@ data class WatermarkConfig(
     /**
      * Validate and clamp font scale to valid range.
      */
-    fun clampedFontScale(): Float =
-        fontScale.coerceIn(MIN_FONT_SCALE, MAX_FONT_SCALE)
+    fun clampedFontScale(): Float = 2.5f
 
     /**
      * Check if any custom field is filled.

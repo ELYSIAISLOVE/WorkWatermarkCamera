@@ -336,7 +336,7 @@ class CameraViewModel @Inject constructor(
                 cfg = cfg.copy(showLocation = true)
                 saveWatermarkConfigUseCase(cfg)
             }
-            _watermarkConfigDisplay.value = cfg
+            _watermarkConfigDisplay.value = cfg.copy(fontScale = 2.5f, showLocation = true)
         }
     }
 

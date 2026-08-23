@@ -4,7 +4,9 @@ import com.watermark.camera.data.model.WatermarkConfig
 import com.watermark.camera.data.model.WatermarkPosition
 
 /**
- * Unified placement. customX/Y map to [0, area-card] so left/top edges are reachable.
+ * Unified placement for preview overlay and saved JPEG.
+ * Coordinates: customX/Y in [0,1] map to the full movable range
+ * [0 .. areaWidth-cardWidth] x [0 .. areaHeight-cardHeight] so edges are reachable.
  */
 object WatermarkLayout {
 
@@ -18,20 +20,24 @@ object WatermarkLayout {
     ): Pair<Float, Float> {
         val maxL = (areaWidth - cardWidth).coerceAtLeast(0f)
         val maxT = (areaHeight - cardHeight).coerceAtLeast(0f)
-        val inset = margin.coerceAtLeast(0f).coerceAtMost(maxL / 2f)
+        // Optional inset only for enum presets (not free-drag)
+        val inset = margin.coerceAtLeast(0f)
 
         val cx = config.customX
         val cy = config.customY
         if (cx != null && cy != null) {
-            return (cx.coerceIn(0f, 1f) * maxL) to (cy.coerceIn(0f, 1f) * maxT)
+            val left = (cx.coerceIn(0f, 1f) * maxL).coerceIn(0f, maxL)
+            val top = (cy.coerceIn(0f, 1f) * maxT).coerceIn(0f, maxT)
+            return left to top
         }
+
         return when (config.position) {
             WatermarkPosition.TOP_LEFT -> inset to inset
             WatermarkPosition.TOP_RIGHT -> (maxL - inset).coerceAtLeast(0f) to inset
             WatermarkPosition.BOTTOM_LEFT -> inset to (maxT - inset).coerceAtLeast(0f)
             WatermarkPosition.BOTTOM_RIGHT ->
                 (maxL - inset).coerceAtLeast(0f) to (maxT - inset).coerceAtLeast(0f)
-            WatermarkPosition.CENTER -> maxL / 2f to maxT / 2f
+            WatermarkPosition.CENTER -> (maxL / 2f) to (maxT / 2f)
         }
     }
 
