@@ -1,12 +1,5 @@
-KF V5f.1 — video issues + compile fix
+KF V5g.2 — CollageFragment compile fix
 =====================================
-FIX: WatermarkCanvas.estimateDimensions restored (ApplyWatermarkUseCase line 76)
-
-Also includes all prior V5f fixes:
-- Unified preview/photo scale (shortSide/1080 * fontScale)
-- Shutter freeze config+location; clock = CaptureResult.timestamp
-- No forced fontScale 2.5; no device-orientation text rotation
-- Picker sync + onResume overlay re-apply
-- Gallery multi-select delete, onResume refresh
-- Detail swipe skips missing URIs after delete
-- Queue meter, dual-pane picker, collage templates
+- Replace bindingAdapterPosition → adapterPosition (RecyclerView compat)
+- Guard with RecyclerView.NO_POSITION
+- Prior fixes retained (queue, watermark size, settings align, estimateDimensions)

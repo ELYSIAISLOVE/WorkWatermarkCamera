@@ -21,10 +21,10 @@ class WatermarkRenderer {
     companion object {
         /** Design reference short side (px). */
         private const val BASE_SHORT = 1080f
-        private const val BASE_FONT_SIZE = 28f
-        private const val BASE_LINE_SPACING = 8f
-        private const val BASE_PADDING = 20f
-        private const val BASE_CARD_RADIUS = 16f
+        private const val BASE_FONT_SIZE = 16f
+        private const val BASE_LINE_SPACING = 5f
+        private const val BASE_PADDING = 12f
+        private const val BASE_CARD_RADIUS = 12f
         private const val MIN_FONT = 10f
         private const val MAX_FONT = 120f
     }

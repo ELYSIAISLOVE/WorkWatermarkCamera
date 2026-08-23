@@ -37,7 +37,7 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        config = initialConfig.copy(showLocation = true, fontScale = 2.5f)
+        config = initialConfig.copy(showLocation = true)
 
         previewTitle = view.findViewById(R.id.pickerPreviewTitle)
         previewBody = view.findViewById(R.id.pickerPreviewBody)

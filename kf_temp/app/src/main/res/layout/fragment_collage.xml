@@ -3,61 +3,30 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FF101010">
+    android:background="#FF0D0D0D">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="8dp"
-        android:background="#FF1A1A1A">
-
-        <ImageButton
-            android:id="@+id/btnBack"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_revert"
-            android:contentDescription="返回" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="拼图"
-            android:textColor="#FFFFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btnPick"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="选图"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-    <!-- layout templates row -->
+    <!-- Top: template format row -->
     <HorizontalScrollView
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="#FF181818"
-        android:scrollbars="none">
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
 
         <LinearLayout
-            android:id="@+id/layoutTemplates"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingHorizontal="8dp">
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
             <Button android:id="@+id/tpl2x2" android:layout_width="wrap_content" android:layout_height="40dp" android:text="2×2" android:textSize="12sp" android:layout_marginEnd="6dp" />
-            <Button android:id="@+id/tpl1x2" android:layout_width="wrap_content" android:layout_height="40dp" android:text="1×2" android:textSize="12sp" android:layout_marginEnd="6dp" />
-            <Button android:id="@+id/tpl2x1" android:layout_width="wrap_content" android:layout_height="40dp" android:text="2×1" android:textSize="12sp" android:layout_marginEnd="6dp" />
+            <Button android:id="@+id/tpl3x3" android:layout_width="wrap_content" android:layout_height="40dp" android:text="3×3" android:textSize="12sp" android:layout_marginEnd="6dp" />
+            <Button android:id="@+id/tpl4x4" android:layout_width="wrap_content" android:layout_height="40dp" android:text="4×4" android:textSize="12sp" android:layout_marginEnd="6dp" />
+            <Button android:id="@+id/tpl1x3" android:layout_width="wrap_content" android:layout_height="40dp" android:text="1×3" android:textSize="12sp" android:layout_marginEnd="6dp" />
             <Button android:id="@+id/tpl3x1" android:layout_width="wrap_content" android:layout_height="40dp" android:text="3×1" android:textSize="12sp" android:layout_marginEnd="6dp" />
-            <Button android:id="@+id/tpl1x3" android:layout_width="wrap_content" android:layout_height="40dp" android:text="1×3" android:textSize="12sp" />
+            <Button android:id="@+id/tpl1x2" android:layout_width="wrap_content" android:layout_height="40dp" android:text="1×2" android:textSize="12sp" android:layout_marginEnd="6dp" />
+            <Button android:id="@+id/tpl2x1" android:layout_width="wrap_content" android:layout_height="40dp" android:text="2×1" android:textSize="12sp" />
         </LinearLayout>
     </HorizontalScrollView>
 
@@ -66,14 +35,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="10dp"
-        android:text="从相册多选进入，或点选图添加（最多 9 张）"
+        android:text="已选 0 张 · 2×2"
         android:textColor="#FFAAAAAA"
-        android:textSize="12sp" />
+        android:textSize="13sp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerSelected"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="96dp"
         android:padding="4dp"
         android:background="#FF141414" />
 
@@ -99,9 +68,10 @@
             android:visibility="gone" />
     </FrameLayout>
 
+    <!-- Bottom: 清空 / 选图 / 生成 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="60dp"
         android:orientation="horizontal"
         android:gravity="center"
         android:padding="8dp"
@@ -113,7 +83,16 @@
             android:layout_height="44dp"
             android:layout_weight="1"
             android:text="清空"
-            android:layout_marginEnd="8dp"
+            android:layout_marginEnd="6dp"
+            style="?attr/materialButtonOutlinedStyle" />
+
+        <Button
+            android:id="@+id/btnPick"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="选图"
+            android:layout_marginEnd="6dp"
             style="?attr/materialButtonOutlinedStyle" />
 
         <Button
@@ -121,7 +100,7 @@
             android:layout_width="0dp"
             android:layout_height="44dp"
             android:layout_weight="1"
-            android:text="生成拼图"
+            android:text="生成"
             android:enabled="false" />
     </LinearLayout>
 </LinearLayout>

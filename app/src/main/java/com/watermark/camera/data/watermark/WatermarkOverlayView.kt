@@ -146,7 +146,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
 
     fun captureSnapshot(): WatermarkSnapshot {
         return WatermarkSnapshot(
-            config = watermarkConfig.copy(showLocation = true, fontScale = 2.5f),
+            config = watermarkConfig.copy(showLocation = true),
             locationText = locationText,
             deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
             capturedAtMs = System.currentTimeMillis()

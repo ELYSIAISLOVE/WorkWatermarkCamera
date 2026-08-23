@@ -27,6 +27,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Mutex
 import javax.inject.Inject
 
 /**
@@ -61,11 +63,16 @@ class CameraViewModel @Inject constructor(
     private var locationSampleJob: Job? = null
 
     private val saveQueueCount = AtomicInteger(0)
-    /** Occupied slots 0..MAX_SAVE_QUEUE for left-side meter. */
+    /** Occupied slots 0..MAX_SAVE_QUEUE for left-side meter (accepted+processing). */
     private val _saveQueueDepth = MutableStateFlow(0)
     val saveQueueDepth: kotlinx.coroutines.flow.StateFlow<Int> = _saveQueueDepth
     /** Max concurrent watermark/encode workers. */
     private val processSemaphore = Semaphore(5)
+    /** Serialize CameraX capture (hardware is single-shot). */
+    private val captureMutex = Mutex()
+    /** Min interval between accepted shutter presses (ms). */
+    private val MIN_SHUTTER_INTERVAL_MS = 100L
+    @Volatile private var lastAcceptedShutterMs = 0L
 
     @Volatile
     private var currentDeviceOrientation: OrientationHelper.DeviceOrientation =
@@ -137,98 +144,83 @@ class CameraViewModel @Inject constructor(
      */
 
     fun capturePhoto() {
-        val currentState = _uiState.value
-        if (currentState !is CameraState.Previewing) {
-            sendEvent(CameraEvent.ShowToast("相机未就绪"))
+        val now = System.currentTimeMillis()
+        // 0.1s min interval between accepted presses
+        if (now - lastAcceptedShutterMs < MIN_SHUTTER_INTERVAL_MS) {
             return
         }
-
-        // Queue full: no shutter reaction (indicator shows 10/10)
+        // Queue full → silent no-op
         if (saveQueueCount.get() >= MAX_SAVE_QUEUE) {
             _saveQueueDepth.value = MAX_SAVE_QUEUE
             return
         }
-
-        if (!capturePhotoUseCase.isCaptureAvailable()) {
-            val remaining = capturePhotoUseCase.getRemainingCooldownMs()
-            if (remaining > 0) {
-                sendEvent(CameraEvent.ShowToast("请稍后再拍 (${remaining}ms)"))
-                return
-            }
+        lastAcceptedShutterMs = now
+        // Reserve slot immediately so meter fills on each press
+        val depth = saveQueueCount.incrementAndGet()
+        if (depth > MAX_SAVE_QUEUE) {
+            saveQueueCount.decrementAndGet()
+            _saveQueueDepth.value = MAX_SAVE_QUEUE
+            return
         }
+        _saveQueueDepth.value = depth.coerceIn(0, MAX_SAVE_QUEUE)
 
-        val flashMode = currentState.flashMode
-        // Freeze watermark the instant shutter is pressed (before capture/async)
-        val frozenConfig = _watermarkConfigDisplay.value.copy(
-            showLocation = true,
-            
-        )
-        val frozenLocation = _locationDisplay.value.ifBlank { "定位中…" }
+        val frozenConfig = _watermarkConfigDisplay.value
+        val frozenLocation = _locationDisplay.value
         val frozenOrientation = currentDeviceOrientation
-        // Do not switch to Capturing UI lock — keep Previewing for rapid next shot
-        sendEvent(CameraEvent.ShutterFeedback)
-        sendEvent(CameraEvent.CaptureHaptic)
 
         viewModelScope.launch {
-            val result = capturePhotoUseCase()
-            result.onSuccess { captureResult ->
-                Logger.i(TAG, "Photo captured: ${captureResult.width}x${captureResult.height}")
-                // Unlock shutter immediately for continuous shooting
-                updateState { CameraState.Previewing(flashMode = flashMode, aspectRatio = "4:3") }
-
-                // Reserve a queue slot (already checked before shutter; re-check race)
-                if (saveQueueCount.incrementAndGet() > MAX_SAVE_QUEUE) {
-                    saveQueueCount.decrementAndGet()
-                    _saveQueueDepth.value = saveQueueCount.get().coerceIn(0, MAX_SAVE_QUEUE)
-                    try { captureResult.close() } catch (_: Exception) {}
-                    return@onSuccess
-                }
-                _saveQueueDepth.value = saveQueueCount.get().coerceIn(0, MAX_SAVE_QUEUE)
-                // Up to 5 concurrent process workers
-                viewModelScope.launch(Dispatchers.Default) {
-                    processSemaphore.acquireUninterruptibly()
-                    try {
-                        val locationData: com.watermark.camera.domain.repository.LocationData? = null
-
-                        val processResult = processPhotoUseCase(
-                            ProcessPhotoUseCase.Params(
-                                captureResult = captureResult,
-                                watermarkConfig = frozenConfig,
-                                locationStr = frozenLocation,
-                                locationData = locationData,
-                                deviceOrientation = frozenOrientation
-                            )
-                        )
-                        processResult.onSuccess {
-                            sendEvent(CameraEvent.GalleryFlash)
-                        }.onFailure { e ->
-                            Logger.e(TAG, "Save failed", e)
-                            try { captureResult.close() } catch (_: Exception) {}
-                            sendEvent(CameraEvent.ShowToast("保存失败: ${e.message ?: "未知错误"}"))
+            // CameraX is sequential
+            captureMutex.withLock {
+                try {
+                    val result = capturePhotoUseCase()
+                    result.onSuccess { captureResult ->
+                        // Process with up to 5 workers (slot already counted)
+                        viewModelScope.launch(Dispatchers.Default) {
+                            processSemaphore.acquireUninterruptibly()
+                            try {
+                                val processResult = processPhotoUseCase(
+                                    ProcessPhotoUseCase.Params(
+                                        captureResult = captureResult,
+                                        watermarkConfig = frozenConfig,
+                                        locationStr = frozenLocation,
+                                        locationData = null,
+                                        deviceOrientation = frozenOrientation
+                                    )
+                                )
+                                processResult.onSuccess {
+                                    sendEvent(CameraEvent.GalleryFlash)
+                                }.onFailure { e ->
+                                    Logger.e(TAG, "Save failed", e)
+                                    try { captureResult.close() } catch (_: Exception) {}
+                                    sendEvent(CameraEvent.ShowToast("保存失败: ${e.message ?: "未知错误"}"))
+                                }
+                            } catch (e: Exception) {
+                                Logger.e(TAG, "Process failed", e)
+                                try { captureResult.close() } catch (_: Exception) {}
+                                sendEvent(CameraEvent.ShowToast("处理失败: ${e.message ?: "未知错误"}"))
+                            } finally {
+                                processSemaphore.release()
+                                val left = saveQueueCount.decrementAndGet().coerceAtLeast(0)
+                                _saveQueueDepth.value = left.coerceIn(0, MAX_SAVE_QUEUE)
+                            }
                         }
-                    } catch (e: Exception) {
-                        Logger.e(TAG, "Process failed", e)
-                        try { captureResult.close() } catch (_: Exception) {}
-                        sendEvent(CameraEvent.ShowToast("处理失败: ${e.message ?: "未知错误"}"))
-                    } finally {
-                        processSemaphore.release()
+                    }.onFailure { e ->
+                        Logger.e(TAG, "Capture failed", e)
+                        // Release reserved slot
                         val left = saveQueueCount.decrementAndGet().coerceAtLeast(0)
                         _saveQueueDepth.value = left.coerceIn(0, MAX_SAVE_QUEUE)
+                        sendEvent(CameraEvent.ShowToast("拍照失败: ${e.message ?: "未知错误"}"))
                     }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Capture exception", e)
+                    val left = saveQueueCount.decrementAndGet().coerceAtLeast(0)
+                    _saveQueueDepth.value = left.coerceIn(0, MAX_SAVE_QUEUE)
                 }
-            }.onFailure { e ->
-                Logger.e(TAG, "Capture failed", e)
-                updateState { CameraState.Previewing(flashMode = flashMode, aspectRatio = "4:3") }
-                sendEvent(CameraEvent.ShowToast("拍照失败: ${e.message ?: "未知错误"}"))
             }
         }
     }
 
-    /**
-     * Set zoom ratio.
-     *
-     * @param ratio Zoom ratio value.
-     */
+
     fun setZoomRatio(ratio: Float) {
         viewModelScope.launch {
             val result = cameraRepository.setZoomRatio(ratio)

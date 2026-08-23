@@ -539,22 +539,20 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
     private fun updateQueueIndicator(depth: Int) {
         val d = depth.coerceIn(0, 10)
-        val empty = 0x33FFFFFF
-        val filled = if (d >= 10) 0xFFFF4444.toInt() else 0xFF4CAF50.toInt()
-        // slot0 = bottom = first filled
+        // queueSlot0 = bottom of the bar; fill bottom-up as queue grows
         queueSlotViews.forEachIndexed { index, view ->
-            // index 0 is queueSlot0 bottom
-            view.setBackgroundColor(if (index < d) filled else empty)
+            val filled = index < d
+            view.setBackgroundColor(
+                if (filled) 0xFF4CAF50.toInt() else 0x33FFFFFF
+            )
+            view.alpha = if (filled) 1f else 0.35f
         }
-        // ensure indicator stays visible and non-blocking
-        runCatching {
-            binding.root.findViewById<View>(R.id.saveQueueIndicatorRoot)?.let {
-                it.visibility = View.VISIBLE
-                it.isClickable = false
-                it.isFocusable = false
-            }
+        binding.root.findViewById<View>(R.id.saveQueueIndicatorRoot)?.let { root ->
+            root.alpha = if (d >= 10) 1f else 0.85f
+            // Full queue: slight red border cue via tag only; keep green slots
         }
     }
+
 
     private fun openWatermarkSettings() {
         val settingsFragment = com.watermark.camera.ui.settings.WatermarkSettingsFragment.newInstance()
@@ -566,13 +564,15 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
     private fun openCollage() {
-        requireActivity().supportFragmentManager.beginTransaction()
-            .replace(
-                com.watermark.camera.R.id.nav_host_fragment,
-                com.watermark.camera.ui.collage.CollageFragment()
-            )
-            .addToBackStack("collage")
-            .commit()
+        try {
+            val collage = com.watermark.camera.ui.collage.CollageFragment.newInstance(emptyList())
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.nav_host_fragment, collage)
+                .addToBackStack("collage")
+                .commitAllowingStateLoss()
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(requireContext(), "打开拼图失败", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     // endregion
