@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import com.watermark.camera.data.model.WatermarkConfig
+import com.watermark.camera.data.model.TimeStyle
 import com.watermark.camera.util.OrientationHelper
 import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.data.model.WatermarkTemplate
@@ -84,7 +85,13 @@ class WatermarkCanvas {
         }
 
         // Measure text dimensions
-        val textPaint = createTextPaint(fontSize, config.template.textColor)
+        val textColor = when (config.timeStyle) {
+            TimeStyle.DIGITAL_TUBE -> 0xFF00FF66.toInt()
+            TimeStyle.RETRO_SLASH -> 0xFFD4A574.toInt()
+            TimeStyle.FLIP_CALENDAR -> 0xFFFFFFFF.toInt()
+            else -> config.template.textColor
+        }
+        val textPaint = createTextPaint(fontSize, textColor)
         val (textWidth, textHeight) = measureTextDimensions(lines, textPaint, lineSpacing)
 
         val cardWidth = textWidth + padding * 2

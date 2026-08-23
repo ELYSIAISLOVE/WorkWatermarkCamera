@@ -171,16 +171,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Rounded corner mask: transparent hole, opaque outside corners -->
-    <ImageView
+    <!-- Simple rounded frame stroke only (no design-pack chrome) -->
+    <View
         android:id="@+id/previewRoundedMask"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:clickable="false"
         android:focusable="false"
-        android:contentDescription="@null"
-        android:scaleType="fitXY"
-        android:src="@drawable/preview_mask_black_01"
+        android:background="@drawable/bg_preview_rounded_stroke"
         app:layout_constraintTop_toTopOf="@id/previewView"
         app:layout_constraintBottom_toBottomOf="@id/previewView"
         app:layout_constraintStart_toStartOf="@id/previewView"
