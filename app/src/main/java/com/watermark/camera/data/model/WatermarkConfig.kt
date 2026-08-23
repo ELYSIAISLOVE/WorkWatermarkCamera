@@ -23,6 +23,7 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class WatermarkConfig(
     val template: WatermarkTemplate = WatermarkTemplate.GENERAL,
+    val timeStyle: TimeStyle = TimeStyle.DEFAULT,
     val name: String = "",
     val projectName: String = "",
     val remark: String = "",

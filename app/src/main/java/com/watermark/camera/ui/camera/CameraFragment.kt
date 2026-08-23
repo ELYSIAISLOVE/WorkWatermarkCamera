@@ -574,10 +574,20 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         binding.sideThemeBlack.setOnClickListener {
             sideThemeDark = true
             binding.container.setBackgroundColor(android.graphics.Color.BLACK)
+            runCatching {
+                binding.previewRoundedMask.setImageResource(
+                    com.watermark.camera.R.drawable.preview_mask_black_01
+                )
+            }
         }
         binding.sideThemeWhite.setOnClickListener {
             sideThemeDark = false
             binding.container.setBackgroundColor(android.graphics.Color.WHITE)
+            runCatching {
+                binding.previewRoundedMask.setImageResource(
+                    com.watermark.camera.R.drawable.preview_mask_white_01
+                )
+            }
         }
         binding.sideAbout.setOnClickListener {
             android.app.AlertDialog.Builder(requireContext())
