@@ -83,9 +83,9 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
 
     // region UI Setup
 
-    private fun runCatching { binding.sliderFontScale.visibility = android.view.View.GONE }
+    private fun setupTemplateSpinner() {
+        runCatching { binding.sliderFontScale.visibility = android.view.View.GONE }
         runCatching { binding.tvFontScaleValue.visibility = android.view.View.GONE }
-        setupTemplateSpinner() {
         val templates = WatermarkTemplate.menuEntries()
         val adapter = ArrayAdapter(
             requireContext(),
