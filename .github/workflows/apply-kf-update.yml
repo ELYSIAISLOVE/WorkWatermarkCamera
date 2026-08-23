@@ -1,5 +1,7 @@
 name: Apply KF Update Package
 
+# Manual path: put kf*.zip at repo root, then run this workflow.
+# Validate only: file is zip + contains kf_manifest.txt.
 on:
   workflow_dispatch:
 
@@ -9,83 +11,76 @@ permissions:
 jobs:
   apply-kf:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Find KF zip
         id: zip
         run: |
-          ZIP=$(find . -maxdepth 1 -type f -name "kf*.zip" | head -n 1)
+          set -e
+          ZIP=$(find . -maxdepth 1 -type f \( -name 'kf*.zip' -o -name 'KF*.zip' \) | head -n 1)
           if [ -z "$ZIP" ]; then
-            echo "No KF package found"
+            echo "No kf*.zip at repository root. Rename your file to start with kf (e.g. kf_v5c.zip)."
             exit 1
           fi
-          echo "zip=$ZIP" >> $GITHUB_OUTPUT
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "Using $ZIP"
+          if ! unzip -t "$ZIP" >/dev/null 2>&1; then
+            echo "File is not a valid zip"
+            exit 1
+          fi
 
-      - name: Extract package
+      - name: Extract and validate manifest
         run: |
+          set -e
           rm -rf kf_temp
           mkdir kf_temp
           unzip -q "${{ steps.zip.outputs.zip }}" -d kf_temp
-
-      - name: Read manifest and apply files
-        run: |
-          set -e
-
           if [ ! -f kf_temp/kf_manifest.txt ]; then
-            echo "Missing kf_manifest.txt"
+            sub=$(find kf_temp -mindepth 2 -maxdepth 2 -name kf_manifest.txt 2>/dev/null | head -1 || true)
+            if [ -n "$sub" ]; then
+              dir=$(dirname "$sub")
+              shopt -s dotglob
+              mv "$dir"/* kf_temp/ 2>/dev/null || true
+              shopt -u dotglob
+            fi
+          fi
+          if [ ! -f kf_temp/kf_manifest.txt ]; then
+            echo "Invalid KF package: kf_manifest.txt not found"
             exit 1
           fi
+          echo "Validate OK"
 
-          while IFS= read -r file
-          do
+      - name: Apply manifest
+        run: |
+          set -e
+          while IFS= read -r file || [ -n "$file" ]; do
+            file=$(echo "$file" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             [ -z "$file" ] && continue
-
-            if [[ "$file" == .github/workflows/* ]] || \
-               [[ "$file" == README* ]] || \
-               [[ "$file" == *.md ]]; then
+            case "$file" in \#*) continue ;; esac
+            if [[ "$file" == .github/workflows/* ]] || [[ "$file" == README* ]] || [[ "$file" == *.md ]]; then
               echo "Protected: $file"
               continue
             fi
-
-            if [ -f "kf_temp/$file" ]; then
-              mkdir -p "$(dirname "$file")"
-              cp "kf_temp/$file" "$file"
-              echo "Applied: $file"
+            if [ ! -f "kf_temp/$file" ]; then
+              echo "Missing in package: $file"
+              exit 1
             fi
+            mkdir -p "$(dirname "$file")"
+            cp "kf_temp/$file" "$file"
+            echo "Applied: $file"
           done < kf_temp/kf_manifest.txt
 
-      - name: Add new files
+      - name: Cleanup and commit
         run: |
-          while IFS= read -r file
-          do
-            [ -z "$file" ] && continue
-
-            if [[ "$file" == .github/workflows/* ]] || \
-               [[ "$file" == README* ]] || \
-               [[ "$file" == *.md ]]; then
-              continue
-            fi
-
-            if [ -f "kf_temp/$file" ]; then
-              mkdir -p "$(dirname "$file")"
-              cp "kf_temp/$file" "$file"
-            fi
-          done < kf_temp/kf_manifest.txt
-
-      - name: Cleanup KF package
-        run: |
+          set -e
           rm -f "${{ steps.zip.outputs.zip }}"
           rm -rf kf_temp
-
-      - name: Commit
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Apply KF update package" || echo "No changes"
+          git add -A
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Apply KF update package"
           git push

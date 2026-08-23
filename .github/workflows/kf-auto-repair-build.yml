@@ -1,12 +1,14 @@
 name: KF Auto Repair Build
 
+# Simplified: only require a .zip URL in the issue and kf_manifest.txt inside the zip.
+# No filename prefix checks. No issue.json file kept on disk beyond the job.
 on:
   issues:
     types: [opened, labeled]
   workflow_dispatch:
     inputs:
       issue_number:
-        description: Issue number
+        description: Issue number (for manual re-run)
         required: true
         type: string
 
@@ -18,69 +20,114 @@ permissions:
 jobs:
   repair:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Check trigger
+      - name: Resolve zip URL from Issue body
+        id: zipurl
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUM: ${{ github.event.issue.number || inputs.issue_number }}
+          EVENT_BODY: ${{ github.event.issue.body }}
         run: |
-          echo "KF workflow started"
-
-      - name: Read Issue
-        run: |
-          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"           https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number || inputs.issue_number }}           > issue.json
-
-      - name: Download KF zip
-        run: |
-          URL=$(grep -oE 'https?[^"]+\.zip' issue.json | head -1)
-
+          set -e
+          BODY="${EVENT_BODY:-}"
+          if [ -z "$BODY" ] && [ -n "$ISSUE_NUM" ]; then
+            BODY=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/${ISSUE_NUM}" \
+              | python3 -c "import sys,json; print(json.load(sys.stdin).get('body') or '')")
+          fi
+          URL=$(printf '%s\n' "$BODY" | grep -oE 'https?://[^[:space:]"]+\.zip' | head -1 || true)
           if [ -z "$URL" ]; then
-            echo "No KF zip found"
+            echo "No .zip URL found in issue body"
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Found zip: $URL"
+
+      - name: Download zip
+        run: |
+          set -e
+          curl -fsSL --max-time 180 "${{ steps.zipurl.outputs.url }}" -o kf_patch.zip
+          # Rule 1: must be a zip
+          if ! unzip -t kf_patch.zip >/dev/null 2>&1; then
+            echo "Downloaded file is not a valid zip"
             exit 1
           fi
 
-          curl -L --max-time 120 "$URL" -o kf_patch.zip
-
-      - name: Validate package
+      - name: Validate kf_manifest.txt only
         run: |
+          set -e
+          rm -rf kf_temp
           mkdir kf_temp
           unzip -q kf_patch.zip -d kf_temp
-
+          # If zip has a single top-level folder, flatten one level
           if [ ! -f kf_temp/kf_manifest.txt ]; then
-            echo "Invalid KF package"
+            sub=$(find kf_temp -mindepth 2 -maxdepth 2 -name kf_manifest.txt 2>/dev/null | head -1 || true)
+            if [ -n "$sub" ]; then
+              dir=$(dirname "$sub")
+              shopt -s dotglob
+              mv "$dir"/* kf_temp/ 2>/dev/null || true
+              shopt -u dotglob
+            fi
+          fi
+          # Rule 2: must contain kf_manifest.txt at package root after unzip
+          if [ ! -f kf_temp/kf_manifest.txt ]; then
+            echo "Invalid KF package: kf_manifest.txt not found"
             exit 1
           fi
+          echo "Validate OK (zip + kf_manifest.txt)"
 
-      - name: Apply patch
+      - name: Apply patch from manifest
         run: |
-          while read FILE
-          do
+          set -e
+          while IFS= read -r FILE || [ -n "$FILE" ]; do
+            FILE=$(echo "$FILE" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            [ -z "$FILE" ] && continue
+            case "$FILE" in \#*) continue ;; esac
             case "$FILE" in
               .github/workflows/*|README*|*.md)
+                echo "Skip protected: $FILE"
                 continue
                 ;;
             esac
-
+            if [ ! -f "kf_temp/$FILE" ]; then
+              echo "Missing in package: $FILE"
+              exit 1
+            fi
             mkdir -p "$(dirname "$FILE")"
             cp "kf_temp/$FILE" "$FILE"
-
+            echo "Applied: $FILE"
           done < kf_temp/kf_manifest.txt
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Build APK
         run: |
+          set -e
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Commit success
         if: success()
         run: |
-          git config user.name KF-Bot
-          git config user.email kf-bot@github.com
-          git add .
-          git commit -m "Apply KF patch"
+          git config user.name "KF-Bot"
+          git config user.email "kf-bot@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Apply KF patch from issue"
           git push
 
       - name: Upload APK
@@ -90,15 +137,26 @@ jobs:
           name: KF-build-apk
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 3
+          if-no-files-found: warn
 
-      - name: Comment result
+      - name: Comment on issue
         if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUM: ${{ github.event.issue.number || inputs.issue_number }}
+          JOB_STATUS: ${{ job.status }}
         run: |
-          echo "Workflow finished"
+          [ -z "$ISSUE_NUM" ] && exit 0
+          if [ "$JOB_STATUS" = "success" ]; then
+            BODY="KF Auto Repair: success. Patch applied, build OK, committed."
+          else
+            BODY="KF Auto Repair: failed (status=$JOB_STATUS). See Actions log. Validate only: zip URL + kf_manifest.txt."
+          fi
+          export BODY
+          PAYLOAD=$(python3 -c 'import json,os; print(json.dumps({"body": os.environ.get("BODY","")}))')
+          curl -sS -X POST             -H "Authorization: Bearer $GH_TOKEN"             -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/${{ github.repository }}/issues/${ISSUE_NUM}/comments"             -d "$PAYLOAD" || true
 
       - name: Cleanup
         if: always()
         run: |
-          rm -rf kf_patch.zip
-          rm -rf kf_temp
-          rm -rf issue.json
+          rm -rf kf_patch.zip kf_temp issue.json || true
