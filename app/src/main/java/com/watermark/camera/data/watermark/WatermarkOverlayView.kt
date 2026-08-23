@@ -108,7 +108,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
         if (lines.isEmpty()) return
 
         val scaleFactor = width / BASE_WIDTH
-        val fontScale = watermarkConfig.fontScale.coerceIn(0.5f, 8.0f)
+        val fontScale = 2.5f // fixed product scale
         val fontSize = (BASE_FONT_SIZE * scaleFactor * fontScale).coerceIn(12f, 96f)
         val padding = (BASE_PADDING * scaleFactor).coerceAtLeast(8f)
         val lineSpacing = (BASE_LINE_SPACING * scaleFactor).coerceAtLeast(2f)
@@ -116,7 +116,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
         lastMargin = 0f
 
         textPaint.textSize = fontSize
-        textPaint.color = Color.WHITE
+        textPaint.color = watermarkConfig.template.textColor
 
         var maxWidth = 0f
         var totalHeight = 0f

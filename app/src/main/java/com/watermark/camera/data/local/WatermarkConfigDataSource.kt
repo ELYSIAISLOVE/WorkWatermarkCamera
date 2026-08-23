@@ -140,7 +140,7 @@ class WatermarkConfigDataSource @Inject constructor(
             remark = json.optString("remark", ""),
             location = json.optString("location", ""),
             transparency = json.optDouble("transparency", 0.8).toFloat(),
-            fontScale = json.optDouble("fontScale", 1.0).toFloat(),
+            fontScale = 2.5f,
             position = try {
                 WatermarkPosition.valueOf(json.getString("position"))
             } catch (e: Exception) {

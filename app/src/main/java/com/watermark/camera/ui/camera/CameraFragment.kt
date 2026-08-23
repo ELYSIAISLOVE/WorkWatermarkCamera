@@ -48,14 +48,14 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 binding.watermarkOverlay.locationText =
                     viewModel.locationDisplay.value.ifBlank { "定位中…" }
                 binding.watermarkOverlay.watermarkConfig =
-                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true)
+                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true, fontScale = 2.5f)
                 binding.watermarkOverlay.invalidate()
             }
             binding.root.postDelayed({
                 binding.watermarkOverlay.locationText =
                     viewModel.locationDisplay.value.ifBlank { "定位中…" }
                 binding.watermarkOverlay.watermarkConfig =
-                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true)
+                    viewModel.watermarkConfigDisplay.value.copy(showLocation = true, fontScale = 2.5f)
                 binding.watermarkOverlay.invalidate()
             }, 200L)
         } else {
@@ -244,11 +244,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                     if (state.isLowLight && state.flashMode == com.watermark.camera.domain.repository.FlashMode.AUTO)
                         View.VISIBLE else View.GONE
 
-                // Focus lock indicator
-                                        requireContext().getColor(android.R.color.holo_red_dark)
-                    else
-                        requireContext().getColor(android.R.color.white)
-                )
+                // Focus lock: no-op (labels hidden)
             }
             is CameraState.Capturing -> {
                 binding.btnCapture.isEnabled = false
@@ -273,7 +269,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
     private suspend fun observeWatermarkConfigDisplay() {
         viewModel.watermarkConfigDisplay.collect { config ->
-            binding.watermarkOverlay.watermarkConfig = config.copy(showLocation = true)
+            binding.watermarkOverlay.watermarkConfig = config.copy(showLocation = true, fontScale = 2.5f)
         }
     }
 

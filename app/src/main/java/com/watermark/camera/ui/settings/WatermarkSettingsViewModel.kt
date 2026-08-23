@@ -92,7 +92,7 @@ class WatermarkSettingsViewModel @Inject constructor(
     }
 
     fun selectTemplate(template: WatermarkTemplate) {
-        _config.value = _config.value.copy(template = template)
+        _config.value = _config.value.copy(template = template, fontScale = 2.5f)
         scheduleAutoSave()
     }
 

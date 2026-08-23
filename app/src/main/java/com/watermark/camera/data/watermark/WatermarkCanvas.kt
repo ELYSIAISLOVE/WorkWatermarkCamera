@@ -69,7 +69,7 @@ class WatermarkCanvas {
 
         // Calculate scale factor based on photo width
         val scaleFactor = width / BASE_WIDTH
-        val fontSize = (BASE_FONT_SIZE * scaleFactor * config.fontScale)
+        val fontSize = (BASE_FONT_SIZE * scaleFactor * 2.5f)
             .coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE)
         val lineSpacing = (BASE_LINE_SPACING * scaleFactor).toInt()
         val padding = (BASE_PADDING * scaleFactor).toInt()
@@ -228,7 +228,7 @@ class WatermarkCanvas {
         locationStr: String = ""
     ): Pair<Int, Int> {
         val scaleFactor = photoWidth / BASE_WIDTH
-        val fontSize = (BASE_FONT_SIZE * scaleFactor * config.fontScale)
+        val fontSize = (BASE_FONT_SIZE * scaleFactor * 2.5f)
             .coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE)
         val lineSpacing = (BASE_LINE_SPACING * scaleFactor).toInt()
         val padding = (BASE_PADDING * scaleFactor).toInt()
