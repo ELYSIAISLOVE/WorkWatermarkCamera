@@ -5,6 +5,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.GridLayout
+import android.widget.TextView
+import android.graphics.drawable.GradientDrawable
+import android.util.TypedValue
 import android.widget.Toast
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -61,6 +65,8 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupTemplateSpinner()
+        setupTemplateGrid()
+        setupTimeStyleGrid()
         setupPositionSpinner()
         setupSliders()
         setupSwitches()
@@ -98,6 +104,120 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
             }
     }
+
+
+    private fun setupTemplateGrid() {
+        val grid = binding.templateGrid
+        grid.removeAllViews()
+        val templates = WatermarkTemplate.menuEntries()
+        val density = resources.displayMetrics.density
+        val colCount = 4
+        grid.columnCount = colCount
+        templates.forEach { template ->
+            val cell = TextView(requireContext()).apply {
+                text = template.displayName
+                setTextColor(template.textColor)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                gravity = android.view.Gravity.CENTER
+                setPadding(
+                    (6 * density).toInt(),
+                    (10 * density).toInt(),
+                    (6 * density).toInt(),
+                    (10 * density).toInt()
+                )
+                val bg = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 12 * density
+                    setColor(template.backgroundColor)
+                }
+                background = bg
+                minHeight = (56 * density).toInt()
+                tag = template
+                setOnClickListener {
+                    viewModel.selectTemplate(template)
+                    highlightTemplateGrid(template)
+                }
+            }
+            val lp = GridLayout.LayoutParams().apply {
+                width = 0
+                height = GridLayout.LayoutParams.WRAP_CONTENT
+                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                setMargins((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
+            }
+            grid.addView(cell, lp)
+        }
+        highlightTemplateGrid(viewModel.config.value.template)
+    }
+
+    private fun highlightTemplateGrid(selected: WatermarkTemplate) {
+        val grid = binding.templateGrid
+        for (i in 0 until grid.childCount) {
+            val child = grid.getChildAt(i) as? TextView ?: continue
+            val tpl = child.tag as? WatermarkTemplate ?: continue
+            val density = resources.displayMetrics.density
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 12 * density
+                setColor(tpl.backgroundColor)
+                if (tpl == selected) {
+                    setStroke((3 * density).toInt(), 0xFFFFFFFF.toInt())
+                } else {
+                    setStroke((1 * density).toInt(), 0x33FFFFFF)
+                }
+            }
+            child.background = bg
+            child.alpha = if (tpl == selected) 1f else 0.85f
+        }
+    }
+
+    private fun setupTimeStyleGrid() {
+        val grid = binding.timeStyleGrid
+        grid.removeAllViews()
+        val styles = TimeStyle.entries.toList()
+        val density = resources.displayMetrics.density
+        grid.columnCount = 4
+        val colors = intArrayOf(0xFF333333.toInt(), 0xFF0D47A1.toInt(), 0xFF4E342E.toInt(), 0xFF37474F.toInt())
+        styles.forEachIndexed { index, style ->
+            val cell = TextView(requireContext()).apply {
+                text = style.displayName
+                setTextColor(0xFFFFFFFF.toInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                gravity = android.view.Gravity.CENTER
+                setPadding((4 * density).toInt(), (10 * density).toInt(), (4 * density).toInt(), (10 * density).toInt())
+                val bg = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 12 * density
+                    setColor(colors[index % colors.size])
+                }
+                background = bg
+                minHeight = (48 * density).toInt()
+                tag = style
+                setOnClickListener {
+                    viewModel.selectTimeStyle(style)
+                    highlightTimeStyleGrid(style)
+                }
+            }
+            val lp = GridLayout.LayoutParams().apply {
+                width = 0
+                height = GridLayout.LayoutParams.WRAP_CONTENT
+                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                setMargins((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
+            }
+            grid.addView(cell, lp)
+        }
+        highlightTimeStyleGrid(viewModel.config.value.timeStyle)
+    }
+
+    private fun highlightTimeStyleGrid(selected: TimeStyle) {
+        val grid = binding.timeStyleGrid
+        for (i in 0 until grid.childCount) {
+            val child = grid.getChildAt(i) as? TextView ?: continue
+            val st = child.tag as? TimeStyle ?: continue
+            child.alpha = if (st == selected) 1f else 0.75f
+            child.paint.isFakeBoldText = st == selected
+        }
+    }
+
 
     private fun setupPositionSpinner() {
         val positions = WatermarkPosition.entries.toList()
@@ -208,10 +328,12 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
             binding.switchShowLocation.isChecked = config.showLocation
 
             // Update spinners (avoid infinite loops by checking current selection)
-            val templatePos = WatermarkTemplate.entries.indexOf(config.template)
-            if (binding.spinnerTemplate.selectedItemPosition != templatePos && templatePos >= 0) {
+            val templatePos = WatermarkTemplate.menuEntries().indexOf(config.template)
+            if (templatePos >= 0 && binding.spinnerTemplate.selectedItemPosition != templatePos) {
                 binding.spinnerTemplate.setSelection(templatePos)
             }
+            runCatching { highlightTemplateGrid(config.template) }
+            runCatching { highlightTimeStyleGrid(config.timeStyle) }
 
             val positionPos = WatermarkPosition.entries.indexOf(config.position)
             if (binding.spinnerPosition.selectedItemPosition != positionPos && positionPos >= 0) {

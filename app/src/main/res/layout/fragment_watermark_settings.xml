@@ -27,9 +27,39 @@
 
     <Spinner
         android:id="@+id/spinnerTemplate"
+            android:visibility="gone"
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_marginBottom="16dp" />
+
+        <!-- Template grid: 4 columns with color thumbnails -->
+        <GridLayout
+            android:id="@+id/templateGrid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="4"
+            android:alignmentMode="alignBounds"
+            android:useDefaultMargins="true"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:text="时间样式"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="13sp" />
+
+        <GridLayout
+            android:id="@+id/timeStyleGrid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="4"
+            android:alignmentMode="alignBounds"
+            android:useDefaultMargins="true"
+            android:paddingBottom="8dp" />
+
 
     <!-- Custom Fields -->
     <TextView

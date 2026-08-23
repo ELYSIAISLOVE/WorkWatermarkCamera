@@ -87,8 +87,8 @@ class WatermarkSettingsViewModel @Inject constructor(
     // region Field Updates
 
     fun selectTimeStyle(style: TimeStyle) {
-        val current = _config.value
-        updateConfig(current.copy(timeStyle = style))
+        _config.value = _config.value.copy(timeStyle = style)
+        scheduleAutoSave()
     }
 
     fun selectTemplate(template: WatermarkTemplate) {
