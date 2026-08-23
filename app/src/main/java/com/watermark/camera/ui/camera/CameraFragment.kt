@@ -43,6 +43,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         if (isGranted) {
             startCameraPreview()
             viewModel.onReturnToCamera()
+            runCatching { binding.previewRoundedMask.visibility = android.view.View.VISIBLE }
             binding.root.post {
                 binding.watermarkOverlay.locationText =
                     viewModel.locationDisplay.value.ifBlank { "定位中…" }
@@ -244,9 +245,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                         View.VISIBLE else View.GONE
 
                 // Focus lock indicator
-                binding.tvAspectRatio.setTextColor(
-                    if (state.isFocusLocked)
-                        requireContext().getColor(android.R.color.holo_red_dark)
+                                        requireContext().getColor(android.R.color.holo_red_dark)
                     else
                         requireContext().getColor(android.R.color.white)
                 )

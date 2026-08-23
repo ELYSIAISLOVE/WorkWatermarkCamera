@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#80FFFFFF">
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="oval">
-            <solid android:color="#E6FFFFFF"/>
-            <stroke android:width="4dp" android:color="#B3FFFFFF"/>
+            <solid android:color="#FFFFFFFF" />
+            <size android:width="72dp" android:height="72dp" />
         </shape>
     </item>
-</ripple>
+    <item
+        android:left="4dp"
+        android:top="4dp"
+        android:right="4dp"
+        android:bottom="4dp">
+        <shape android:shape="oval">
+            <stroke
+                android:width="3dp"
+                android:color="#FF111111" />
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+</layer-list>
