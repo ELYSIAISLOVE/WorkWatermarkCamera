@@ -1,0 +1,9 @@
+# Paths to delete from repo root (GA / CI junk) — apply manually or via cleanup job
+issue.json
+kf_patch.zip
+kf_temp/
+o13rzs.zip
+papdey.zip
+build/
+.gradle/
+app/build/

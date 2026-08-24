@@ -1,5 +1,6 @@
-KF V5g.2 — CollageFragment compile fix
-=====================================
-- Replace bindingAdapterPosition → adapterPosition (RecyclerView compat)
-- Guard with RecyclerView.NO_POSITION
-- Prior fixes retained (queue, watermark size, settings align, estimateDimensions)
+KF V6.1 — WatermarkPickerSheet import fix
+========================================
+- Remove duplicate View/SeekBar/TextView imports
+- Remove bogus TextViewGroup
+- Add missing android.view.ViewGroup
+- All V6 features retained

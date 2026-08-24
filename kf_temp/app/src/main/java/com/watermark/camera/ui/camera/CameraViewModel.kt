@@ -71,7 +71,7 @@ class CameraViewModel @Inject constructor(
     /** Serialize CameraX capture (hardware is single-shot). */
     private val captureMutex = Mutex()
     /** Min interval between accepted shutter presses (ms). */
-    private val MIN_SHUTTER_INTERVAL_MS = 100L
+    private val MIN_SHUTTER_INTERVAL_MS = 300L
     @Volatile private var lastAcceptedShutterMs = 0L
 
     @Volatile
@@ -142,6 +142,38 @@ class CameraViewModel @Inject constructor(
      * Trigger photo capture.
      * State transition: PREVIEWING -> CAPTURING -> PROCESSING -> SAVING -> PREVIEWING.
      */
+
+
+    private val _torchOn = MutableStateFlow(false)
+    val torchOn: kotlinx.coroutines.flow.StateFlow<Boolean> = _torchOn
+
+    fun toggleTorch() {
+        viewModelScope.launch {
+            val next = !_torchOn.value
+            val result = cameraRepository.setTorchEnabled(next)
+            result.onSuccess {
+                _torchOn.value = next
+                // Keep flash mode in sync for state
+                if (next) {
+                    cameraRepository.setFlashMode(com.watermark.camera.domain.repository.FlashMode.TORCH)
+                } else {
+                    cameraRepository.setFlashMode(com.watermark.camera.domain.repository.FlashMode.OFF)
+                }
+                sendEvent(CameraEvent.ShowToast(if (next) "补光灯已开启" else "补光灯已关闭"))
+            }.onFailure { e ->
+                Logger.e(TAG, "torch failed", e)
+                sendEvent(CameraEvent.ShowToast("补光灯不可用"))
+            }
+        }
+    }
+
+    fun setTorch(on: Boolean) {
+        viewModelScope.launch {
+            cameraRepository.setTorchEnabled(on).onSuccess {
+                _torchOn.value = on
+            }
+        }
+    }
 
     fun capturePhoto() {
         val now = System.currentTimeMillis()

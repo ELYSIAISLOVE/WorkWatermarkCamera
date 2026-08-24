@@ -1,5 +1,6 @@
 package com.watermark.camera.data.watermark
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.util.AttributeSet
@@ -10,9 +11,8 @@ import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.util.OrientationHelper
 
 /**
- * Live preview watermark. Drawing is delegated entirely to [WatermarkRenderer]
- * so burn-in matches what the user sees. Drag is clamped to this view bounds
- * (same as the rounded PreviewView frame).
+ * Live preview watermark. Drawing delegated to [WatermarkRenderer].
+ * Drag clamped so all four edges of the card stay inside the view.
  */
 class WatermarkOverlayView @JvmOverloads constructor(
     context: Context,
@@ -32,12 +32,6 @@ class WatermarkOverlayView @JvmOverloads constructor(
             invalidate()
         }
 
-    var isWatermarkVisible: Boolean = true
-        set(value) {
-            field = value
-            invalidate()
-        }
-
     var deviceOrientation: OrientationHelper.DeviceOrientation =
         OrientationHelper.DeviceOrientation.PORTRAIT
         set(value) {
@@ -45,60 +39,37 @@ class WatermarkOverlayView @JvmOverloads constructor(
             invalidate()
         }
 
-    var onDragPosition: ((Float, Float, WatermarkPosition) -> Unit)? = null
+    var onDragPosition: ((nx: Float, ny: Float, slot: WatermarkPosition) -> Unit)? = null
     var onPositionChanged: ((WatermarkPosition) -> Unit)? = null
 
     private val renderer = WatermarkRenderer()
     private var lastMetrics: WatermarkRenderer.CardMetrics? = null
-
     private var dragging = false
     private var grabDx = 0f
     private var grabDy = 0f
 
-    private val clockRunnable = object : Runnable {
-        override fun run() {
-            if (isAttachedToWindow) {
-                invalidate()
-                postDelayed(this, 1000L)
-            }
-        }
-    }
-
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        removeCallbacks(clockRunnable)
-        post(clockRunnable)
-    }
-
-    override fun onDetachedFromWindow() {
-        removeCallbacks(clockRunnable)
-        super.onDetachedFromWindow()
-    }
-
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (!isWatermarkVisible || width <= 0 || height <= 0) return
+        if (width <= 0 || height <= 0) return
         lastMetrics = renderer.draw(
             canvas = canvas,
             areaWidth = width.toFloat(),
             areaHeight = height.toFloat(),
-            config = watermarkConfig,
+            config = watermarkConfig.copy(showLocation = true),
             locationText = locationText,
-            deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
+            deviceOrientation = deviceOrientation,
             timeMs = System.currentTimeMillis()
         )
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        val m = lastMetrics
+        val m = lastMetrics ?: return super.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                if (m == null) return false
-                val hit = event.x >= m.left - 24 &&
-                    event.x <= m.left + m.width + 24 &&
-                    event.y >= m.top - 24 &&
-                    event.y <= m.top + m.height + 24
-                if (!hit) return false
+                val inside = event.x >= m.left && event.x <= m.left + m.width &&
+                    event.y >= m.top && event.y <= m.top + m.height
+                if (!inside) return false
                 dragging = true
                 grabDx = event.x - m.left
                 grabDy = event.y - m.top
@@ -106,24 +77,23 @@ class WatermarkOverlayView @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                if (!dragging || m == null) return false
-                val rawL = event.x - grabDx
-                val rawT = event.y - grabDy
-                val (clampedL, clampedT) = WatermarkLayout.clampOrigin(
-                    rawL, rawT,
-                    width.toFloat(), height.toFloat(),
-                    m.width, m.height, 0f
-                )
-                val (nx, ny) = WatermarkLayout.toNormalized(
-                    clampedL, clampedT,
-                    width.toFloat(), height.toFloat(),
-                    m.width, m.height, 0f
-                )
-                val slot = WatermarkLayout.nearestSlot(
-                    clampedL + m.width / 2f,
-                    clampedT + m.height / 2f,
-                    width.toFloat(), height.toFloat()
-                )
+                if (!dragging) return false
+                val cardW = m.width
+                val cardH = m.height
+                val maxL = (width - cardW).coerceAtLeast(0f)
+                val maxT = (height - cardH).coerceAtLeast(0f)
+                // Four-edge clamp
+                val left = (event.x - grabDx).coerceIn(0f, maxL)
+                val top = (event.y - grabDy).coerceIn(0f, maxT)
+                val nx = if (maxL > 0f) left / maxL else 0f
+                val ny = if (maxT > 0f) top / maxT else 0f
+                val slot = when {
+                    ny < 0.33f && nx < 0.33f -> WatermarkPosition.TOP_LEFT
+                    ny < 0.33f && nx > 0.66f -> WatermarkPosition.TOP_RIGHT
+                    ny > 0.66f && nx < 0.33f -> WatermarkPosition.BOTTOM_LEFT
+                    ny > 0.66f && nx > 0.66f -> WatermarkPosition.BOTTOM_RIGHT
+                    else -> WatermarkPosition.CENTER
+                }
                 watermarkConfig = watermarkConfig.copy(
                     customX = nx,
                     customY = ny,
@@ -148,7 +118,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
         return WatermarkSnapshot(
             config = watermarkConfig.copy(showLocation = true),
             locationText = locationText,
-            deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
+            deviceOrientation = deviceOrientation,
             capturedAtMs = System.currentTimeMillis()
         )
     }

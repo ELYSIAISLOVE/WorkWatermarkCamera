@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.SeekBar
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -43,6 +44,26 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         previewBody = view.findViewById(R.id.pickerPreviewBody)
         previewCard = view.findViewById(R.id.pickerPreviewCard)
         view.findViewById<View>(R.id.pickerClose).setOnClickListener { dismiss() }
+
+        val seek = view.findViewById<SeekBar>(R.id.pickerTransparency)
+        val seekVal = view.findViewById<TextView>(R.id.pickerTransparencyValue)
+        val initialT = (config.transparency.coerceIn(0.3f, 1f) * 100).toInt()
+        seek?.progress = initialT
+        seekVal?.text = "${initialT}%"
+        seek?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                val p = progress.coerceIn(30, 100) // min 30%
+                if (progress < 30) seek?.progress = 30
+                val tVal = p / 100f
+                config = config.copy(transparency = tVal)
+                seekVal?.text = "${p}%"
+                refreshPreview()
+                onSelectionChanged?.invoke(config)
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+
 
         val templates = listOf(
             WatermarkTemplate.PROPERTY_INSPECTION,

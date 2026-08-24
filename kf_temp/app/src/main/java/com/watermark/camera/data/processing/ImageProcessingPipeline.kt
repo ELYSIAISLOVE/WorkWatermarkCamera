@@ -42,7 +42,7 @@ class ImageProcessingPipeline @Inject constructor(
     companion object {
         private const val TAG = "ImagePipeline"
         private const val TEMP_DIR = "processing_temp"
-        private const val MAX_PROCESSING_DIMENSION = 4096
+        private const val MAX_PROCESSING_DIMENSION = 3072
     }
 
     private val decoder = BitmapDecoder()
@@ -143,7 +143,7 @@ class ImageProcessingPipeline @Inject constructor(
             val uriResult = storageRepository.savePhoto(
                 bitmap = processedPhoto.bitmap,
                 fileName = processedPhoto.fileName,
-                quality = 95
+                quality = 82
             )
 
             uriResult.fold(

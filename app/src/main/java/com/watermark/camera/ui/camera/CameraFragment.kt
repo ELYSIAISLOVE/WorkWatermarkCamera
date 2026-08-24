@@ -3,6 +3,7 @@ package com.watermark.camera.ui.camera
 import android.Manifest
 import android.os.Build
 import android.os.VibrationEffect
+import androidx.appcompat.app.AppCompatDelegate
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.content.pm.PackageManager
@@ -103,9 +104,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             viewModel.capturePhoto()
         }
 
-        // Flash button click
+        // Fill light (torch) toggle
         binding.btnFlash.setOnClickListener {
-            viewModel.cycleFlashMode()
+            viewModel.toggleTorch()
         }
 
         // Gallery button click
@@ -118,7 +119,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             openWatermarkPickerSheet()
         }
         binding.btnWatermark.setOnLongClickListener {
-            openWatermarkSettings()
+            // Old long-press menu removed; use picker sheet only
+            openWatermarkPickerSheet()
             true
         }
         // Legacy horizontal strip kept in layout but hidden; sheet is primary picker
@@ -233,19 +235,12 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 binding.tvEvValue.text = String.format("EV %+.1f", state.evValue)
                 currentZoomRatio = state.zoomRatio
 
-                // Flash mode indicator
+                // Fill-light button always visible in preview
                 binding.btnFlash.visibility = View.VISIBLE
-                val flashIcon = when (state.flashMode) {
-                    com.watermark.camera.domain.repository.FlashMode.AUTO ->
-                        android.R.drawable.ic_menu_compass
-                    com.watermark.camera.domain.repository.FlashMode.ON ->
-                        android.R.drawable.ic_menu_gallery
-                    com.watermark.camera.domain.repository.FlashMode.OFF ->
-                        android.R.drawable.ic_menu_close_clear_cancel
-                    com.watermark.camera.domain.repository.FlashMode.TORCH ->
-                        android.R.drawable.ic_menu_mapmode
+                // Tint: on = amber-ish, off = white (if drawable supports)
+                runCatching {
+                    binding.btnFlash.alpha = if (viewModel.torchOn.value) 1f else 0.55f
                 }
-                binding.btnFlash.setImageResource(flashIcon)
 
                 // Low light warning
                 binding.lowLightWarning.visibility =
@@ -458,6 +453,12 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 false
             }
         }
+        runCatching { applySavedTheme() }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.torchOn.collect { on ->
+                runCatching { binding.btnFlash.alpha = if (on) 1f else 0.55f }
+            }
+        }
         startOrientationSensor()
     }
 
@@ -635,55 +636,59 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         val root = binding.sidePanelRoot
         val sheet = binding.sidePanelSheet
         root.visibility = android.view.View.VISIBLE
-        refreshSidePanelLabels()
-        sheet.post {
-            sheet.translationX = sheet.width.toFloat()
-            sheet.animate().translationX(0f).setDuration(220L).start()
-        }
+        sheet.translationX = sheet.width.toFloat().takeIf { it > 0 } ?: 400f
+        sheet.animate().translationX(0f).setDuration(200L).start()
         binding.sidePanelScrim.setOnClickListener { closeSidePanel() }
-        binding.sideEv.setOnClickListener {
-            sideEvMode = (sideEvMode + 1) % 2
-            refreshSidePanelLabels()
-            // Auto EV placeholder: 0f when 关, else keep current
-            if (sideEvMode == 0) viewModel.setExposureCompensation(0f)
-        }
-        binding.sideFlash.setOnClickListener {
-            sideFlashMode = (sideFlashMode + 1) % 4
-            refreshSidePanelLabels()
-            val mode = when (sideFlashMode) {
-                1 -> com.watermark.camera.domain.repository.FlashMode.ON
-                2 -> com.watermark.camera.domain.repository.FlashMode.AUTO
-                3 -> com.watermark.camera.domain.repository.FlashMode.TORCH
-                else -> com.watermark.camera.domain.repository.FlashMode.OFF
-            }
-            viewModel.setFlashMode(mode)
-        }
-        binding.sideImageSize.setOnClickListener {
-            sideImageSize = (sideImageSize + 1) % 3
-            refreshSidePanelLabels()
-            viewModel.setImageSizePreset(sideImageSize)
-        }
-        binding.sideAntiFake.setOnClickListener {
-            sideAntiFake = !sideAntiFake
-            refreshSidePanelLabels()
-            viewModel.setAntiFakeWatermark(sideAntiFake)
+
+        // Theme only: 自动 / 黑色 / 白色
+        binding.sideThemeAuto.setOnClickListener {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            binding.container.setBackgroundColor(android.graphics.Color.BLACK)
+            persistTheme("auto")
+            android.widget.Toast.makeText(requireContext(), "主题：自动", android.widget.Toast.LENGTH_SHORT).show()
         }
         binding.sideThemeBlack.setOnClickListener {
-            sideThemeDark = true
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             binding.container.setBackgroundColor(android.graphics.Color.BLACK)
-runCatching { binding.previewRoundedMask.setBackgroundResource(com.watermark.camera.R.drawable.bg_preview_rounded_stroke) }
+            persistTheme("black")
+            android.widget.Toast.makeText(requireContext(), "主题：黑色", android.widget.Toast.LENGTH_SHORT).show()
         }
         binding.sideThemeWhite.setOnClickListener {
-            sideThemeDark = false
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
             binding.container.setBackgroundColor(android.graphics.Color.WHITE)
-runCatching { binding.previewRoundedMask.setBackgroundResource(com.watermark.camera.R.drawable.bg_preview_rounded_stroke) }
+            persistTheme("white")
+            android.widget.Toast.makeText(requireContext(), "主题：白色", android.widget.Toast.LENGTH_SHORT).show()
         }
         binding.sideAbout.setOnClickListener {
             android.app.AlertDialog.Builder(requireContext())
                 .setTitle("关于")
-                .setMessage("工作相机 Work Watermark Camera\n版本见应用信息")
+                .setMessage("工作相机 Work Watermark Camera\nELYSIYISLOVE")
                 .setPositiveButton("确定", null)
                 .show()
+        }
+    }
+
+    private fun persistTheme(mode: String) {
+        requireContext().getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putString("theme_mode", mode).apply()
+    }
+
+    private fun applySavedTheme() {
+        val mode = requireContext().getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
+            .getString("theme_mode", "auto") ?: "auto"
+        when (mode) {
+            "black" -> {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+                binding.container.setBackgroundColor(android.graphics.Color.BLACK)
+            }
+            "white" -> {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+                binding.container.setBackgroundColor(android.graphics.Color.WHITE)
+            }
+            else -> {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+                binding.container.setBackgroundColor(android.graphics.Color.BLACK)
+            }
         }
     }
 
@@ -697,21 +702,7 @@ runCatching { binding.previewRoundedMask.setBackgroundResource(com.watermark.cam
             .start()
     }
 
-    private fun refreshSidePanelLabels() {
-        binding.sideEv.text = "EV补偿：" + if (sideEvMode == 0) "关" else "自动"
-        binding.sideFlash.text = "闪光灯：" + when (sideFlashMode) {
-            1 -> "开"
-            2 -> "自动"
-            3 -> "常亮"
-            else -> "关"
-        }
-        binding.sideImageSize.text = "图片大小：" + when (sideImageSize) {
-            0 -> "小"
-            2 -> "大"
-            else -> "中"
-        }
-        binding.sideAntiFake.text = "防伪水印：" + if (sideAntiFake) "开" else "关"
-    }
+    private fun refreshSidePanelLabels() { /* camera settings removed */ }
 
 
 
@@ -742,10 +733,10 @@ runCatching { binding.previewRoundedMask.setBackgroundResource(com.watermark.cam
             }
             if (vibrator == null || !vibrator.hasVibrator()) return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(10L, VibrationEffect.DEFAULT_AMPLITUDE))
+                vibrator.vibrate(VibrationEffect.createOneShot(200L, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 @Suppress("DEPRECATION")
-                vibrator.vibrate(10L)
+                vibrator.vibrate(200L)
             }
         } catch (_: Exception) {
         }

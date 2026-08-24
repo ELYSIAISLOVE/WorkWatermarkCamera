@@ -395,60 +395,32 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
-
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:paddingTop="8dp"
                     android:paddingBottom="12dp"
-                    android:text="相机功能设置"
+                    android:text="设置"
                     android:textColor="#FFFFFFFF"
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/sideEv"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:text="EV补偿：关"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="15sp" />
-
-                <TextView
-                    android:id="@+id/sideFlash"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:text="闪光灯：关"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="15sp" />
-
-                <TextView
-                    android:id="@+id/sideImageSize"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:text="图片大小：中"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="15sp" />
-
-                <TextView
-                    android:id="@+id/sideAntiFake"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:text="防伪水印：关"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="15sp" />
-
-                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingTop="16dp"
                     android:paddingBottom="8dp"
                     android:text="主题"
                     android:textColor="#FFAAAAAA"
                     android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/sideThemeAuto"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:text="自动"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="15sp" />
 
                 <TextView
                     android:id="@+id/sideThemeBlack"
@@ -473,10 +445,16 @@
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:gravity="center_vertical"
-                    android:paddingTop="8dp"
+                    android:paddingTop="16dp"
                     android:text="关于"
                     android:textColor="#FFFFFFFF"
                     android:textSize="15sp" />
+
+                <!-- Keep legacy ids as gone stubs so old code does not NPE -->
+                <TextView android:id="@+id/sideEv" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <TextView android:id="@+id/sideFlash" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <TextView android:id="@+id/sideImageSize" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <TextView android:id="@+id/sideAntiFake" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
