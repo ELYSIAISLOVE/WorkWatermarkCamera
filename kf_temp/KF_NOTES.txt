@@ -1,5 +1,16 @@
-KF V7.1 — remove nonexistent R.id.btnCompass
-===========================================
-Why: R.id is generated only from resources that exist.
-btnCompass was never defined in any layout → compile "Unresolved reference".
-Fix: delete the optional compass inset block. Top inset still applies to btnFlash + bottomBar.
+KF V8 — video bugs + workflow harden (ELYSIYISLOVE)
+====================================================
+Video fixes:
+- Watermark no longer rotates with accelerometer (portrait-locked UI → sideways text bug)
+- Overlay draw always upright
+- Collage pick/template switch hard-capped to grid capacity
+
+Workflow:
+- Issue/manual trigger only for ELYSIYISLOVE / repo owner
+- Precheck: brace match + R.id must exist in layouts (blocks btnCompass-class errors)
+- Build failure posts e: lines to issue comment
+- Auto cleanup: kf_temp, random zips, issue.json, build caches
+
+How to reduce R.id errors:
+1. Only reference ids defined in XML (@+id/...)
+2. CI precheck now fails before Gradle if R.id missing

@@ -45,10 +45,15 @@ class CollageFragment : Fragment() {
         ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
         if (uris.isEmpty()) return@registerForActivityResult
+        val cap = template.capacity.coerceAtMost(9)
         for (u in uris) {
-            if (photoUris.size >= 9) break
+            if (photoUris.size >= cap) break
             val s = u.toString()
             if (s !in photoUris) photoUris.add(s)
+        }
+        // Trim if template was switched to smaller grid
+        if (photoUris.size > cap) {
+            photoUris = photoUris.take(cap).toMutableList()
         }
         refreshUi()
     }

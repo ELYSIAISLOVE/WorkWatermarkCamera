@@ -1,3 +1,5 @@
+.github/workflows/kf-auto-repair-build.yml
+.github/workflows/apply-kf-update.yml
 app/src/main/java/com/watermark/camera/WatermarkCameraApp.kt
 app/src/main/java/com/watermark/camera/data/watermark/CoordinateMapper.kt
 app/src/main/java/com/watermark/camera/data/watermark/WatermarkSnapshot.kt

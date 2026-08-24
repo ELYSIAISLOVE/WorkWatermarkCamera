@@ -1,0 +1,116 @@
+name: Apply KF Update (Manual)
+
+# Manual path: put kf*.zip at repo root, then run this workflow.
+# Validate: zip + kf_manifest.txt. Precheck R.id. Cleanup junk after.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-kf:
+    runs-on: ubuntu-latest
+    # Only repo owner / maintainers can dispatch; extra check on actor
+    if: >
+      github.actor == github.repository_owner ||
+      github.actor == 'ELYSIYISLOVE' ||
+      github.actor == 'elysiaislove'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find KF zip
+        id: zip
+        run: |
+          set -e
+          ZIP=$(find . -maxdepth 1 -type f \( -name 'kf*.zip' -o -name 'KF*.zip' \) | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "No kf*.zip at repository root."
+            exit 1
+          fi
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          if ! unzip -t "$ZIP" >/dev/null 2>&1; then
+            echo "File is not a valid zip"
+            exit 1
+          fi
+
+      - name: Extract and validate manifest
+        run: |
+          set -e
+          rm -rf kf_temp
+          mkdir kf_temp
+          unzip -q "${{ steps.zip.outputs.zip }}" -d kf_temp
+          if [ ! -f kf_temp/kf_manifest.txt ]; then
+            sub=$(find kf_temp -mindepth 2 -maxdepth 2 -name kf_manifest.txt 2>/dev/null | head -1 || true)
+            if [ -n "$sub" ]; then
+              dir=$(dirname "$sub")
+              shopt -s dotglob
+              mv "$dir"/* kf_temp/ 2>/dev/null || true
+              shopt -u dotglob
+            fi
+          fi
+          if [ ! -f kf_temp/kf_manifest.txt ]; then
+            echo "Invalid KF package: kf_manifest.txt not found"
+            exit 1
+          fi
+
+      - name: Apply manifest
+        run: |
+          set -e
+          while IFS= read -r file || [ -n "$file" ]; do
+            file=$(echo "$file" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            [ -z "$file" ] && continue
+            case "$file" in \#*) continue ;; esac
+            if [ ! -f "kf_temp/$file" ]; then
+              echo "Missing in package: $file"
+              exit 1
+            fi
+            mkdir -p "$(dirname "$file")"
+            cp "kf_temp/$file" "$file"
+            echo "Applied: $file"
+          done < kf_temp/kf_manifest.txt
+
+      - name: Precheck R.id + braces
+        run: |
+          set -e
+          python3 << 'PY'
+          import re, pathlib, sys
+          root = pathlib.Path(".")
+          ids = set()
+          for xml in root.glob("app/src/main/res/**/*.xml"):
+              ids |= set(re.findall(r'@\+id/(\w+)', xml.read_text(encoding="utf-8", errors="ignore")))
+          ids |= {"nav_host_fragment"}
+          missing, brace_bad = [], []
+          for line in open("kf_temp/kf_manifest.txt", encoding="utf-8", errors="ignore"):
+              f = line.strip().replace("\r","")
+              if not f or f.startswith("#"): continue
+              p = pathlib.Path(f)
+              if not p.exists() or not f.endswith(".kt"): continue
+              text = p.read_text(encoding="utf-8", errors="ignore")
+              if text.count("{") != text.count("}"):
+                  brace_bad.append(f)
+              for m in re.findall(r'R\.id\.(\w+)', text):
+                  if m not in ids:
+                      missing.append(f"{f}: R.id.{m}")
+          if brace_bad or missing:
+              print("PRECHECK FAILED", brace_bad, missing)
+              sys.exit(1)
+          print("Precheck OK")
+          PY
+
+      - name: Cleanup and commit
+        run: |
+          set -e
+          rm -f "${{ steps.zip.outputs.zip }}"
+          rm -rf kf_temp
+          git config user.name "KF-Bot"
+          git config user.email "kf-bot@users.noreply.github.com"
+          git rm -rf --ignore-unmatch issue.json kf_patch.zip kf_temp \
+            o13rzs.zip papdey.zip app/build build .gradle 2>/dev/null || true
+          find . -maxdepth 1 -type f -name '*.zip' -exec git rm -f --ignore-unmatch {} \; 2>/dev/null || true
+          git add -A
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Apply KF update (manual) + cleanup"
+          git push

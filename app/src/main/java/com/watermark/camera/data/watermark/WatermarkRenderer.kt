@@ -66,13 +66,10 @@ class WatermarkRenderer {
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
         val metrics = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
-        val degrees = orientationDegrees(deviceOrientation)
-        if (degrees != 0f) {
-            val cx = metrics.left + metrics.width / 2f
-            val cy = metrics.top + metrics.height / 2f
-            canvas.save()
-            canvas.rotate(degrees, cx, cy)
-        }
+        // Activity is portrait-locked: never rotate the watermark card.
+        // Rotating by accelerometer orientation makes text sideways on a fixed portrait preview.
+        @Suppress("UNUSED_PARAMETER")
+        val _orient = deviceOrientation
 
         glassRenderer.drawGlassCard(
             canvas = canvas,
@@ -106,7 +103,6 @@ class WatermarkRenderer {
             y = baseline + textPaint.descent() + metrics.lineSpacing
         }
 
-        if (degrees != 0f) canvas.restore()
         return metrics
     }
 
