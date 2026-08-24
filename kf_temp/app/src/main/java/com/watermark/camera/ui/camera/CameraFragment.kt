@@ -18,6 +18,8 @@ import android.view.animation.Animation
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -454,6 +456,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             }
         }
         runCatching { applySavedTheme() }
+        applySystemBarInsets()
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.torchOn.collect { on ->
                 runCatching { binding.btnFlash.alpha = if (on) 1f else 0.55f }
@@ -567,12 +570,13 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun openCollage() {
         try {
             val collage = com.watermark.camera.ui.collage.CollageFragment.newInstance(emptyList())
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.nav_host_fragment, collage)
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.nav_host_fragment, collage, "collage")
                 .addToBackStack("collage")
                 .commitAllowingStateLoss()
         } catch (e: Exception) {
-            android.widget.Toast.makeText(requireContext(), "打开拼图失败", android.widget.Toast.LENGTH_SHORT).show()
+            android.util.Log.e("CameraFragment", "openCollage", e)
+            android.widget.Toast.makeText(requireContext(), "无法打开拼图: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -632,6 +636,36 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private var sideAntiFake = false
     private var sideThemeDark = true
 
+
+    private fun applySystemBarInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            // Push top controls below status bar; keep bottom bar above nav bar
+            runCatching {
+                binding.btnFlash.setPadding(
+                    binding.btnFlash.paddingLeft,
+                    bars.top / 2,
+                    binding.btnFlash.paddingRight,
+                    binding.btnFlash.paddingBottom
+                )
+                val lp = binding.btnFlash.layoutParams
+                if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
+                    lp.topMargin = bars.top + 8
+                    binding.btnFlash.layoutParams = lp
+                }
+            }
+            runCatching {
+                val lp = binding.bottomBar.layoutParams
+                if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
+                    lp.bottomMargin = bars.bottom
+                    binding.bottomBar.layoutParams = lp
+                }
+            }
+            insets
+        }
+        ViewCompat.requestApplyInsets(binding.root)
+    }
+
     private fun openSidePanel() {
         val root = binding.sidePanelRoot
         val sheet = binding.sidePanelSheet
@@ -641,30 +675,45 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         binding.sidePanelScrim.setOnClickListener { closeSidePanel() }
 
         // Theme only: 自动 / 黑色 / 白色
-        binding.sideThemeAuto.setOnClickListener {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-            binding.container.setBackgroundColor(android.graphics.Color.BLACK)
-            persistTheme("auto")
-            android.widget.Toast.makeText(requireContext(), "主题：自动", android.widget.Toast.LENGTH_SHORT).show()
-        }
-        binding.sideThemeBlack.setOnClickListener {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            binding.container.setBackgroundColor(android.graphics.Color.BLACK)
-            persistTheme("black")
-            android.widget.Toast.makeText(requireContext(), "主题：黑色", android.widget.Toast.LENGTH_SHORT).show()
-        }
-        binding.sideThemeWhite.setOnClickListener {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            binding.container.setBackgroundColor(android.graphics.Color.WHITE)
-            persistTheme("white")
-            android.widget.Toast.makeText(requireContext(), "主题：白色", android.widget.Toast.LENGTH_SHORT).show()
-        }
+        binding.sideThemeAuto.setOnClickListener { applyThemeMode("auto") }
+        binding.sideThemeBlack.setOnClickListener { applyThemeMode("black") }
+        binding.sideThemeWhite.setOnClickListener { applyThemeMode("white") }
+        highlightThemeButtons(
+            requireContext().getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
+                .getString("theme_mode", "auto") ?: "auto"
+        )
         binding.sideAbout.setOnClickListener {
             android.app.AlertDialog.Builder(requireContext())
                 .setTitle("关于")
                 .setMessage("工作相机 Work Watermark Camera\nELYSIYISLOVE")
                 .setPositiveButton("确定", null)
                 .show()
+        }
+    }
+
+
+    private fun applyThemeMode(mode: String) {
+        when (mode) {
+            "black" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            "white" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
+        persistTheme(mode)
+        highlightThemeButtons(mode)
+        // Apply to current screen immediately
+        val bg = if (mode == "white") android.graphics.Color.WHITE else android.graphics.Color.BLACK
+        runCatching { binding.container.setBackgroundColor(bg) }
+        // Recreate activity so theme applies app-wide (gallery/settings/etc.)
+        runCatching { requireActivity().recreate() }
+    }
+
+    private fun highlightThemeButtons(mode: String) {
+        val selected = 0xFF2B6AFF.toInt()
+        val normal = 0xFF3A3A3A.toInt()
+        runCatching {
+            binding.sideThemeAuto.setBackgroundColor(if (mode == "auto") selected else normal)
+            binding.sideThemeBlack.setBackgroundColor(if (mode == "black") selected else normal)
+            binding.sideThemeWhite.setBackgroundColor(if (mode == "white") selected else normal)
         }
     }
 

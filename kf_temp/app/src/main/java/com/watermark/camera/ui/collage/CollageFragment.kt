@@ -89,6 +89,7 @@ class CollageFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        try {
         tvCount = view.findViewById(R.id.tvHint)
         ivPreview = view.findViewById(R.id.ivPreview)
         progress = view.findViewById(R.id.progressBar)
@@ -119,6 +120,10 @@ class CollageFragment : Fragment() {
         btnGenerate?.setOnClickListener { generate() }
 
         refreshUi()
+        } catch (e: Exception) {
+            android.util.Log.e("CollageFragment", "onViewCreated", e)
+            android.widget.Toast.makeText(requireContext(), "拼图界面异常: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun bindTemplateButtons(view: View) {

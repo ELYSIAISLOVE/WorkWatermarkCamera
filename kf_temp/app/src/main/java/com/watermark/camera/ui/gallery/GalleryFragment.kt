@@ -148,11 +148,12 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
             is GalleryEvent.SendToCollage -> {
                 try {
                     val collage = com.watermark.camera.ui.collage.CollageFragment.newInstance(event.uris)
-                    parentFragmentManager.beginTransaction()
-                        .replace(R.id.nav_host_fragment, collage)
+                    requireActivity().supportFragmentManager.beginTransaction()
+                        .replace(R.id.nav_host_fragment, collage, "collage")
                         .addToBackStack("collage")
                         .commitAllowingStateLoss()
                 } catch (e: Exception) {
+                    android.util.Log.e("GalleryFragment", "collage", e)
                     android.widget.Toast.makeText(requireContext(), "打开拼图失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                 }
                 viewModel.consumeEvent()

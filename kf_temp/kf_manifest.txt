@@ -1,3 +1,4 @@
+app/src/main/java/com/watermark/camera/WatermarkCameraApp.kt
 app/src/main/java/com/watermark/camera/data/watermark/CoordinateMapper.kt
 app/src/main/java/com/watermark/camera/data/watermark/WatermarkSnapshot.kt
 app/src/main/java/com/watermark/camera/data/watermark/WatermarkRenderer.kt

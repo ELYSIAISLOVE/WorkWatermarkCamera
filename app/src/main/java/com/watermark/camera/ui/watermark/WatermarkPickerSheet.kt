@@ -77,11 +77,12 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
 
         val leftRv = view.findViewById<RecyclerView>(R.id.pickerTemplateGrid)
         leftRv.layoutManager = GridLayoutManager(requireContext(), 2)
-        leftRv.adapter = TemplateGridAdapter(templates, config.template) { chosen ->
+        val templateAdapter = TemplateGridAdapter(templates, config.template) { chosen ->
             config = config.copy(template = chosen)
             refreshPreview()
             onSelectionChanged?.invoke(config)
         }
+        leftRv.adapter = templateAdapter
 
         val styles = listOf(
             TimeStyle.DEFAULT,
@@ -91,11 +92,12 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         )
         val rightRv = view.findViewById<RecyclerView>(R.id.pickerStyleList)
         rightRv.layoutManager = LinearLayoutManager(requireContext())
-        rightRv.adapter = StyleListAdapter(styles, config.timeStyle) { chosen ->
+        val styleAdapter = StyleListAdapter(styles, config.timeStyle) { chosen ->
             config = config.copy(timeStyle = chosen)
             refreshPreview()
             onSelectionChanged?.invoke(config)
         }
+        rightRv.adapter = styleAdapter
 
         refreshPreview()
     }
@@ -187,7 +189,12 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
 
         override fun onBindViewHolder(holder: H, position: Int) {
             val item = items[position]
-            holder.name.text = item.displayName
+            holder.name.text = when (item) {
+                TimeStyle.DIGITAL_TUBE -> "数码管"
+                TimeStyle.FLIP_CALENDAR -> "翻页日历"
+                TimeStyle.RETRO_SLASH -> "复古斜线"
+                else -> "默认"
+            }
             holder.sample.text = when (item) {
                 TimeStyle.DIGITAL_TUBE -> "88:88:88"
                 TimeStyle.FLIP_CALENDAR -> "12 34"

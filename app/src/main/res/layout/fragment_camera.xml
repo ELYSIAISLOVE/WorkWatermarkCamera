@@ -155,15 +155,21 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:orientation="vertical">
-                <ImageButton
-                    android:id="@+id/btnSettings"
+                <FrameLayout
                     android:layout_width="48dp"
                     android:layout_height="48dp"
-                    android:background="@drawable/bg_icon_circle"
-                    android:contentDescription="@string/btn_settings"
-                    android:padding="12dp"
-                    android:scaleType="centerInside"
-                    android:src="@drawable/ic_settings" />
+                    android:background="@drawable/bg_icon_circle">
+                    <ImageButton
+                        android:id="@+id/btnSettings"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_gravity="center"
+                        android:background="@android:color/transparent"
+                        android:contentDescription="@string/btn_settings"
+                        android:padding="11dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_settings" />
+                </FrameLayout>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="16dp"
@@ -408,37 +414,58 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingBottom="8dp"
+                    android:paddingBottom="10dp"
                     android:text="主题"
                     android:textColor="#FFAAAAAA"
                     android:textSize="13sp" />
 
-                <TextView
-                    android:id="@+id/sideThemeAuto"
+                <HorizontalScrollView
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:text="自动"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="15sp" />
+                    android:layout_height="wrap_content"
+                    android:scrollbars="none">
 
-                <TextView
-                    android:id="@+id/sideThemeBlack"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:text="黑色"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="15sp" />
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="52dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
 
-                <TextView
-                    android:id="@+id/sideThemeWhite"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:text="白色"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="15sp" />
+                        <TextView
+                            android:id="@+id/sideThemeAuto"
+                            android:layout_width="96dp"
+                            android:layout_height="48dp"
+                            android:layout_marginEnd="8dp"
+                            android:background="#FF3A3A3A"
+                            android:gravity="center"
+                            android:text="自动"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/sideThemeBlack"
+                            android:layout_width="96dp"
+                            android:layout_height="48dp"
+                            android:layout_marginEnd="8dp"
+                            android:background="#FF3A3A3A"
+                            android:gravity="center"
+                            android:text="黑色"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/sideThemeWhite"
+                            android:layout_width="96dp"
+                            android:layout_height="48dp"
+                            android:background="#FF3A3A3A"
+                            android:gravity="center"
+                            android:text="白色"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </HorizontalScrollView>
 
                 <TextView
                     android:id="@+id/sideAbout"

@@ -448,9 +448,8 @@ class CameraViewModel @Inject constructor(
     private fun startLocationSampling() {
         locationSampleJob?.cancel()
         locationSampleJob = viewModelScope.launch(Dispatchers.IO) {
-            if (_locationDisplay.value.isBlank() || _locationDisplay.value == "定位失败") {
-                _locationDisplay.value = "定位中…"
-            }
+            // Always re-fetch on open / return
+            _locationDisplay.value = "定位中…"
             val firstDeadline = System.currentTimeMillis() + 10_000L
             var gotFix = false
             // First fix within 10s
