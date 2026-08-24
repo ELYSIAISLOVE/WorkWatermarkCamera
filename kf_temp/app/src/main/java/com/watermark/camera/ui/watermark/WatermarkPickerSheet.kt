@@ -106,10 +106,19 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         val tmpl: WatermarkTemplate = config.template
         previewTitle.text = tmpl.displayName + "水印"
         previewBody.text = when (config.timeStyle) {
-            TimeStyle.DIGITAL_TUBE -> "12:34:56  数码管样式"
-            TimeStyle.FLIP_CALENDAR -> "12:34  翻页日历"
-            TimeStyle.RETRO_SLASH -> "12/34  复古斜线"
+            TimeStyle.DIGITAL_TUBE -> "88:88:88  数码管(等宽绿)"
+            TimeStyle.FLIP_CALENDAR -> "12:34  翻页日历(衬线)"
+            TimeStyle.RETRO_SLASH -> "12/34/56  复古斜线"
             else -> "12:34:56  默认样式"
+        }
+        // Typeface preview on sample line
+        previewBody.typeface = when (config.timeStyle) {
+            TimeStyle.DIGITAL_TUBE -> android.graphics.Typeface.MONOSPACE
+            TimeStyle.FLIP_CALENDAR -> android.graphics.Typeface.SERIF
+            TimeStyle.RETRO_SLASH -> android.graphics.Typeface.create(
+                android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.ITALIC
+            )
+            else -> android.graphics.Typeface.DEFAULT
         }
         val bg = GradientDrawable()
         bg.cornerRadius = 12f * resources.displayMetrics.density

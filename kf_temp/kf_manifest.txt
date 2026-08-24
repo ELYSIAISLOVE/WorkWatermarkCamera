@@ -23,3 +23,4 @@ app/src/main/res/layout/fragment_collage.xml
 app/src/main/res/layout/sheet_watermark_picker.xml
 app/src/main/res/layout/item_picker_template.xml
 app/src/main/res/layout/item_picker_style.xml
+app/src/main/res/drawable/ic_settings.xml

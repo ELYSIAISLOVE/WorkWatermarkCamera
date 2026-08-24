@@ -12,47 +12,53 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Preview + JPEG single path.
- * Layout (all centered):
- *  1) Template title — bold, larger
- *  2) Date yyyy/MM/dd — centered
- *  3) Time HH:mm:ss + weekday
- *  4) Location — wrap, centered
- * TimeStyle changes typeface + time format so style picks are visible.
+ * Unified watermark for preview + JPEG.
+ *
+ * All lines are measured with FontMetrics and drawn strictly inside the glass card:
+ *   1) Title (bold, larger)
+ *   2) Date  yyyy年MM月dd日
+ *   3) Time + weekday
+ *   4) Location (wrap, centered)
+ *
+ * Two-pass measure: wrap → size card → re-wrap to final inner width → height.
+ * No canvas rotation (portrait-locked UI).
  */
 class WatermarkRenderer {
 
     companion object {
         private const val BASE_SHORT = 1080f
         private const val BASE_FONT = 15f
-        private const val BASE_TITLE = 18f
-        private const val BASE_PAD = 12f
-        private const val BASE_GAP = 5f
-        private const val BASE_RADIUS = 12f
+        private const val BASE_PAD_H = 16f
+        private const val BASE_PAD_V = 14f
+        private const val BASE_GAP = 6f
+        private const val BASE_RADIUS = 14f
         private const val MIN_F = 10f
         private const val MAX_F = 72f
-        private const val TARGET_ASPECT = 4f / 3f
     }
 
     private val glassRenderer = GlassmorphismRenderer()
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isSubpixelText = true }
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        isSubpixelText = true
+    }
+
+    data class LineSpec(
+        val text: String,
+        val bold: Boolean,
+        val scale: Float,
+        val colorArgb: Int? = null
+    )
 
     data class CardMetrics(
         val left: Float,
         val top: Float,
         val width: Float,
         val height: Float,
-        val padding: Float,
+        val paddingH: Float,
+        val paddingV: Float,
         val fontSize: Float,
         val lineSpacing: Float,
         val radius: Float,
         val lines: List<LineSpec>
-    )
-
-    data class LineSpec(
-        val text: String,
-        val bold: Boolean,
-        val scale: Float // relative to body font
     )
 
     fun draw(
@@ -65,45 +71,42 @@ class WatermarkRenderer {
             OrientationHelper.DeviceOrientation.PORTRAIT,
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
-        val metrics = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
-        // Activity is portrait-locked: never rotate the watermark card.
-        // Rotating by accelerometer orientation makes text sideways on a fixed portrait preview.
         @Suppress("UNUSED_PARAMETER")
-        val _orient = deviceOrientation
+        val _o = deviceOrientation
+
+        val m = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
 
         glassRenderer.drawGlassCard(
             canvas = canvas,
-            left = metrics.left,
-            top = metrics.top,
-            width = metrics.width.toInt().coerceAtLeast(1),
-            height = metrics.height.toInt().coerceAtLeast(1),
-            radius = metrics.radius,
-            borderWidth = 1f,
-            transparency = config.transparency.coerceIn(0.3f, 1f),
+            left = m.left,
+            top = m.top,
+            width = m.width.toInt().coerceAtLeast(1),
+            height = m.height.toInt().coerceAtLeast(1),
+            radius = m.radius,
+            borderWidth = 1.5f,
+            transparency = config.transparency.coerceIn(0.35f, 1f),
             template = config.template
         )
 
-        applyStyleTypeface(config.timeStyle)
-        val color = textColor(config)
-        textPaint.color = color
+        val defaultColor = textColor(config)
+        textPaint.textAlign = Paint.Align.CENTER
+        val cx = m.left + m.width / 2f
 
-        var y = metrics.top + metrics.padding
-        val centerX = metrics.left + metrics.width / 2f
-        for (spec in metrics.lines) {
-            val size = (metrics.fontSize * spec.scale).coerceIn(MIN_F, MAX_F)
+        // cursorY = top edge of current line's glyph box
+        var cursorY = m.top + m.paddingV
+        for (spec in m.lines) {
+            val size = (m.fontSize * spec.scale).coerceIn(MIN_F, MAX_F)
             textPaint.textSize = size
-            textPaint.typeface = if (spec.bold) {
-                Typeface.create(textPaint.typeface, Typeface.BOLD)
-            } else {
-                Typeface.create(baseTypeface(config.timeStyle), Typeface.NORMAL)
-            }
-            textPaint.textAlign = Paint.Align.CENTER
-            val baseline = y - textPaint.ascent()
-            canvas.drawText(spec.text, centerX, baseline, textPaint)
-            y = baseline + textPaint.descent() + metrics.lineSpacing
+            textPaint.typeface = typefaceFor(config.timeStyle, spec.bold)
+            textPaint.color = spec.colorArgb ?: defaultColor
+            val fm = textPaint.fontMetrics
+            // baseline so that glyph top (baseline+ascent) == cursorY
+            val baseline = cursorY - fm.ascent
+            canvas.drawText(spec.text, cx, baseline, textPaint)
+            // next line top = this glyph bottom + gap
+            cursorY = baseline + fm.descent + m.lineSpacing
         }
-
-        return metrics
+        return m
     }
 
     fun measure(
@@ -113,56 +116,77 @@ class WatermarkRenderer {
         locationText: String,
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
-        applyStyleTypeface(config.timeStyle)
         val shortSide = minOf(areaWidth, areaHeight)
         val scale = (shortSide / BASE_SHORT).coerceAtLeast(0.25f)
         val user = config.fontScale.coerceIn(0.5f, 8f)
         val body = (BASE_FONT * scale * user).coerceIn(MIN_F, MAX_F)
-        val gap = BASE_GAP * scale * user
-        val pad = BASE_PAD * scale
+        val gap = BASE_GAP * scale
+        val padH = BASE_PAD_H * scale
+        val padV = BASE_PAD_V * scale
         val radius = BASE_RADIUS * scale
 
-        val maxCardW = areaWidth * 0.92f
-        val targetW = (body * 14f).coerceIn(areaWidth * 0.4f, maxCardW)
-        val maxTextW = (targetW - pad * 2f).coerceAtLeast(body * 8f)
-
-        textPaint.textSize = body
-        textPaint.typeface = Typeface.create(baseTypeface(config.timeStyle), Typeface.NORMAL)
-        textPaint.textAlign = Paint.Align.LEFT
+        val maxCardW = areaWidth * 0.90f
+        // Preferred inner text width (~0.72 of area, or based on body)
+        val preferInner = (body * 18f).coerceIn(areaWidth * 0.42f, maxCardW - padH * 2f)
 
         val raw = buildLineSpecs(config, locationText, timeMs)
-        val lines = mutableListOf<LineSpec>()
-        for (spec in raw) {
-            val size = body * spec.scale
-            textPaint.textSize = size
-            textPaint.typeface = if (spec.bold) {
-                Typeface.create(baseTypeface(config.timeStyle), Typeface.BOLD)
-            } else {
-                Typeface.create(baseTypeface(config.timeStyle), Typeface.NORMAL)
-            }
-            val wrapped = wrapLine(spec.text, maxTextW)
-            for (w in wrapped) {
-                lines.add(LineSpec(w, spec.bold, spec.scale))
-            }
-        }
+
+        // Pass 1: wrap with preferred width
+        var lines = wrapAll(raw, preferInner, body, config.timeStyle)
         if (lines.isEmpty()) return null
 
-        var measuredW = 0f
-        var measuredH = pad * 2f
+        // Compute content size
+        var contentW = 0f
+        var contentH = 0f
         for ((i, spec) in lines.withIndex()) {
             val size = body * spec.scale
             textPaint.textSize = size
-            measuredW = maxOf(measuredW, textPaint.measureText(spec.text))
-            measuredH += size
-            if (i < lines.lastIndex) measuredH += gap
+            textPaint.typeface = typefaceFor(config.timeStyle, spec.bold)
+            contentW = maxOf(contentW, textPaint.measureText(spec.text))
+            val fm = textPaint.fontMetrics
+            contentH += (fm.descent - fm.ascent)
+            if (i < lines.lastIndex) contentH += gap
         }
-        val cardW = (measuredW + pad * 2f).coerceAtMost(maxCardW)
-        // nudge toward 4:3 if too tall/narrow
-        val minWForAspect = (measuredH * TARGET_ASPECT * 0.85f).coerceAtMost(maxCardW)
-        val finalW = maxOf(cardW, minWForAspect).coerceAtMost(maxCardW)
 
-        val (left, top) = resolveOrigin(config, areaWidth, areaHeight, finalW, measuredH)
-        return CardMetrics(left, top, finalW, measuredH, pad, body, gap, radius, lines)
+        var cardW = (contentW + padH * 2f).coerceIn(body * 12f, maxCardW)
+        // Pass 2: re-wrap to actual inner width so no glyph exceeds card
+        val innerW = (cardW - padH * 2f).coerceAtLeast(body * 6f)
+        lines = wrapAll(raw, innerW, body, config.timeStyle)
+        contentW = 0f
+        contentH = 0f
+        for ((i, spec) in lines.withIndex()) {
+            val size = body * spec.scale
+            textPaint.textSize = size
+            textPaint.typeface = typefaceFor(config.timeStyle, spec.bold)
+            contentW = maxOf(contentW, textPaint.measureText(spec.text))
+            val fm = textPaint.fontMetrics
+            contentH += (fm.descent - fm.ascent)
+            if (i < lines.lastIndex) contentH += gap
+        }
+        cardW = (contentW + padH * 2f).coerceIn(body * 12f, maxCardW)
+        // Extra bottom pad so last descent never clips
+        val cardH = contentH + padV * 2f + (body * 0.15f)
+
+        val (left, top) = resolveOrigin(config, areaWidth, areaHeight, cardW, cardH)
+        return CardMetrics(left, top, cardW, cardH, padH, padV, body, gap, radius, lines)
+    }
+
+    private fun wrapAll(
+        raw: List<LineSpec>,
+        maxTextW: Float,
+        body: Float,
+        style: TimeStyle
+    ): List<LineSpec> {
+        val out = mutableListOf<LineSpec>()
+        for (spec in raw) {
+            val size = body * spec.scale
+            textPaint.textSize = size
+            textPaint.typeface = typefaceFor(style, spec.bold)
+            for (w in wrapLine(spec.text, maxTextW)) {
+                out.add(spec.copy(text = w))
+            }
+        }
+        return out
     }
 
     private fun buildLineSpecs(
@@ -172,33 +196,33 @@ class WatermarkRenderer {
     ): List<LineSpec> {
         val date = SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA).format(Date(timeMs))
         val week = SimpleDateFormat("EEEE", Locale.CHINA).format(Date(timeMs))
-        val timeStr = when (config.timeStyle) {
-            TimeStyle.DIGITAL_TUBE -> SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(timeMs))
-            TimeStyle.FLIP_CALENDAR -> SimpleDateFormat("HH:mm", Locale.CHINA).format(Date(timeMs))
-            TimeStyle.RETRO_SLASH -> SimpleDateFormat("HH/mm/ss", Locale.CHINA).format(Date(timeMs))
-            else -> SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(timeMs))
+        val (timeStr, accent) = when (config.timeStyle) {
+            TimeStyle.DIGITAL_TUBE ->
+                SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(timeMs)) to 0xFF00FF66.toInt()
+            TimeStyle.FLIP_CALENDAR ->
+                SimpleDateFormat("HH:mm", Locale.CHINA).format(Date(timeMs)) to 0xFFFFCC66.toInt()
+            TimeStyle.RETRO_SLASH ->
+                SimpleDateFormat("HH/mm/ss", Locale.CHINA).format(Date(timeMs)) to 0xFFD4A574.toInt()
+            else ->
+                SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(timeMs)) to null
         }
-        val title = config.template.displayName // 执勤 / 物业巡检 …
         val loc = locationText.ifBlank { "定位中…" }
         return listOf(
-            LineSpec(title, bold = true, scale = 1.25f),
+            LineSpec(config.template.displayName, bold = true, scale = 1.28f),
             LineSpec(date, bold = false, scale = 1.0f),
-            LineSpec("$timeStr  $week", bold = false, scale = 1.0f),
-            LineSpec(loc, bold = false, scale = 0.95f)
+            LineSpec("$timeStr  $week", bold = false, scale = 1.0f, colorArgb = accent),
+            LineSpec(loc, bold = false, scale = 0.92f)
         )
     }
 
-    private fun baseTypeface(style: TimeStyle): Typeface {
-        return when (style) {
+    private fun typefaceFor(style: TimeStyle, bold: Boolean): Typeface {
+        val base = when (style) {
             TimeStyle.DIGITAL_TUBE -> Typeface.MONOSPACE
             TimeStyle.FLIP_CALENDAR -> Typeface.SERIF
             TimeStyle.RETRO_SLASH -> Typeface.create(Typeface.SANS_SERIF, Typeface.ITALIC)
             else -> Typeface.DEFAULT
         }
-    }
-
-    private fun applyStyleTypeface(style: TimeStyle) {
-        textPaint.typeface = baseTypeface(style)
+        return if (bold) Typeface.create(base, Typeface.BOLD) else base
     }
 
     private fun wrapLine(text: String, maxWidth: Float): List<String> {
@@ -247,15 +271,8 @@ class WatermarkRenderer {
         }
     }
 
-    private fun orientationDegrees(o: OrientationHelper.DeviceOrientation): Float = when (o) {
-        OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
-        OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
-        OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
-        else -> 0f
-    }
-
     private fun textColor(config: WatermarkConfig): Int {
-        val a = (config.transparency.coerceIn(0.3f, 1f) * 255).toInt().coerceIn(80, 255)
+        val a = (config.transparency.coerceIn(0.35f, 1f) * 255).toInt().coerceIn(120, 255)
         return (a shl 24) or 0x00FFFFFF
     }
 }

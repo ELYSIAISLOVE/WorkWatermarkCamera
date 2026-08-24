@@ -503,6 +503,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             binding.watermarkOverlay.watermarkConfig = synced
             binding.watermarkOverlay.invalidate()
             viewModel.applyConfigFromPicker(synced)
+            // Explicit style apply so disk + flow stay in sync
+            viewModel.applyTimeStyle(synced.timeStyle)
         }
         sheet.show(parentFragmentManager, "WatermarkPicker")
     }

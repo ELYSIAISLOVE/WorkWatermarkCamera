@@ -161,12 +161,12 @@
                     android:background="@drawable/bg_icon_circle">
                     <ImageButton
                         android:id="@+id/btnSettings"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
                         android:layout_gravity="center"
                         android:background="@android:color/transparent"
                         android:contentDescription="@string/btn_settings"
-                        android:padding="11dp"
+                        android:padding="0dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/ic_settings" />
                 </FrameLayout>

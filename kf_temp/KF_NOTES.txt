@@ -1,16 +1,6 @@
-KF V8 — video bugs + workflow harden (ELYSIYISLOVE)
-====================================================
-Video fixes:
-- Watermark no longer rotates with accelerometer (portrait-locked UI → sideways text bug)
-- Overlay draw always upright
-- Collage pick/template switch hard-capped to grid capacity
-
-Workflow:
-- Issue/manual trigger only for ELYSIYISLOVE / repo owner
-- Precheck: brace match + R.id must exist in layouts (blocks btnCompass-class errors)
-- Build failure posts e: lines to issue comment
-- Auto cleanup: kf_temp, random zips, issue.json, build caches
-
-How to reduce R.id errors:
-1. Only reference ids defined in XML (@+id/...)
-2. CI precheck now fails before Gradle if R.id missing
+KF V8.1 — watermark text inside card + gear + torch margin
+==========================================================
+1. Watermark: two-pass measure (wrap → card size → re-wrap to inner width)
+   FontMetrics-based height; extra bottom pad so address stays INSIDE glass card
+2. ic_settings: clean Material gear path; 24dp icon in 48dp circle (match 拼图)
+3. btnFlash: layout_marginTop 12dp + existing system-bar insets
