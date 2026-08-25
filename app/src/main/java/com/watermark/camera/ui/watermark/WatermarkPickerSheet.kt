@@ -3,9 +3,12 @@ package com.watermark.camera.ui.watermark
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
@@ -45,6 +48,19 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         previewCard = view.findViewById(R.id.pickerPreviewCard)
         view.findViewById<View>(R.id.pickerClose).setOnClickListener { dismiss() }
 
+        val customRow = view.findViewById<View>(R.id.pickerCustomTitleRow)
+        val customEt = view.findViewById<EditText>(R.id.pickerCustomTitle)
+        customEt?.setText(config.customTitle)
+        customEt?.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                config = config.copy(customTitle = s?.toString()?.trim().orEmpty())
+                refreshPreview()
+                onSelectionChanged?.invoke(config)
+            }
+        })
+
         val seek = view.findViewById<SeekBar>(R.id.pickerTransparency)
         val seekVal = view.findViewById<TextView>(R.id.pickerTransparencyValue)
         val initialT = (config.transparency.coerceIn(0.3f, 1f) * 100).toInt()
@@ -79,9 +95,11 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         leftRv.layoutManager = GridLayoutManager(requireContext(), 2)
         val templateAdapter = TemplateGridAdapter(templates, config.template) { chosen ->
             config = config.copy(template = chosen)
+            customRow?.visibility = if (chosen == WatermarkTemplate.GENERAL) View.VISIBLE else View.GONE
             refreshPreview()
             onSelectionChanged?.invoke(config)
         }
+        customRow?.visibility = if (config.template == WatermarkTemplate.GENERAL) View.VISIBLE else View.GONE
         leftRv.adapter = templateAdapter
 
         val styles = listOf(
@@ -104,7 +122,7 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
 
     private fun refreshPreview() {
         val tmpl: WatermarkTemplate = config.template
-        previewTitle.text = tmpl.displayName + "水印"
+        previewTitle.text = tmpl.cardTitle(config.customTitle)
         previewBody.text = when (config.timeStyle) {
             TimeStyle.DIGITAL_TUBE -> "88:88:88  数码管(等宽绿)"
             TimeStyle.FLIP_CALENDAR -> "12:34  翻页日历(衬线)"
@@ -158,7 +176,7 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
 
         override fun onBindViewHolder(holder: H, position: Int) {
             val item = items[position]
-            holder.name.text = item.displayName
+            holder.name.text = item.cardTitle()
             holder.hint.text = item.description
             val gd = GradientDrawable()
             gd.cornerRadius = 10f * holder.itemView.resources.displayMetrics.density

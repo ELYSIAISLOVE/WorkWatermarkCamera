@@ -43,9 +43,26 @@ enum class WatermarkTemplate(
         "施工、监理"
     ),
     GENERAL(
-        "通用", 0xFF595959.toInt(), 0xFFFFFFFF.toInt(),
-        "通用场景"
+        "自定义", 0xFF595959.toInt(), 0xFFFFFFFF.toInt(),
+        "可自行输入文字"
     );
+
+
+    /**
+     * 选单 / 预览 / 成片统一标题。
+     * 例：执勤水印、考勤水印、取证水印、工程水印；
+     * 自定义模板优先用用户输入，否则「自定义水印」。
+     */
+    fun cardTitle(customTitle: String = ""): String = when (this) {
+        GENERAL -> {
+            val c = customTitle.trim()
+            when {
+                c.isEmpty() -> "自定义水印"
+                else -> c
+            }
+        }
+        else -> "${displayName}水印"
+    }
 
     companion object {
         fun fromDisplayName(name: String): WatermarkTemplate =
@@ -81,6 +98,7 @@ enum class TimeStyle(
     DIGITAL_TUBE("数码管", "design/time_styles/time_digital_tube.svg"),
     FLIP_CALENDAR("翻页日历", "design/time_styles/time_flip_calendar.svg"),
     RETRO_SLASH("复古斜线", "design/time_styles/time_retro_slash.svg");
+
 
     companion object {
         fun default(): TimeStyle = DEFAULT

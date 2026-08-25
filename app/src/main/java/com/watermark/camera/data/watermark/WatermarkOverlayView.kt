@@ -5,6 +5,8 @@ import android.content.Context
 import android.graphics.Canvas
 import android.util.AttributeSet
 import android.view.MotionEvent
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import com.watermark.camera.data.model.WatermarkConfig
 import com.watermark.camera.data.model.WatermarkPosition
@@ -44,6 +46,14 @@ class WatermarkOverlayView @JvmOverloads constructor(
 
     private val renderer = WatermarkRenderer()
     private var lastMetrics: WatermarkRenderer.CardMetrics? = null
+    private val timeHandler = Handler(Looper.getMainLooper())
+    private val timeTicker = object : Runnable {
+        override fun run() {
+            invalidate()
+            timeHandler.postDelayed(this, 1000L)
+        }
+    }
+
     private var dragging = false
     private var grabDx = 0f
     private var grabDy = 0f
@@ -112,6 +122,18 @@ class WatermarkOverlayView @JvmOverloads constructor(
             }
         }
         return super.onTouchEvent(event)
+    }
+
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        timeHandler.removeCallbacks(timeTicker)
+        timeHandler.post(timeTicker)
+    }
+
+    override fun onDetachedFromWindow() {
+        timeHandler.removeCallbacks(timeTicker)
+        super.onDetachedFromWindow()
     }
 
     fun captureSnapshot(): WatermarkSnapshot {

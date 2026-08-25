@@ -1,13 +1,7 @@
-KF V7 — 2026-08-25
-
-1. 圆角外主题蒙版 letterboxMask：切换 自动/黑色/白色 时同步黑白底，elevation 保证不挡按钮
-2. 快门上方变焦芯片 0.5 / 1x / 2（动画选中缩放），对接 CameraViewModel.setZoomRatio
-3. 相册：刷新/多选移到底部栏；保留多选工具条；按钮 ViewAnim
-4. 拼图：底部栏样式 + ViewAnim
-5. 高德纯定位 AmapLocationHelper + LocationRepositoryImpl 优先尝试；Manifest 填 YOUR_AMAP_KEY_HERE；settings.gradle 加阿里云 maven
-
-校验：
-- 布局新增 id：zoomChipRow/zoomChip05/zoomChip1x/zoomChip2x/letterboxMask/galleryBottomBar/collageBottomBar
-- 相册原有 binding id 全部保留
-
-使用：Issue 正文贴本 zip 公网 URL，触发 KF Auto Repair Build。
+KF V8b — title consistency fix
+- 选单 / 预览 / 成片 统一用 cardTitle()：
+  执勤水印、考勤水印、取证水印、工程水印、物业巡检水印、工作汇报水印
+  自定义：用户输入，空则「自定义水印」
+- 变焦：拖动 + 双指，上限 10x
+- 预览时间每秒刷新
+- 花样字体仅日期/时分秒行

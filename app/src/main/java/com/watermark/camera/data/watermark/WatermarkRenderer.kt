@@ -45,7 +45,9 @@ class WatermarkRenderer {
         val text: String,
         val bold: Boolean,
         val scale: Float,
-        val colorArgb: Int? = null
+        val colorArgb: Int? = null,
+        /** 仅日期/时分秒行应用花样字体，其它行保持默认 */
+        val useTimeStyle: Boolean = false
     )
 
     data class CardMetrics(
@@ -108,7 +110,7 @@ class WatermarkRenderer {
         for (spec in m.lines) {
             val size = (m.fontSize * spec.scale).coerceIn(MIN_F, MAX_F)
             textPaint.textSize = size
-            textPaint.typeface = typefaceFor(config.timeStyle, spec.bold)
+            textPaint.typeface = if (spec.useTimeStyle) typefaceFor(config.timeStyle, spec.bold) else typefaceFor(TimeStyle.DEFAULT, spec.bold)
             textPaint.color = spec.colorArgb ?: defaultColor
             val fm = textPaint.fontMetrics
             // baseline so that glyph top (baseline+ascent) == cursorY
@@ -153,7 +155,7 @@ class WatermarkRenderer {
         for ((i, spec) in lines.withIndex()) {
             val size = body * spec.scale
             textPaint.textSize = size
-            textPaint.typeface = typefaceFor(config.timeStyle, spec.bold)
+            textPaint.typeface = if (spec.useTimeStyle) typefaceFor(config.timeStyle, spec.bold) else typefaceFor(TimeStyle.DEFAULT, spec.bold)
             contentW = maxOf(contentW, textPaint.measureText(spec.text))
             val fm = textPaint.fontMetrics
             contentH += (fm.descent - fm.ascent)
@@ -169,7 +171,7 @@ class WatermarkRenderer {
         for ((i, spec) in lines.withIndex()) {
             val size = body * spec.scale
             textPaint.textSize = size
-            textPaint.typeface = typefaceFor(config.timeStyle, spec.bold)
+            textPaint.typeface = if (spec.useTimeStyle) typefaceFor(config.timeStyle, spec.bold) else typefaceFor(TimeStyle.DEFAULT, spec.bold)
             contentW = maxOf(contentW, textPaint.measureText(spec.text))
             val fm = textPaint.fontMetrics
             contentH += (fm.descent - fm.ascent)
@@ -193,7 +195,7 @@ class WatermarkRenderer {
         for (spec in raw) {
             val size = body * spec.scale
             textPaint.textSize = size
-            textPaint.typeface = typefaceFor(style, spec.bold)
+            textPaint.typeface = if (spec.useTimeStyle) typefaceFor(style, spec.bold) else typefaceFor(TimeStyle.DEFAULT, spec.bold)
             for (w in wrapLine(spec.text, maxTextW)) {
                 out.add(spec.copy(text = w))
             }
@@ -220,20 +222,22 @@ class WatermarkRenderer {
         }
         val loc = locationText.ifBlank { "定位中…" }
         val lines = mutableListOf<LineSpec>()
-        lines.add(LineSpec(config.template.displayName, bold = true, scale = 1.28f))
+        val title = config.template.cardTitle(config.customTitle)
+        lines.add(LineSpec(title, bold = true, scale = 1.28f, useTimeStyle = false))
         if (config.name.isNotBlank()) {
-            lines.add(LineSpec("姓名: ${config.name}", bold = false, scale = 1.0f))
+            lines.add(LineSpec("姓名: ${config.name}", bold = false, scale = 1.0f, useTimeStyle = false))
         }
         if (config.projectName.isNotBlank()) {
-            lines.add(LineSpec("项目: ${config.projectName}", bold = false, scale = 1.0f))
+            lines.add(LineSpec("项目: ${config.projectName}", bold = false, scale = 1.0f, useTimeStyle = false))
         }
-        lines.add(LineSpec(date, bold = false, scale = 1.0f))
-        lines.add(LineSpec("$timeStr  $week", bold = false, scale = 1.0f, colorArgb = accent))
+        // 仅日期数字行、时分秒行应用花样字体
+        lines.add(LineSpec(date, bold = false, scale = 1.0f, useTimeStyle = true))
+        lines.add(LineSpec("$timeStr  $week", bold = false, scale = 1.0f, colorArgb = accent, useTimeStyle = true))
         if (config.showLocation) {
-            lines.add(LineSpec(loc, bold = false, scale = 0.92f))
+            lines.add(LineSpec(loc, bold = false, scale = 0.92f, useTimeStyle = false))
         }
         if (config.remark.isNotBlank()) {
-            lines.add(LineSpec(config.remark, bold = false, scale = 0.9f))
+            lines.add(LineSpec(config.remark, bold = false, scale = 0.9f, useTimeStyle = false))
         }
         return lines
     }

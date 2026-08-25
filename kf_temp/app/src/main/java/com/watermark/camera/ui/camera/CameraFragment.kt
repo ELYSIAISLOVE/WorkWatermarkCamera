@@ -82,6 +82,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
      * Current zoom ratio for pinch gesture tracking.
      */
     private var currentZoomRatio = 1.0f
+    /** 用户可变焦上限（双指/拖动均限制） */
+    private val MAX_USER_ZOOM = 10.0f
 
     /**
      * Flag to prevent duplicate LifecycleObserver registration.
@@ -342,9 +344,10 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                 override fun onScale(detector: ScaleGestureDetector): Boolean {
                     val scale = detector.scaleFactor
+                    val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
                     val newZoom = (currentZoomRatio * scale).coerceIn(
                         viewModel.getMinZoomRatio(),
-                        viewModel.getMaxZoomRatio()
+                        maxZ
                     )
                     viewModel.setZoomRatio(newZoom)
                     return true
@@ -872,22 +875,59 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                     .setDuration(140L).start()
             }
         }
+        fun applyZoom(ratio: Float) {
+            val minZ = viewModel.getMinZoomRatio()
+            val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
+            val target = ratio.coerceIn(minZ, maxZ)
+            viewModel.setZoomRatio(target)
+            // 高亮最接近的档位芯片
+            val nearest = chips.minByOrNull { kotlin.math.abs(it.second - target) }?.first
+            if (nearest != null) select(nearest)
+        }
         chips.forEach { (v, ratio) ->
-            v.setOnClickListener {
-                val minZ = viewModel.getMinZoomRatio()
-                val maxZ = viewModel.getMaxZoomRatio()
-                val target = ratio.coerceIn(minZ, maxZ)
-                viewModel.setZoomRatio(target)
-                select(v)
-            }
+            v.setOnClickListener { applyZoom(ratio) }
         }
         select(binding.zoomChip1x)
-        // Keep legacy label hidden; chips are primary UI
         runCatching { binding.tvZoomRatio.visibility = android.view.View.GONE }
         runCatching {
             ViewAnim.attachPressScale(
                 binding.zoomChip05, binding.zoomChip1x, binding.zoomChip2x
             )
+        }
+        // 按住拖动变焦：上滑放大、下滑缩小，上限 10x；小位移仍交给子 View 点击
+        var dragStartY = 0f
+        var dragStartZoom = 1f
+        var draggingZoom = false
+        val touchSlop = android.view.ViewConfiguration.get(requireContext()).scaledTouchSlop
+        binding.zoomChipRow.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    dragStartY = event.rawY
+                    dragStartZoom = currentZoomRatio
+                    draggingZoom = false
+                    false // 不拦截，让芯片 onClick 仍可用
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    val dy = dragStartY - event.rawY
+                    if (!draggingZoom && kotlin.math.abs(dy) > touchSlop) {
+                        draggingZoom = true
+                        binding.zoomChipRow.parent?.requestDisallowInterceptTouchEvent(true)
+                    }
+                    if (draggingZoom) {
+                        applyZoom(dragStartZoom + dy / 80f)
+                        true
+                    } else {
+                        false
+                    }
+                }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    val was = draggingZoom
+                    draggingZoom = false
+                    binding.zoomChipRow.parent?.requestDisallowInterceptTouchEvent(false)
+                    was // 若已拖动则消费，避免误触发 click
+                }
+                else -> false
+            }
         }
     }
 

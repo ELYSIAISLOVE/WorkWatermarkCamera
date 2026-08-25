@@ -97,6 +97,45 @@
             android:padding="4dp" />
     </LinearLayout>
 
+
+    <!-- 自定义水印文字（仅「自定义」模板可见） -->
+    <LinearLayout
+        android:id="@+id/pickerCustomTitleRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="自定义文字"
+            android:textColor="#FF333333"
+            android:textSize="13sp" />
+
+        <EditText
+            android:id="@+id/pickerCustomTitle"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:background="#FFFFFFFF"
+            android:hint="输入水印标题"
+            android:imeOptions="actionDone"
+            android:inputType="text"
+            android:maxLines="1"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:textColor="#FF111111"
+            android:textColorHint="#FF999999"
+            android:textSize="14sp" />
+    </LinearLayout>
+
     <!-- Transparency -->
     <LinearLayout
         android:layout_width="match_parent"

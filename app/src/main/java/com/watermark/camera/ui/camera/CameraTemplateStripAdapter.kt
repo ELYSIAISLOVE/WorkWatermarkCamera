@@ -53,7 +53,7 @@ class CameraTemplateStripAdapter(
         private val root: View = itemView.findViewById(R.id.templateItemRoot)
 
         fun bind(template: WatermarkTemplate, isSelected: Boolean) {
-            name.text = template.displayName
+            name.text = template.cardTitle()
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 12f * itemView.resources.displayMetrics.density

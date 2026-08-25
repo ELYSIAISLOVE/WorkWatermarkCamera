@@ -1,6 +1,4 @@
-# KF V7 — theme letterbox / zoom chips / gallery bottom / amap location / anim
-# Paths relative to repo root
-
+# KF V8 — zoom 10x drag / 统一标题 / custom GENERAL / time tick / timeStyle digits only
 settings.gradle
 app/build.gradle
 app/src/main/AndroidManifest.xml
@@ -11,9 +9,16 @@ app/src/main/res/drawable/bg_action_btn.xml
 app/src/main/res/layout/fragment_camera.xml
 app/src/main/res/layout/fragment_gallery.xml
 app/src/main/res/layout/fragment_collage.xml
+app/src/main/res/layout/sheet_watermark_picker.xml
 app/src/main/java/com/watermark/camera/ui/camera/CameraFragment.kt
 app/src/main/java/com/watermark/camera/ui/gallery/GalleryFragment.kt
 app/src/main/java/com/watermark/camera/ui/collage/CollageFragment.kt
+app/src/main/java/com/watermark/camera/ui/watermark/WatermarkPickerSheet.kt
 app/src/main/java/com/watermark/camera/util/ViewAnim.kt
 app/src/main/java/com/watermark/camera/data/location/AmapLocationHelper.kt
 app/src/main/java/com/watermark/camera/data/repository/LocationRepositoryImpl.kt
+app/src/main/java/com/watermark/camera/data/model/WatermarkConfig.kt
+app/src/main/java/com/watermark/camera/data/model/WatermarkTemplate.kt
+app/src/main/java/com/watermark/camera/data/watermark/WatermarkRenderer.kt
+app/src/main/java/com/watermark/camera/data/watermark/WatermarkOverlayView.kt
+app/src/main/java/com/watermark/camera/ui/camera/CameraTemplateStripAdapter.kt

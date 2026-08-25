@@ -24,6 +24,8 @@ import kotlinx.parcelize.Parcelize
 data class WatermarkConfig(
     val template: WatermarkTemplate = WatermarkTemplate.GENERAL,
     val timeStyle: TimeStyle = TimeStyle.DEFAULT,
+    /** 通用/自定义水印标题（用户输入） */
+    val customTitle: String = "",
     val name: String = "",
     val projectName: String = "",
     val remark: String = "",
@@ -104,7 +106,7 @@ data class WatermarkConfig(
         weekStr: String
     ): String {
         val sb = StringBuilder()
-        sb.appendLine("${template.displayName}水印")
+        sb.appendLine(template.cardTitle(customTitle))
         sb.appendLine("$timeStr | $dateStr")
         sb.appendLine(weekStr)
 
