@@ -1,6 +1,19 @@
-KF V8.1 — watermark text inside card + gear + torch margin
-==========================================================
-1. Watermark: two-pass measure (wrap → card size → re-wrap to inner width)
-   FontMetrics-based height; extra bottom pad so address stays INSIDE glass card
-2. ic_settings: clean Material gear path; 24dp icon in 48dp circle (match 拼图)
-3. btnFlash: layout_marginTop 12dp + existing system-bar insets
+KF V6 — 2026-08-25
+Issue workflow: put this zip's public URL in the issue body (must contain a .zip URL).
+Workflow validates: valid zip + kf_manifest.txt, then copies listed files and runs assembleDebug.
+
+Fixes:
+1. .gitignore — ignore build/, .gradle/, IDE, keystores, etc.
+2. Watermark rotates with device posture (OverlayView + Renderer canvas rotate)
+3. Watermark text: name / project / remark when non-blank
+4. iOS-like button press scale (ViewAnim) on main camera buttons
+5. scripts/clean_build_artifacts.sh — local cleanup of build garbage
+
+Recommended order on a dirty clone:
+  bash scripts/clean_build_artifacts.sh
+  # then let KF workflow (or manual) apply this package so .gitignore lands
+  git rm -r --cached app/build .gradle 2>/dev/null || true
+  git add .gitignore
+  git status
+
+R.id: queueSlot0-9 / saveQueueIndicatorRoot / nav_host_fragment / btnCapture etc. present in layouts.

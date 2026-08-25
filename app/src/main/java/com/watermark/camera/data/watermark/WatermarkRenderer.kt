@@ -21,7 +21,7 @@ import java.util.Locale
  *   4) Location (wrap, centered)
  *
  * Two-pass measure: wrap → size card → re-wrap to final inner width → height.
- * No canvas rotation (portrait-locked UI).
+ * Canvas rotates with deviceOrientation so watermark follows phone posture.
  */
 class WatermarkRenderer {
 
@@ -71,10 +71,21 @@ class WatermarkRenderer {
             OrientationHelper.DeviceOrientation.PORTRAIT,
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
-        @Suppress("UNUSED_PARAMETER")
-        val _o = deviceOrientation
-
         val m = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
+
+        // Rotate watermark with device posture so text stays readable relative to gravity
+        val degrees = when (deviceOrientation) {
+            OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
+            OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
+            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
+            else -> 0f
+        }
+        val pivotX = m.left + m.width / 2f
+        val pivotY = m.top + m.height / 2f
+        canvas.save()
+        if (degrees != 0f) {
+            canvas.rotate(degrees, pivotX, pivotY)
+        }
 
         glassRenderer.drawGlassCard(
             canvas = canvas,
@@ -106,6 +117,7 @@ class WatermarkRenderer {
             // next line top = this glyph bottom + gap
             cursorY = baseline + fm.descent + m.lineSpacing
         }
+        canvas.restore()
         return m
     }
 
@@ -207,12 +219,23 @@ class WatermarkRenderer {
                 SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(timeMs)) to null
         }
         val loc = locationText.ifBlank { "定位中…" }
-        return listOf(
-            LineSpec(config.template.displayName, bold = true, scale = 1.28f),
-            LineSpec(date, bold = false, scale = 1.0f),
-            LineSpec("$timeStr  $week", bold = false, scale = 1.0f, colorArgb = accent),
-            LineSpec(loc, bold = false, scale = 0.92f)
-        )
+        val lines = mutableListOf<LineSpec>()
+        lines.add(LineSpec(config.template.displayName, bold = true, scale = 1.28f))
+        if (config.name.isNotBlank()) {
+            lines.add(LineSpec("姓名: ${config.name}", bold = false, scale = 1.0f))
+        }
+        if (config.projectName.isNotBlank()) {
+            lines.add(LineSpec("项目: ${config.projectName}", bold = false, scale = 1.0f))
+        }
+        lines.add(LineSpec(date, bold = false, scale = 1.0f))
+        lines.add(LineSpec("$timeStr  $week", bold = false, scale = 1.0f, colorArgb = accent))
+        if (config.showLocation) {
+            lines.add(LineSpec(loc, bold = false, scale = 0.92f))
+        }
+        if (config.remark.isNotBlank()) {
+            lines.add(LineSpec(config.remark, bold = false, scale = 0.9f))
+        }
+        return lines
     }
 
     private fun typefaceFor(style: TimeStyle, bold: Boolean): Typeface {

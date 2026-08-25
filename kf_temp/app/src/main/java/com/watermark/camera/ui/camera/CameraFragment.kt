@@ -1,5 +1,7 @@
 package com.watermark.camera.ui.camera
 
+import com.watermark.camera.util.ViewAnim
+
 import android.Manifest
 import android.os.Build
 import android.os.VibrationEffect
@@ -149,6 +151,23 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         binding.btnVerify.setOnClickListener {
             Toast.makeText(requireContext(), "请在相册中打开照片进行验真", Toast.LENGTH_SHORT).show()
         }
+
+        // iOS-like press scale on main buttons
+        runCatching {
+            ViewAnim.attachPressScale(
+                binding.btnCapture,
+                binding.btnFlash,
+                binding.btnGallery,
+                binding.btnWatermark,
+                binding.btnCollageBottom,
+                binding.btnSettings,
+                binding.btnCollage,
+                binding.btnSettingsTop,
+                binding.btnVerify,
+                binding.btnTurnOnFlash
+            )
+        }
+
 
         // Low light warning - turn on flash
         binding.btnTurnOnFlash.setOnClickListener {
