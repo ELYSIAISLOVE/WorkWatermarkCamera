@@ -70,12 +70,14 @@
 
     <!-- Bottom: 清空 / 选图 / 生成 -->
     <LinearLayout
+        android:id="@+id/collageBottomBar"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
+        android:layout_height="64dp"
         android:orientation="horizontal"
         android:gravity="center"
         android:padding="8dp"
-        android:background="#FF1A1A1A">
+        android:background="@drawable/bg_bottom_action_bar"
+        android:elevation="8dp">
 
         <Button
             android:id="@+id/btnClear"

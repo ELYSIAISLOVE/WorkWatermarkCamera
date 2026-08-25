@@ -1,5 +1,7 @@
 package com.watermark.camera.ui.collage
 
+import com.watermark.camera.util.ViewAnim
+
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas

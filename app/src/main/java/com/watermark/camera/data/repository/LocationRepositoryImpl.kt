@@ -17,6 +17,7 @@ import com.watermark.camera.domain.repository.LocationData
 import com.watermark.camera.domain.repository.LocationRepository
 import com.watermark.camera.domain.repository.LocationState
 import com.watermark.camera.util.Logger
+import com.watermark.camera.data.location.AmapLocationHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -189,6 +190,7 @@ class LocationRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getCurrentLocation(timeoutMs: Long): Result<LocationData> {
+        tryAmapOnce()?.let { return Result.success(it) }
         if (!hasLocationPermission()) {
             return Result.failure(SecurityException("Location permission not granted"))
         }
@@ -320,4 +322,37 @@ class LocationRepositoryImpl @Inject constructor(
     }
 
     // endregion
+    private suspend fun tryAmapOnce(): LocationData? = suspendCancellableCoroutine { cont ->
+        var helper: AmapLocationHelper? = null
+        try {
+            helper = AmapLocationHelper(context)
+            helper!!.start { r ->
+                if (!cont.isActive) {
+                    helper?.stop()
+                    return@start
+                }
+                val data = r?.let {
+                    LocationData(
+                        latitude = it.latitude,
+                        longitude = it.longitude,
+                        accuracy = it.accuracy,
+                        altitude = null,
+                        provider = it.provider,
+                        timestamp = System.currentTimeMillis(),
+                        constellations = getConstellationLabel(),
+                        beidouUsed = isBeidouInUse()
+                    )
+                }
+                // resume with empty onCancellation to satisfy coroutines 1.7+ API
+                cont.resume(data) {}
+                helper?.stop()
+            }
+            cont.invokeOnCancellation { helper?.stop() }
+        } catch (e: Exception) {
+            Logger.w(TAG, "Amap not available: ${e.message}")
+            if (cont.isActive) cont.resume(null) {}
+        }
+    }
+
+
 }

@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.watermark.camera.R
 import com.watermark.camera.databinding.FragmentGalleryBinding
 import com.watermark.camera.ui.common.BaseFragment
+import com.watermark.camera.util.ViewAnim
 import com.watermark.camera.ui.detail.PhotoDetailFragment
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -132,6 +133,16 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
         }
         binding.btnRefresh.setOnClickListener {
             viewModel.refresh()
+        }
+        runCatching {
+            ViewAnim.attachPressScale(
+                binding.btnRefresh,
+                binding.btnMultiSelect,
+                binding.btnClearSelection,
+                binding.btnDeleteSelected,
+                binding.btnConfirmSelection,
+                binding.btnBack
+            )
         }
     }
 

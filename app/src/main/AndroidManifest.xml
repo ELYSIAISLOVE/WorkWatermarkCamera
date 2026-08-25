@@ -38,6 +38,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.WatermarkCamera"
         tools:targetApi="34">
+        <!-- 高德定位 Key：请替换为你的正式 Key -->
+        <meta-data
+            android:name="com.amap.api.v2.apikey"
+            android:value="YOUR_AMAP_KEY_HERE" />
+
 
         <!-- Main Activity -->
         <activity

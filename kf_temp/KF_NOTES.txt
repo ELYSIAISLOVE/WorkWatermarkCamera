@@ -1,19 +1,13 @@
-KF V6 — 2026-08-25
-Issue workflow: put this zip's public URL in the issue body (must contain a .zip URL).
-Workflow validates: valid zip + kf_manifest.txt, then copies listed files and runs assembleDebug.
+KF V7 — 2026-08-25
 
-Fixes:
-1. .gitignore — ignore build/, .gradle/, IDE, keystores, etc.
-2. Watermark rotates with device posture (OverlayView + Renderer canvas rotate)
-3. Watermark text: name / project / remark when non-blank
-4. iOS-like button press scale (ViewAnim) on main camera buttons
-5. scripts/clean_build_artifacts.sh — local cleanup of build garbage
+1. 圆角外主题蒙版 letterboxMask：切换 自动/黑色/白色 时同步黑白底，elevation 保证不挡按钮
+2. 快门上方变焦芯片 0.5 / 1x / 2（动画选中缩放），对接 CameraViewModel.setZoomRatio
+3. 相册：刷新/多选移到底部栏；保留多选工具条；按钮 ViewAnim
+4. 拼图：底部栏样式 + ViewAnim
+5. 高德纯定位 AmapLocationHelper + LocationRepositoryImpl 优先尝试；Manifest 填 YOUR_AMAP_KEY_HERE；settings.gradle 加阿里云 maven
 
-Recommended order on a dirty clone:
-  bash scripts/clean_build_artifacts.sh
-  # then let KF workflow (or manual) apply this package so .gitignore lands
-  git rm -r --cached app/build .gradle 2>/dev/null || true
-  git add .gitignore
-  git status
+校验：
+- 布局新增 id：zoomChipRow/zoomChip05/zoomChip1x/zoomChip2x/letterboxMask/galleryBottomBar/collageBottomBar
+- 相册原有 binding id 全部保留
 
-R.id: queueSlot0-9 / saveQueueIndicatorRoot / nav_host_fragment / btnCapture etc. present in layouts.
+使用：Issue 正文贴本 zip 公网 URL，触发 KF Auto Repair Build。

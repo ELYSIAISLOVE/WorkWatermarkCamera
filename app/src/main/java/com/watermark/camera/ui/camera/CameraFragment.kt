@@ -175,6 +175,10 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         }
 
         // Zoom ratio click to reset
+        
+        setupZoomChips()
+        applyLetterboxTheme()
+
         binding.tvZoomRatio.setOnClickListener {
             viewModel.setZoomRatio(1.0f)
         }
@@ -724,6 +728,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         // Apply to current screen immediately
         val bg = if (mode == "white") android.graphics.Color.WHITE else android.graphics.Color.BLACK
         runCatching { binding.container.setBackgroundColor(bg) }
+        runCatching { binding.letterboxMask.setBackgroundColor(bg) }
+        runCatching { binding.topBar.setBackgroundColor(bg) }
+        runCatching { binding.bottomBar.setBackgroundColor(if (mode == "white") 0xFFF5F5F5.toInt() else 0xFF000000.toInt()) }
         // Recreate activity so theme applies app-wide (gallery/settings/etc.)
         runCatching { requireActivity().recreate() }
     }
@@ -829,5 +836,60 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         } catch (_: Exception) {
         }
     }
+
+
+    private fun applyLetterboxTheme() {
+        val mode = requireContext()
+            .getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
+            .getString("theme_mode", "auto") ?: "auto"
+        val night = when (mode) {
+            "white" -> false
+            "black" -> true
+            else -> (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        val bg = if (night) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+        runCatching { binding.letterboxMask.setBackgroundColor(bg) }
+        runCatching { binding.container.setBackgroundColor(bg) }
+        // Keep controls above mask
+        runCatching { binding.bottomBar.elevation = 10f }
+        runCatching { binding.topBar.elevation = 10f }
+        runCatching { binding.zoomChipRow.elevation = 12f }
+    }
+
+    private fun setupZoomChips() {
+        val chips = listOf(
+            binding.zoomChip05 to 0.5f,
+            binding.zoomChip1x to 1.0f,
+            binding.zoomChip2x to 2.0f
+        )
+        fun select(active: android.widget.TextView) {
+            chips.forEach { (v, _) ->
+                val on = v == active
+                v.isSelected = on
+                v.setTextColor(if (on) 0xFF111111.toInt() else 0xFFFFFFFF.toInt())
+                v.animate().scaleX(if (on) 1.12f else 1f).scaleY(if (on) 1.12f else 1f)
+                    .setDuration(140L).start()
+            }
+        }
+        chips.forEach { (v, ratio) ->
+            v.setOnClickListener {
+                val minZ = viewModel.getMinZoomRatio()
+                val maxZ = viewModel.getMaxZoomRatio()
+                val target = ratio.coerceIn(minZ, maxZ)
+                viewModel.setZoomRatio(target)
+                select(v)
+            }
+        }
+        select(binding.zoomChip1x)
+        // Keep legacy label hidden; chips are primary UI
+        runCatching { binding.tvZoomRatio.visibility = android.view.View.GONE }
+        runCatching {
+            ViewAnim.attachPressScale(
+                binding.zoomChip05, binding.zoomChip1x, binding.zoomChip2x
+            )
+        }
+    }
+
 
 }

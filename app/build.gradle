@@ -12,6 +12,7 @@ android {
     compileSdk compile_sdk
 
     defaultConfig {
+        // manifestPlaceholders += [AMAP_API_KEY:"YOUR_KEY"]
         applicationId "com.watermark.camera"
         minSdk min_sdk
         targetSdk target_sdk
@@ -139,6 +140,9 @@ dependencies {
 
     // ==================== Location ====================
     implementation 'com.google.android.gms:play-services-location:21.1.0'
+    // 高德纯定位（需在 AndroidManifest 配置 com.amap.api.v2.apikey）
+    implementation 'com.amap.api:location:6.4.3'
+
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3'
 
     // ==================== Image Processing ====================

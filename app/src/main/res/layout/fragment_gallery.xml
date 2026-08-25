@@ -5,6 +5,7 @@
     android:orientation="vertical"
     android:background="#FF101010">
 
+    <!-- Top title bar only -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="48dp"
@@ -37,23 +38,7 @@
             android:layout_height="wrap_content"
             android:textColor="#FFAAAAAA"
             android:textSize="12sp"
-            android:layout_marginEnd="8dp" />
-
-        <Button
-            android:id="@+id/btnRefresh"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="刷新"
-            android:textSize="11sp"
-            style="?attr/materialButtonOutlinedStyle" />
-
-        <Button
-            android:id="@+id/btnMultiSelect"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="多选"
-            android:textSize="11sp"
-            android:layout_marginStart="4dp" />
+            android:layout_marginEnd="12dp" />
     </LinearLayout>
 
     <LinearLayout
@@ -153,4 +138,35 @@
             android:layout_gravity="center"
             android:visibility="gone" />
     </FrameLayout>
+
+    <!-- All primary gallery actions at bottom -->
+    <LinearLayout
+        android:id="@+id/galleryBottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="8dp"
+        android:background="@drawable/bg_bottom_action_bar"
+        android:elevation="8dp">
+
+        <Button
+            android:id="@+id/btnRefresh"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="刷新"
+            android:textSize="13sp"
+            style="?attr/materialButtonOutlinedStyle" />
+
+        <Button
+            android:id="@+id/btnMultiSelect"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="多选"
+            android:textSize="13sp" />
+    </LinearLayout>
 </LinearLayout>

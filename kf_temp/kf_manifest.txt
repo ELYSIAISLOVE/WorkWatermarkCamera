@@ -1,9 +1,19 @@
-# KF V6 — files to apply (one path per line, relative to repo root)
-# Protected paths (.github/workflows/*, README*, *.md) are skipped by workflow
+# KF V7 — theme letterbox / zoom chips / gallery bottom / amap location / anim
+# Paths relative to repo root
 
-.gitignore
-app/src/main/java/com/watermark/camera/data/watermark/WatermarkOverlayView.kt
-app/src/main/java/com/watermark/camera/data/watermark/WatermarkRenderer.kt
-app/src/main/java/com/watermark/camera/util/ViewAnim.kt
+settings.gradle
+app/build.gradle
+app/src/main/AndroidManifest.xml
+app/src/main/res/drawable/bg_zoom_chip.xml
+app/src/main/res/drawable/bg_letterbox_mask.xml
+app/src/main/res/drawable/bg_bottom_action_bar.xml
+app/src/main/res/drawable/bg_action_btn.xml
+app/src/main/res/layout/fragment_camera.xml
+app/src/main/res/layout/fragment_gallery.xml
+app/src/main/res/layout/fragment_collage.xml
 app/src/main/java/com/watermark/camera/ui/camera/CameraFragment.kt
-scripts/clean_build_artifacts.sh
+app/src/main/java/com/watermark/camera/ui/gallery/GalleryFragment.kt
+app/src/main/java/com/watermark/camera/ui/collage/CollageFragment.kt
+app/src/main/java/com/watermark/camera/util/ViewAnim.kt
+app/src/main/java/com/watermark/camera/data/location/AmapLocationHelper.kt
+app/src/main/java/com/watermark/camera/data/repository/LocationRepositoryImpl.kt
