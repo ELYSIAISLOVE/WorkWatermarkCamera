@@ -1,4 +1,4 @@
-# ===== 编译产物（Android Gradle build 输出）=====
+# ===== 编译产物 =====
 app/build/
 build/
 **/build/
@@ -11,12 +11,11 @@ build/
 *.dex
 *.class
 
-# ===== Gradle 本地缓存 =====
+# Gradle
 .gradle/
-gradle/wrapper/dists/
 local.properties
 
-# ===== IDE 配置 =====
+# IDE
 .idea/
 *.iml
 *.ipr
@@ -24,22 +23,19 @@ local.properties
 .externalNativeBuild/
 .cxx/
 captures/
-*.hprof
 
-# ===== 操作系统垃圾 =====
+# OS
 .DS_Store
 Thumbs.db
-*.swp
-*~
 
-# ===== 签名/密钥 =====
+# 密钥
 *.jks
 *.keystore
 google-services.json
 *.pem
 *.p12
 
-# ===== 其他临时 =====
+# 历史垃圾
 kf_temp/
 *.zip
 issue.json
