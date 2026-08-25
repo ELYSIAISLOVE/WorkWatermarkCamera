@@ -1,4 +1,4 @@
-# ===== 编译产物 =====
+# ===== 编译产物 (Android Gradle build 输出) =====
 app/build/
 build/
 **/build/
@@ -11,11 +11,12 @@ build/
 *.dex
 *.class
 
-# Gradle
+# ===== Gradle 本地缓存 =====
 .gradle/
+gradle/wrapper/dists/
 local.properties
 
-# IDE
+# ===== IDE 配置 =====
 .idea/
 *.iml
 *.ipr
@@ -23,19 +24,67 @@ local.properties
 .externalNativeBuild/
 .cxx/
 captures/
+*.hprof
 
-# OS
+# ===== 操作系统垃圾 =====
 .DS_Store
 Thumbs.db
+*.swp
+*~
 
-# 密钥
+# ===== 签名/密钥 =====
 *.jks
 *.keystore
 google-services.json
 *.pem
 *.p12
 
-# 历史垃圾
+# ===== 其他临时 =====
+kf_temp/
+*.zip
+issue.json
+# ===== 编译产物 (Android Gradle build 输出) =====
+app/build/
+build/
+**/build/
+**/intermediates/
+**/outputs/
+**/tmp/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# ===== Gradle 本地缓存 =====
+.gradle/
+gradle/wrapper/dists/
+local.properties
+
+# ===== IDE 配置 =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.externalNativeBuild/
+.cxx/
+captures/
+*.hprof
+
+# ===== 操作系统垃圾 =====
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ===== 签名/密钥 =====
+*.jks
+*.keystore
+google-services.json
+*.pem
+*.p12
+
+# ===== 其他临时 =====
 kf_temp/
 *.zip
 issue.json
