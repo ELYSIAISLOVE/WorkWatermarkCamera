@@ -23,6 +23,14 @@ jobs:
           git filter-repo --path-glob '.gradle/**' --invert-paths --force
           git filter-repo --path-glob '.idea/**' --invert-paths --force
           git filter-repo --path-glob '*.iml' --invert-paths --force
+          git rm -r --cached build/
+git rm -r --cached app/build/
+git rm -r --cached kf_temp/
+git rm -r --cached issue.json
+git rm -r --cached *.zip   # 如果根目录有 zip 垃圾
+git add .gitignore
+git commit -m "chore: update .gitignore and untrack build artifacts"
+
 
       - name: Re-add remote and push
         run: |
