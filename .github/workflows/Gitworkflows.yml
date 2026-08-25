@@ -1,10 +1,10 @@
 name: Purge History
 
 on:
-  workflow_dispatch:  # 只允许手动点按钮触发
+  workflow_dispatch:
 
 permissions:
-  contents: write     # 允许改写仓库内容
+  contents: write
 
 jobs:
   clean:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0    # 拉取完整历史，否则 filter 没法工作
+          fetch-depth: 0
 
       - name: Install git-filter-repo
         run: pip install git-filter-repo
@@ -21,7 +21,11 @@ jobs:
         run: |
           git filter-repo --path-glob 'app/build/**' --invert-paths --force
           git filter-repo --path-glob '.gradle/**' --invert-paths --force
+          git filter-repo --path-glob '.idea/**' --invert-paths --force
+          git filter-repo --path-glob '*.iml' --invert-paths --force
 
-      - name: Force push
-        run: git push --force origin main
-
+      - name: Re-add remote and push
+        run: |
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git branch -M main
+          git push --force origin main
