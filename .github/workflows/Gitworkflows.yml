@@ -1,4 +1,4 @@
-name: Purge History
+name: Clean and Meme
 
 on:
   workflow_dispatch:
@@ -7,33 +7,128 @@ permissions:
   contents: write
 
 jobs:
-  clean:
+  clean-and-meme:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Install git-filter-repo
-        run: pip install git-filter-repo
-
-      - name: Remove build artifacts from history
+      - name: Git config
         run: |
-          git filter-repo --path-glob 'app/build/**' --invert-paths --force
-          git filter-repo --path-glob '.gradle/**' --invert-paths --force
-          git filter-repo --path-glob '.idea/**' --invert-paths --force
-          git filter-repo --path-glob '*.iml' --invert-paths --force
-          git rm -r --cached build/
-git rm -r --cached app/build/
-git rm -r --cached kf_temp/
-git rm -r --cached issue.json
-git rm -r --cached *.zip   # 如果根目录有 zip 垃圾
-git add .gitignore
-git commit -m "chore: update .gitignore and untrack build artifacts"
+          git config user.name "GA-Bot"
+          git config user.email "ga-bot@github.com"
 
-
-      - name: Re-add remote and push
+      - name: Untrack build garbage
         run: |
-          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git branch -M main
-          git push --force origin main
+          git rm -r --cached build/ 2>/dev/null || true
+          git rm -r --cached app/build/ 2>/dev/null || true
+          git rm -r --cached kf_temp/ 2>/dev/null || true
+          git rm --cached issue.json 2>/dev/null || true
+          git rm --cached *.zip *.apk *.aab *.jks *.keystore 2>/dev/null || true
+
+      - name: Ensure .gitignore
+        run: |
+          cat > .gitignore << 'EOF'
+          # ===== 编译产物 =====
+          app/build/
+          build/
+          **/build/
+          **/intermediates/
+          **/outputs/
+          **/tmp/
+          *.apk
+          *.aab
+          *.ap_
+          *.dex
+          *.class
+
+          # Gradle
+          .gradle/
+          local.properties
+
+          # IDE
+          .idea/
+          *.iml
+          *.ipr
+          *.iws
+          .externalNativeBuild/
+          .cxx/
+          captures/
+
+          # OS
+          .DS_Store
+          Thumbs.db
+
+          # 密钥
+          *.jks
+          *.keystore
+          google-services.json
+          *.pem
+          *.p12
+
+          # 历史垃圾
+          kf_temp/
+          *.zip
+          issue.json
+          EOF
+
+      - name: Create memes folder
+        run: |
+          mkdir -p memes
+
+          cat > memes/elysia.txt << 'EOF'
+          Elysia is love, not elysiy.
+          用户名改了，仓库还在。
+          Stars: 0. Watchers: 0. 爱门永存。
+          EOF
+
+          cat > memes/camera.txt << 'EOF'
+          拍照快，保存慢。
+          COOLDOWN_MS = 300，但手速 3000。
+          按完 10 下，停手了，它还在拍。
+          没有队列，只有信仰。
+          EOF
+
+          cat > memes/build.txt << 'EOF'
+          build/ 是垃圾，但曾经它是 50MB 的尊严。
+          HTML 主语言，Gradle 报告的胜利。
+          .gitignore 写了，但历史不会消失。
+          除非 filter-repo。
+          EOF
+
+          cat > memes/mark.txt << 'EOF'
+          马克水印相机 1.6GB。
+          北斗定位 + 高德 SDK + 广告联盟 + 保活服务。
+          你的轨迹值多少钱？
+          骚扰电话变多了，不是错觉。
+          EOF
+
+          cat > memes/password.txt << 'EOF'
+          store/key password: WorkCamera#2026Release
+          仅内测。
+          但 README 是公开的。
+          上架前请自行更换强口令。
+          然而仓库已经公开了。
+          EOF
+
+          # 填充到几十 KB（重复追加梗）
+          for f in memes/*.txt; do
+            for i in {1..100}; do
+              echo "[$i] Elysia is love. 拍照快保存慢. build垃圾. 马克1.6G. 签名密码明文. 北斗定位. 300ms冷却. HTML主语言. Issues清空. Stars归零." >> "$f"
+            done
+          done
+
+          echo "Memes size:"
+          du -sh memes/
+          ls -la memes/
+
+      - name: Commit and push
+        run: |
+          git add -A
+          git status
+
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "chore: untrack build artifacts and add memes"
+            git push
+          fi
