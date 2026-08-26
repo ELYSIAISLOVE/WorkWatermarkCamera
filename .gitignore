@@ -87,4 +87,5 @@ google-services.json
 # ===== 其他临时 =====
 kf_temp/
 /*.zip
+!/**/*.zip
 issue.json
