@@ -37,8 +37,10 @@ class AmapLocationHelper(private val context: Context) {
                 locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
                 isOnceLocation = true
                 isNeedAddress = true
-                httpTimeOut = 10000
-                isLocationCacheEnable = true
+                isGpsFirst = true
+                gpsFirstTimeout = 10000
+                httpTimeOut = 20000
+                isLocationCacheEnable = false
             }
             c.setLocationOption(opt)
             c.setLocationListener(AMapLocationListener { loc: AMapLocation? ->

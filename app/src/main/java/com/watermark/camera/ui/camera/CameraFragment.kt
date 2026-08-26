@@ -107,10 +107,12 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     override fun initViews() {
         // Capture button click
         binding.btnCapture.setOnClickListener {
+            // 成片使用与预览一致的配置（含自定义标题）
+            viewModel.applyLiveOverlayConfig(binding.watermarkOverlay.watermarkConfig)
             viewModel.capturePhoto()
         }
 
-        // Fill light (torch) toggle
+        // 仅补光灯开关（开/关），不切换闪光灯拍照模式
         binding.btnFlash.setOnClickListener {
             viewModel.toggleTorch()
         }
@@ -171,9 +173,10 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         }
 
 
-        // Low light warning - turn on flash
-        binding.btnTurnOnFlash.setOnClickListener {
-            viewModel.turnOnFlash()
+        // 闪光灯模式已移除：仅保留补光灯（torch）开关
+        runCatching {
+            binding.btnTurnOnFlash.visibility = View.GONE
+            binding.lowLightWarning.visibility = View.GONE
         }
 
         // Zoom ratio click to reset
@@ -269,10 +272,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                     binding.btnFlash.alpha = if (viewModel.torchOn.value) 1f else 0.55f
                 }
 
-                // Low light warning
-                binding.lowLightWarning.visibility =
-                    if (state.isLowLight && state.flashMode == com.watermark.camera.domain.repository.FlashMode.AUTO)
-                        View.VISIBLE else View.GONE
+                // 不再根据闪光灯自动模式提示；补光仅由 btnFlash 控制
+                binding.lowLightWarning.visibility = View.GONE
+                runCatching { binding.btnTurnOnFlash.visibility = View.GONE }
 
                 // Focus lock: no-op (labels hidden)
             }

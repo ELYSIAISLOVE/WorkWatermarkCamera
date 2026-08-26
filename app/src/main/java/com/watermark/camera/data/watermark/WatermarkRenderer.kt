@@ -27,13 +27,13 @@ class WatermarkRenderer {
 
     companion object {
         private const val BASE_SHORT = 1080f
-        private const val BASE_FONT = 15f
+        private const val BASE_FONT = 22f
         private const val BASE_PAD_H = 16f
         private const val BASE_PAD_V = 14f
         private const val BASE_GAP = 6f
         private const val BASE_RADIUS = 14f
-        private const val MIN_F = 10f
-        private const val MAX_F = 72f
+        private const val MIN_F = 14f
+        private const val MAX_F = 96f
     }
 
     private val glassRenderer = GlassmorphismRenderer()
@@ -132,7 +132,7 @@ class WatermarkRenderer {
     ): CardMetrics? {
         val shortSide = minOf(areaWidth, areaHeight)
         val scale = (shortSide / BASE_SHORT).coerceAtLeast(0.25f)
-        val user = config.fontScale.coerceIn(0.5f, 8f)
+        val user = config.clampedFontScale()
         val body = (BASE_FONT * scale * user).coerceIn(MIN_F, MAX_F)
         val gap = BASE_GAP * scale
         val padH = BASE_PAD_H * scale

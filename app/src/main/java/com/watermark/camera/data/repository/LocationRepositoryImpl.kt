@@ -52,6 +52,9 @@ class LocationRepositoryImpl @Inject constructor(
         private const val SMALLEST_DISPLACEMENT_M = 5f
     }
 
+    /** 最近一次高德逆地理地址，优先用于水印文案以提高精度展示 */
+    @Volatile private var lastAmapAddress: String? = null
+
     private val fusedClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
 
@@ -124,8 +127,8 @@ class LocationRepositoryImpl @Inject constructor(
 
         val request = LocationRequest.Builder(updateIntervalMs).apply {
             setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-            setMinUpdateIntervalMillis(FASTEST_UPDATE_INTERVAL_MS)
-            setMinUpdateDistanceMeters(SMALLEST_DISPLACEMENT_M)
+            setMinUpdateIntervalMillis(minOf(1000L, FASTEST_UPDATE_INTERVAL_MS))
+            setMinUpdateDistanceMeters(minOf(3f, SMALLEST_DISPLACEMENT_M))
             setWaitForAccurateLocation(true)
         }.build()
 
@@ -260,6 +263,11 @@ class LocationRepositoryImpl @Inject constructor(
     // region Formatting
 
     override fun formatForWatermark(location: LocationData?): String {
+        // Prefer precise Amap reverse-geocode address when available
+        lastAmapAddress?.takeIf { it.isNotBlank() }?.let { addr ->
+            return if (location?.beidouUsed == true) "[北斗] $addr" else addr
+        }
+
         if (location == null) return "未获取位置"
 
         return try {
@@ -332,6 +340,9 @@ class LocationRepositoryImpl @Inject constructor(
                     return@start
                 }
                 val data = r?.let {
+                    if (it.address.isNotBlank()) {
+                        lastAmapAddress = it.address
+                    }
                     LocationData(
                         latitude = it.latitude,
                         longitude = it.longitude,
