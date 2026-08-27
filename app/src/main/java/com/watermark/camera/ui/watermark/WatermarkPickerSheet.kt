@@ -19,6 +19,7 @@ import com.watermark.camera.R
 import com.watermark.camera.data.model.TimeStyle
 import com.watermark.camera.data.model.WatermarkConfig
 import com.watermark.camera.data.model.WatermarkTemplate
+import com.watermark.camera.data.watermark.TemplateFormCatalog
 
 /**
  * Bottom sheet: left templates, right time styles, independent scroll.
@@ -81,15 +82,7 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         })
 
 
-        val templates = listOf(
-            WatermarkTemplate.PROPERTY_INSPECTION,
-            WatermarkTemplate.DUTY,
-            WatermarkTemplate.ATTENDANCE,
-            WatermarkTemplate.WORK_REPORT,
-            WatermarkTemplate.EVIDENCE,
-            WatermarkTemplate.ENGINEERING,
-            WatermarkTemplate.GENERAL
-        )
+        val templates = WatermarkTemplate.menuEntries()
 
         val leftRv = view.findViewById<RecyclerView>(R.id.pickerTemplateGrid)
         leftRv.layoutManager = GridLayoutManager(requireContext(), 2)
@@ -123,12 +116,13 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
     private fun refreshPreview() {
         val tmpl: WatermarkTemplate = config.template
         previewTitle.text = tmpl.cardTitle(config.customTitle)
-        previewBody.text = when (config.timeStyle) {
-            TimeStyle.DIGITAL_TUBE -> "88:88:88  数码管(等宽绿)"
-            TimeStyle.FLIP_CALENDAR -> "12:34  翻页日历(衬线)"
-            TimeStyle.RETRO_SLASH -> "12/34/56  复古斜线"
-            else -> "12:34:56  默认样式"
+        val timeSample = when (config.timeStyle) {
+            TimeStyle.DIGITAL_TUBE -> "12:34:56"
+            TimeStyle.FLIP_CALENDAR -> "12:34"
+            TimeStyle.RETRO_SLASH -> "12/34/56"
+            else -> "12:34:56"
         }
+        previewBody.text = "时间: $timeSample\n${tmpl.footerSlogan}"
         // Typeface preview on sample line
         previewBody.typeface = when (config.timeStyle) {
             TimeStyle.DIGITAL_TUBE -> android.graphics.Typeface.MONOSPACE
@@ -140,7 +134,7 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         }
         val bg = GradientDrawable()
         bg.cornerRadius = 12f * resources.displayMetrics.density
-        bg.setColor(tmpl.backgroundColor)
+        bg.setColor(tmpl.resolvedHeaderColor())
         previewCard.background = bg
         previewTitle.setTextColor(Color.WHITE)
         previewBody.setTextColor(
@@ -180,11 +174,21 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
             holder.hint.text = item.description
             val gd = GradientDrawable()
             gd.cornerRadius = 10f * holder.itemView.resources.displayMetrics.density
-            gd.setColor(item.backgroundColor)
+            gd.setColor(item.resolvedHeaderColor())
             val strokeW = if (item == selected) 3 else 1
             val strokeC = if (item == selected) Color.WHITE else 0x66FFFFFF.toInt()
             gd.setStroke(strokeW, strokeC)
             holder.card.background = gd
+            // 同步资源卡片色（drawable 备份）
+            runCatching {
+                val resName = TemplateFormCatalog.drawableName(item)
+                val id = holder.itemView.resources.getIdentifier(
+                    resName, "drawable", holder.itemView.context.packageName
+                )
+                if (id != 0 && item != selected) {
+                    // keep gradient for stroke selection state
+                }
+            }
             holder.itemView.setOnClickListener {
                 val old = items.indexOf(selected)
                 selected = item

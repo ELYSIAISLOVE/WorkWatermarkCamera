@@ -57,7 +57,7 @@ class CameraTemplateStripAdapter(
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 12f * itemView.resources.displayMetrics.density
-                setColor(template.backgroundColor)
+                setColor(template.resolvedHeaderColor())
             }
             colorDot.background = bg
 

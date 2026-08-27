@@ -127,9 +127,11 @@ class WatermarkConfigDataSource @Inject constructor(
         val json = JSONObject(jsonStr)
         return WatermarkConfig(
             template = try {
-                WatermarkTemplate.valueOf(json.getString("template"))
+                val raw = WatermarkTemplate.valueOf(json.getString("template"))
+                // 旧「工作汇报」迁移到物业巡检，避免继续走已下线样式
+                if (raw == WatermarkTemplate.WORK_REPORT) WatermarkTemplate.PROPERTY_INSPECTION else raw
             } catch (e: Exception) {
-                WatermarkTemplate.GENERAL
+                WatermarkTemplate.PROPERTY_INSPECTION
             },
             timeStyle = try {
                 TimeStyle.valueOf(json.optString("timeStyle", "DEFAULT"))

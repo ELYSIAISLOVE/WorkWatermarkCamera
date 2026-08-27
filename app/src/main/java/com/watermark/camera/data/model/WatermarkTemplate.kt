@@ -3,75 +3,88 @@ package com.watermark.camera.data.model
 import androidx.annotation.ColorInt
 
 /**
- * Watermark templates aligned with assets/design/watermark_templates.
- * ENGINEERING/GENERAL kept for saved-config compatibility.
+ * 水印模板 —— 对齐设计稿表单卡片样式。
+ * GENERAL = 通用/自定义场景。
  */
 enum class WatermarkTemplate(
     val displayName: String,
     @ColorInt val backgroundColor: Int,
     @ColorInt val textColor: Int,
     val description: String,
-    val designAsset: String = ""
+    val designAsset: String = "",
+    /** 页脚标语 */
+    val footerSlogan: String = "",
+    /** 表头主色（含页脚） */
+    @ColorInt val headerColor: Int = 0
 ) {
     PROPERTY_INSPECTION(
-        "物业巡检", 0xFF1B4F72.toInt(), 0xFFFFFFFF.toInt(),
-        "物业、巡检记录",
-        "design/watermark_templates/watermark_property_inspection.svg"
+        "物业巡检", 0xFF2A6B4F.toInt(), 0xFFFFFFFF.toInt(),
+        "规范巡检 · 保障安全",
+        footerSlogan = "规范巡检 · 保障安全",
+        headerColor = 0xFF2A6B4F.toInt()
     ),
     DUTY(
-        "执勤", 0xFF2B6AFF.toInt(), 0xFFFFFFFF.toInt(),
-        "安保、巡逻",
-        "design/watermark_templates/watermark_duty.svg"
+        "执勤水印", 0xFF1B5EA8.toInt(), 0xFFFFFFFF.toInt(),
+        "忠于职守 · 保障安全",
+        footerSlogan = "忠于职守 · 保障安全",
+        headerColor = 0xFF1B5EA8.toInt()
+    ),
+    ENGINEERING(
+        "工程水印", 0xFFD97A2B.toInt(), 0xFFFFFFFF.toInt(),
+        "精益求精 · 匠心工程",
+        footerSlogan = "精益求精 · 匠心工程",
+        headerColor = 0xFFD97A2B.toInt()
     ),
     ATTENDANCE(
-        "考勤", 0xFF52C41A.toInt(), 0xFFFFFFFF.toInt(),
-        "打卡、签到",
-        "design/watermark_templates/watermark_attendance.svg"
+        "考勤水印", 0xFF1A8A9A.toInt(), 0xFFFFFFFF.toInt(),
+        "准时考勤 · 诚信自律",
+        footerSlogan = "准时考勤 · 诚信自律",
+        headerColor = 0xFF1A8A9A.toInt()
     ),
+    EVIDENCE(
+        "取证水印", 0xFF5C3D9A.toInt(), 0xFFFFFFFF.toInt(),
+        "真实取证 · 有据可查",
+        footerSlogan = "真实取证 · 有据可查",
+        headerColor = 0xFF5C3D9A.toInt()
+    ),
+    GENERAL(
+        "通用水印", 0xFF4A5568.toInt(), 0xFFFFFFFF.toInt(),
+        "真实记录 · 规范留存",
+        footerSlogan = "真实记录 · 规范留存",
+        headerColor = 0xFF4A5568.toInt()
+    ),
+    /** 兼容旧配置，菜单不再展示 */
     WORK_REPORT(
         "工作汇报", 0xFF7A4B2C.toInt(), 0xFFFFFFFF.toInt(),
         "工作汇报记录",
-        "design/watermark_templates/watermark_work_report.svg"
-    ),
-    EVIDENCE(
-        "取证", 0xFF8B1A1A.toInt(), 0xFFFFFFFF.toInt(),
-        "拍照取证",
-        "design/watermark_templates/watermark_evidence.svg"
-    ),
-    ENGINEERING(
-        "工程", 0xFFFF8C42.toInt(), 0xFF000000.toInt(),
-        "施工、监理"
-    ),
-    GENERAL(
-        "自定义", 0xFF595959.toInt(), 0xFFFFFFFF.toInt(),
-        "可自行输入文字"
+        footerSlogan = "真实记录 · 规范留存",
+        headerColor = 0xFF7A4B2C.toInt()
     );
-
 
     /**
      * 选单 / 预览 / 成片统一标题。
-     * 例：执勤水印、考勤水印、取证水印、工程水印；
-     * 自定义模板优先用用户输入，否则「自定义水印」。
+     * 通用模板优先用户 customTitle，否则「通用水印」。
      */
     fun cardTitle(customTitle: String = ""): String = when (this) {
-        GENERAL -> {
-            val c = customTitle.trim()
-            when {
-                c.isEmpty() -> "自定义水印"
-                else -> c
-            }
-        }
-        else -> "${displayName}水印"
+        GENERAL -> customTitle.trim().ifEmpty { "通用水印" }
+        PROPERTY_INSPECTION -> "物业巡检"
+        DUTY -> "执勤水印"
+        ENGINEERING -> "工程水印"
+        ATTENDANCE -> "考勤水印"
+        EVIDENCE -> "取证水印"
+        WORK_REPORT -> "工作汇报"
     }
+
+    fun resolvedHeaderColor(): Int = if (headerColor != 0) headerColor else backgroundColor
 
     companion object {
         fun fromDisplayName(name: String): WatermarkTemplate =
-            entries.find { it.displayName == name } ?: GENERAL
+            entries.find { it.displayName == name || it.cardTitle() == name } ?: GENERAL
 
-        fun default(): WatermarkTemplate = WORK_REPORT
+        fun default(): WatermarkTemplate = PROPERTY_INSPECTION
 
         fun menuEntries(): List<WatermarkTemplate> = listOf(
-            PROPERTY_INSPECTION, DUTY, ATTENDANCE, WORK_REPORT, EVIDENCE, ENGINEERING, GENERAL
+            PROPERTY_INSPECTION, DUTY, ENGINEERING, ATTENDANCE, EVIDENCE, GENERAL
         )
     }
 }
@@ -98,7 +111,6 @@ enum class TimeStyle(
     DIGITAL_TUBE("数码管", "design/time_styles/time_digital_tube.svg"),
     FLIP_CALENDAR("翻页日历", "design/time_styles/time_flip_calendar.svg"),
     RETRO_SLASH("复古斜线", "design/time_styles/time_retro_slash.svg");
-
 
     companion object {
         fun default(): TimeStyle = DEFAULT
