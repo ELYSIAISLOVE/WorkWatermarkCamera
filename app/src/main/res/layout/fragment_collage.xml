@@ -7,47 +7,7 @@
     android:fitsSystemWindows="true"
     android:clipToPadding="false">
 
-    <!-- Top: template format row -->
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scrollbars="none"
-        android:paddingTop="8dp"
-        android:paddingBottom="4dp"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp">
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button android:id="@+id/tpl2x2" android:layout_width="wrap_content" android:layout_height="40dp" android:text="2×2" android:textSize="12sp" android:layout_marginEnd="6dp" />
-            <Button android:id="@+id/tpl3x3" android:layout_width="wrap_content" android:layout_height="40dp" android:text="3×3" android:textSize="12sp" android:layout_marginEnd="6dp" />
-            <Button android:id="@+id/tpl4x4" android:layout_width="wrap_content" android:layout_height="40dp" android:text="4×4" android:textSize="12sp" android:layout_marginEnd="6dp" />
-            <Button android:id="@+id/tpl1x3" android:layout_width="wrap_content" android:layout_height="40dp" android:text="1×3" android:textSize="12sp" android:layout_marginEnd="6dp" />
-            <Button android:id="@+id/tpl3x1" android:layout_width="wrap_content" android:layout_height="40dp" android:text="3×1" android:textSize="12sp" android:layout_marginEnd="6dp" />
-            <Button android:id="@+id/tpl1x2" android:layout_width="wrap_content" android:layout_height="40dp" android:text="1×2" android:textSize="12sp" android:layout_marginEnd="6dp" />
-            <Button android:id="@+id/tpl2x1" android:layout_width="wrap_content" android:layout_height="40dp" android:text="2×1" android:textSize="12sp" />
-        </LinearLayout>
-    </HorizontalScrollView>
-
-    <TextView
-        android:id="@+id/tvHint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="10dp"
-        android:text="已选 0 张 · 2×2"
-        android:textColor="#FFAAAAAA"
-        android:textSize="13sp" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerSelected"
-        android:layout_width="match_parent"
-        android:layout_height="96dp"
-        android:padding="4dp"
-        android:background="#FF141414" />
-
+    <!-- 主区域：最终拼图预览，点文字可改 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -60,7 +20,60 @@
             android:layout_height="match_parent"
             android:adjustViewBounds="true"
             android:scaleType="fitCenter"
+            android:background="#FFFFFFFF"
             android:contentDescription="拼图预览" />
+
+        <LinearLayout
+            android:id="@+id/editHintBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:background="#99000000">
+
+            <TextView
+                android:id="@+id/btnEditTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="点此改标题"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13sp"
+                android:padding="6dp" />
+
+            <TextView
+                android:id="@+id/btnEditReporter"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="点此改汇报人"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13sp"
+                android:padding="6dp" />
+
+            <TextView
+                android:id="@+id/btnEditSubtitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="点此改副标题"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13sp"
+                android:padding="6dp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvEmptyHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="点底部「选图」开始拼图"
+            android:textColor="#FF888888"
+            android:textSize="15sp" />
 
         <ProgressBar
             android:id="@+id/progressBar"
@@ -70,7 +83,19 @@
             android:visibility="gone" />
     </FrameLayout>
 
-    <!-- Bottom: 清空 / 选图 / 生成 -->
+    <TextView
+        android:id="@+id/tvHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:text="已选 0 张"
+        android:textColor="#FFAAAAAA"
+        android:textSize="12sp" />
+
+    <!-- 底部操作：选图 / 保存 -->
     <LinearLayout
         android:id="@+id/collageBottomBar"
         android:layout_width="match_parent"
@@ -78,7 +103,7 @@
         android:orientation="horizontal"
         android:gravity="center"
         android:padding="8dp"
-        android:background="@drawable/bg_bottom_action_bar"
+        android:background="#FF1A1A1A"
         android:elevation="8dp">
 
         <Button
@@ -96,15 +121,14 @@
             android:layout_height="44dp"
             android:layout_weight="1"
             android:text="选图"
-            android:layout_marginEnd="6dp"
-            style="?attr/materialButtonOutlinedStyle" />
+            android:layout_marginEnd="6dp" />
 
         <Button
             android:id="@+id/btnGenerate"
             android:layout_width="0dp"
             android:layout_height="44dp"
             android:layout_weight="1"
-            android:text="生成"
+            android:text="保存"
             android:enabled="false" />
     </LinearLayout>
 </LinearLayout>

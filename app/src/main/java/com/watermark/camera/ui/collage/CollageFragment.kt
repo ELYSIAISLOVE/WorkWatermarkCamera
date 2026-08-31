@@ -14,6 +14,12 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.Paint
 import android.net.Uri
+import androidx.appcompat.app.AlertDialog
+import android.widget.EditText
+import android.provider.MediaStore
+import android.os.Environment
+import android.os.Build
+import android.content.ContentValues
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -41,8 +47,12 @@ import kotlinx.coroutines.withContext
 class CollageFragment : Fragment() {
 
     private var photoUris: MutableList<String> = mutableListOf()
-    private var template: Template = Template.GRID_2X2
+    private var template: Template = Template.GRID_3X3
     private var resultBitmap: Bitmap? = null
+    private var reportTitle: String = "白班打点"
+    private var reportSubtitle: String = "工作现场照片汇总整理"
+    private var reporterName: String = "—"
+    private var tvEmptyHint: TextView? = null
 
     private var tvCount: TextView? = null
     private var ivPreview: ImageView? = null
@@ -55,17 +65,17 @@ class CollageFragment : Fragment() {
         ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
         if (uris.isEmpty()) return@registerForActivityResult
-        val cap = template.capacity.coerceAtMost(9)
+        val cap = 15
         for (u in uris) {
             if (photoUris.size >= cap) break
             val s = u.toString()
             if (s !in photoUris) photoUris.add(s)
         }
-        // Trim if template was switched to smaller grid
         if (photoUris.size > cap) {
             photoUris = photoUris.take(cap).toMutableList()
         }
         refreshUi()
+        autoPreview()
     }
 
     enum class Template(val rows: Int, val cols: Int, val label: String) {
@@ -111,18 +121,8 @@ class CollageFragment : Fragment() {
         ivPreview = view.findViewById(R.id.ivPreview)
         progress = view.findViewById(R.id.progressBar)
         btnGenerate = view.findViewById(R.id.btnGenerate)
-        recycler = view.findViewById(R.id.recyclerSelected)
-
-        adapter = UriAdapter(photoUris) { idx ->
-            if (idx in photoUris.indices) {
-                photoUris.removeAt(idx)
-                refreshUi()
-            }
-        }
-        recycler?.layoutManager = GridLayoutManager(requireContext(), 4)
-        recycler?.adapter = adapter
-
-        bindTemplateButtons(view)
+        tvEmptyHint = view.findViewById(R.id.tvEmptyHint)
+        // 简化布局已去掉模板条与选图列表，仅保留预览 + 选图/保存
 
         view.findViewById<Button>(R.id.btnClear)?.setOnClickListener {
             photoUris.clear()
@@ -134,9 +134,22 @@ class CollageFragment : Fragment() {
         view.findViewById<Button>(R.id.btnPick)?.setOnClickListener {
             pickImages.launch("image/*")
         }
-        btnGenerate?.setOnClickListener { generate() }
+        btnGenerate?.setOnClickListener { saveCollage() }
+        view.findViewById<View>(R.id.btnEditTitle)?.setOnClickListener {
+            promptEdit("修改标题", reportTitle) { reportTitle = it; autoPreview() }
+        }
+        view.findViewById<View>(R.id.btnEditSubtitle)?.setOnClickListener {
+            promptEdit("修改副标题", reportSubtitle) { reportSubtitle = it; autoPreview() }
+        }
+        view.findViewById<View>(R.id.btnEditReporter)?.setOnClickListener {
+            promptEdit("修改汇报人", if (reporterName == "—") "" else reporterName) {
+                reporterName = it.ifBlank { "—" }
+                autoPreview()
+            }
+        }
 
         refreshUi()
+        if (photoUris.isNotEmpty()) autoPreview()
         } catch (e: Exception) {
             android.util.Log.e("CollageFragment", "onViewCreated", e)
             android.widget.Toast.makeText(requireContext(), "拼图界面异常: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
@@ -144,45 +157,40 @@ class CollageFragment : Fragment() {
     }
 
     private fun bindTemplateButtons(view: View) {
-        val map = listOf(
-            R.id.tpl2x2 to Template.GRID_2X2,
-            R.id.tpl3x3 to Template.GRID_3X3,
-            R.id.tpl4x4 to Template.GRID_4X4,
-            R.id.tpl1x3 to Template.ROW_1X3,
-            R.id.tpl3x1 to Template.COL_3X1,
-            R.id.tpl1x2 to Template.ROW_1X2,
-            R.id.tpl2x1 to Template.COL_2X1
-        )
-        for ((id, tpl) in map) {
-            view.findViewById<Button>(id)?.setOnClickListener {
-                template = tpl
-                refreshUi()
-            }
-        }
+        // 模板入口已从布局移除，固定使用 3 列汇报排版
     }
 
     private fun refreshUi() {
         adapter?.notifyDataSetChanged()
         val cap = template.capacity
-        tvCount?.text = "已选 ${photoUris.size} 张 · ${template.label}（最多 $cap 张）"
+        tvCount?.text = "已选 ${photoUris.size} 张 · 点击上方文字可改标题/汇报人"
         btnGenerate?.isEnabled = photoUris.isNotEmpty()
+        tvEmptyHint?.visibility = if (photoUris.isEmpty() && resultBitmap == null) View.VISIBLE else View.GONE
     }
 
-    private fun generate() {
+    private fun autoPreview() {
+        if (photoUris.isEmpty()) return
+        generate(showToast = false)
+    }
+
+    private fun generate(showToast: Boolean = false) {
         if (photoUris.isEmpty()) {
-            Toast.makeText(requireContext(), "请先选图", Toast.LENGTH_SHORT).show()
+            if (showToast) Toast.makeText(requireContext(), "请先选图", Toast.LENGTH_SHORT).show()
             return
         }
         progress?.visibility = View.VISIBLE
         btnGenerate?.isEnabled = false
         val uris = photoUris.toList()
         val tpl = template
+        val title = reportTitle
+        val sub = reportSubtitle
+        val reporter = reporterName
         lifecycleScope.launch {
             val bmp = withContext(Dispatchers.Default) {
-                runCatching { buildCollage(uris, tpl) }.getOrNull()
+                runCatching { buildCollage(uris, tpl, title, sub, reporter) }.getOrNull()
             }
             progress?.visibility = View.GONE
-            btnGenerate?.isEnabled = true
+            btnGenerate?.isEnabled = photoUris.isNotEmpty()
             if (bmp == null) {
                 Toast.makeText(requireContext(), "拼图失败", Toast.LENGTH_SHORT).show()
                 return@launch
@@ -190,11 +198,84 @@ class CollageFragment : Fragment() {
             resultBitmap?.recycle()
             resultBitmap = bmp
             ivPreview?.setImageBitmap(bmp)
-            Toast.makeText(requireContext(), "拼图完成（预览）", Toast.LENGTH_SHORT).show()
+            tvEmptyHint?.visibility = View.GONE
+            if (showToast) Toast.makeText(requireContext(), "预览已更新", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun buildCollage(uris: List<String>, tpl: Template): Bitmap {
+    private fun promptEdit(title: String, current: String, onOk: (String) -> Unit) {
+        val ctx = requireContext()
+        val et = EditText(ctx).apply {
+            setText(current)
+            setSelection(text.length)
+            setSingleLine(true)
+            hint = title
+        }
+        AlertDialog.Builder(ctx)
+            .setTitle(title)
+            .setView(et)
+            .setPositiveButton("确定") { _, _ -> onOk(et.text?.toString()?.trim().orEmpty()) }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun saveCollage() {
+        val bmp = resultBitmap
+        if (bmp == null) {
+            if (photoUris.isEmpty()) {
+                Toast.makeText(requireContext(), "请先选图", Toast.LENGTH_SHORT).show()
+            } else {
+                generate(showToast = false)
+                Toast.makeText(requireContext(), "正在生成，请稍后再点保存", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+        progress?.visibility = View.VISIBLE
+        btnGenerate?.isEnabled = false
+        lifecycleScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching { saveBitmapToGallery(bmp) }.getOrElse { e ->
+                    android.util.Log.e("CollageFragment", "save", e)
+                    null
+                }
+            }
+            progress?.visibility = View.GONE
+            btnGenerate?.isEnabled = true
+            if (ok != null) {
+                Toast.makeText(requireContext(), "已保存到相册", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "保存失败", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun saveBitmapToGallery(bitmap: Bitmap): android.net.Uri {
+        val name = "collage_${System.currentTimeMillis()}.jpg"
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/WatermarkCamera")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        }
+        val resolver = requireContext().contentResolver
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: throw IllegalStateException("无法创建相册条目")
+        resolver.openOutputStream(uri)?.use { out ->
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)) {
+                throw IllegalStateException("压缩失败")
+            }
+        } ?: throw IllegalStateException("无法写入文件")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+        }
+        return uri
+    }
+
+    private fun buildCollage(uris: List<String>, tpl: Template, title: String = reportTitle, subtitle: String = reportSubtitle, reporter: String = reporterName): Bitmap {
         // 参考「白班打点」工作汇报：白底 + 蓝色标题头 + 网格照片 + 底部品牌栏
         val pageW = 1080
         val margin = 36
@@ -224,17 +305,17 @@ class CollageFragment : Fragment() {
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.CENTER
         paint.textSize = 72f
-        canvas.drawText("白班打点", pageW / 2f, 100f, paint)
+        canvas.drawText(title.ifBlank { "白班打点" }, pageW / 2f, 100f, paint)
         paint.textSize = 32f
         paint.typeface = Typeface.DEFAULT
         paint.color = 0xFF5B8DEF.toInt()
-        canvas.drawText("工作现场照片汇总整理", pageW / 2f, 150f, paint)
+        canvas.drawText(subtitle.ifBlank { "工作现场照片汇总整理" }, pageW / 2f, 150f, paint)
 
         paint.textAlign = Paint.Align.LEFT
         paint.textSize = 28f
         paint.color = 0xFF333333.toInt()
         val dateStr = SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA).format(Date())
-        canvas.drawText("汇报人: —", margin.toFloat(), 210f, paint)
+        canvas.drawText("汇报人: ${reporter.ifBlank { "—" }}", margin.toFloat(), 210f, paint)
         paint.textAlign = Paint.Align.RIGHT
         canvas.drawText(dateStr, (pageW - margin).toFloat(), 210f, paint)
 
