@@ -257,7 +257,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             }
             is CameraState.Previewing -> {
                 binding.btnCapture.isEnabled = true
-                binding.tvZoomRatio.visibility = View.GONE
+                binding.tvZoomRatio.visibility = View.VISIBLE
                 binding.tvZoomRatio.text = String.format("%.1fx", state.zoomRatio)
                 binding.tvAspectRatio.text = "4:3"
                 binding.tvAspectRatio.visibility = View.GONE
@@ -670,18 +670,24 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun applySystemBarInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            // Push top controls below status bar; keep bottom bar above nav bar
-            runCatching {
-                binding.btnFlash.setPadding(
-                    binding.btnFlash.paddingLeft,
-                    bars.top / 2,
-                    binding.btnFlash.paddingRight,
-                    binding.btnFlash.paddingBottom
-                )
-                val lp = binding.btnFlash.layoutParams
-                if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
-                    lp.topMargin = bars.top + 8
-                    binding.btnFlash.layoutParams = lp
+            // 所有顶部控件下移，避免被状态栏遮挡
+            // 仅使用布局中真实存在的 id，避免 R.id 编译失败
+            val topIds = intArrayOf(
+                com.watermark.camera.R.id.btnFlash,
+                com.watermark.camera.R.id.btnMenu,
+                com.watermark.camera.R.id.btnSettingsTop,
+                com.watermark.camera.R.id.btnTurnOnFlash
+            )
+            for (id in topIds) {
+                runCatching {
+                    val v = binding.root.findViewById<android.view.View>(id) ?: return@runCatching
+                    val lp = v.layoutParams
+                    if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
+                        lp.topMargin = bars.top + 8
+                        v.layoutParams = lp
+                    } else {
+                        v.setPadding(v.paddingLeft, bars.top + 4, v.paddingRight, v.paddingBottom)
+                    }
                 }
             }
             runCatching {
@@ -689,6 +695,13 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
                     lp.bottomMargin = bars.bottom
                     binding.bottomBar.layoutParams = lp
+                }
+            }
+            runCatching {
+                val lp = binding.tvZoomRatio.layoutParams
+                if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
+                    lp.bottomMargin = bars.bottom + 6
+                    binding.tvZoomRatio.layoutParams = lp
                 }
             }
             insets
@@ -863,74 +876,67 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
     private fun setupZoomChips() {
-        val chips = listOf(
-            binding.zoomChip05 to 0.5f,
-            binding.zoomChip1x to 1.0f,
-            binding.zoomChip2x to 2.0f
-        )
-        fun select(active: android.widget.TextView) {
-            chips.forEach { (v, _) ->
-                val on = v == active
-                v.isSelected = on
-                v.setTextColor(if (on) 0xFF111111.toInt() else 0xFFFFFFFF.toInt())
-                v.animate().scaleX(if (on) 1.12f else 1f).scaleY(if (on) 1.12f else 1f)
-                    .setDuration(140L).start()
-            }
+        // 去掉 0.5/1x/2 档位，仅按住拖动变焦并显示倍数
+        runCatching {
+            binding.zoomChip05.visibility = View.GONE
+            binding.zoomChip1x.visibility = View.GONE
+            binding.zoomChip2x.visibility = View.GONE
+        }
+        runCatching {
+            binding.tvZoomRatio.visibility = View.VISIBLE
+            binding.tvZoomRatio.text = String.format("%.1fx", currentZoomRatio)
+            binding.tvZoomRatio.elevation = 14f
         }
         fun applyZoom(ratio: Float) {
             val minZ = viewModel.getMinZoomRatio()
             val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
             val target = ratio.coerceIn(minZ, maxZ)
             viewModel.setZoomRatio(target)
-            // 高亮最接近的档位芯片
-            val nearest = chips.minByOrNull { kotlin.math.abs(it.second - target) }?.first
-            if (nearest != null) select(nearest)
+            currentZoomRatio = target
+            runCatching {
+                binding.tvZoomRatio.visibility = View.VISIBLE
+                binding.tvZoomRatio.text = String.format("%.1fx", target)
+            }
         }
-        chips.forEach { (v, ratio) ->
-            v.setOnClickListener { applyZoom(ratio) }
-        }
-        select(binding.zoomChip1x)
-        runCatching { binding.tvZoomRatio.visibility = android.view.View.GONE }
-        runCatching {
-            ViewAnim.attachPressScale(
-                binding.zoomChip05, binding.zoomChip1x, binding.zoomChip2x
-            )
-        }
-        // 按住拖动变焦：上滑放大、下滑缩小，上限 10x；小位移仍交给子 View 点击
         var dragStartY = 0f
         var dragStartZoom = 1f
-        var draggingZoom = false
-        val touchSlop = android.view.ViewConfiguration.get(requireContext()).scaledTouchSlop
-        binding.zoomChipRow.setOnTouchListener { _, event ->
+        var dragging = false
+        val slop = android.view.ViewConfiguration.get(requireContext()).scaledTouchSlop
+        val target = runCatching { binding.tvZoomRatio }.getOrNull()
+            ?: runCatching { binding.zoomChipRow }.getOrNull()
+        target?.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     dragStartY = event.rawY
                     dragStartZoom = currentZoomRatio
-                    draggingZoom = false
-                    false // 不拦截，让芯片 onClick 仍可用
+                    dragging = false
+                    true
                 }
                 android.view.MotionEvent.ACTION_MOVE -> {
                     val dy = dragStartY - event.rawY
-                    if (!draggingZoom && kotlin.math.abs(dy) > touchSlop) {
-                        draggingZoom = true
-                        binding.zoomChipRow.parent?.requestDisallowInterceptTouchEvent(true)
+                    if (!dragging && kotlin.math.abs(dy) > slop) {
+                        dragging = true
+                        v.parent?.requestDisallowInterceptTouchEvent(true)
                     }
-                    if (draggingZoom) {
+                    if (dragging) {
                         applyZoom(dragStartZoom + dy / 80f)
                         true
-                    } else {
-                        false
-                    }
+                    } else false
                 }
                 android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                    val was = draggingZoom
-                    draggingZoom = false
-                    binding.zoomChipRow.parent?.requestDisallowInterceptTouchEvent(false)
-                    was // 若已拖动则消费，避免误触发 click
+                    val was = dragging
+                    dragging = false
+                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                    if (!was) {
+                        // 轻点复位 1x
+                        applyZoom(1.0f)
+                    }
+                    true
                 }
                 else -> false
             }
         }
+        // 双指捏合仍可用，上限 10x
     }
 
 

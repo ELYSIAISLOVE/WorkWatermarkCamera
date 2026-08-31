@@ -250,22 +250,35 @@ class CollageEngine(
         reportData: ReportData,
         outputFile: File
     ): CollageResult {
+        // 长条拼图：按屏宽等比缩放，不裁切，保留完整画面
         val photoWidth = OUTPUT_WIDTH
-        val photoHeight = (photoWidth * 0.75).toInt() // 4:3 aspect per photo
-        val totalContentHeight = photoPaths.size * (photoHeight + CELL_SPACING)
+        val heights = mutableListOf<Int>()
+        photoPaths.forEach { path ->
+            val h = try {
+                val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeFile(path, opts)
+                if (opts.outWidth > 0 && opts.outHeight > 0) {
+                    maxOf(1, (photoWidth.toFloat() * opts.outHeight / opts.outWidth).toInt())
+                } else (photoWidth * 0.75).toInt()
+            } catch (_: Exception) {
+                (photoWidth * 0.75).toInt()
+            }
+            heights.add(h)
+        }
+        val totalContentHeight = heights.sum() + (photoPaths.size - 1).coerceAtLeast(0) * CELL_SPACING
         val totalHeight = totalContentHeight + REPORT_BAR_HEIGHT
 
-        // Fast path: fits in single Bitmap
         if (totalHeight <= MAX_BITMAP_DIMENSION) {
-            return generateVerticalLongAsBitmap(
-                photoPaths, photoWidth, photoHeight, totalHeight, reportData
+            return generateVerticalLongAsBitmapFull(
+                photoPaths, heights, photoWidth, totalHeight, reportData
             )
         }
-
-        // Streaming path: write JPEG directly without full Bitmap
-        return generateVerticalLongStreamed(
-            photoPaths, photoWidth, photoHeight, totalHeight, reportData, outputFile
-        )
+        // 过大时整体等比缩小，仍不裁切
+        val scaleFactor = (MAX_BITMAP_DIMENSION.toFloat() / totalHeight).coerceAtMost(1f)
+        val sw = maxOf(1, (photoWidth * scaleFactor).toInt())
+        val sh = heights.map { maxOf(1, (it * scaleFactor).toInt()) }
+        val st = maxOf(1, (totalHeight * scaleFactor).toInt())
+        return generateVerticalLongAsBitmapFull(photoPaths, sh, sw, st, reportData)
     }
 
     /**
@@ -374,6 +387,64 @@ class CollageEngine(
      * @return A new Bitmap of [targetWidth] x [targetHeight].
      *         Caller must recycle both source and returned Bitmap.
      */
+
+    /**
+     * 长条拼图：宽度对齐，高度按原图比例，不 center-crop。
+     */
+    private fun generateVerticalLongAsBitmapFull(
+        photoPaths: List<String>,
+        heights: List<Int>,
+        photoWidth: Int,
+        totalHeight: Int,
+        reportData: ReportData
+    ): CollageResult {
+        val outputBitmap = Bitmap.createBitmap(photoWidth, totalHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(outputBitmap)
+        canvas.drawColor(BG_COLOR)
+        var top = 0
+        photoPaths.forEachIndexed { index, path ->
+            val targetH = heights[index]
+            val sourceBitmap = try {
+                decoder.decodeFile(path, maxOf(targetH, photoWidth) * 2)
+            } catch (e: Exception) {
+                throw IllegalStateException("无法解码图片: $path (${e.message})", e)
+            }
+            try {
+                val scaled = scaleToFitWidth(sourceBitmap, photoWidth, targetH)
+                canvas.drawBitmap(scaled, 0f, top.toFloat(), null)
+                if (scaled !== sourceBitmap) memoryManager.recycle(scaled)
+            } finally {
+                memoryManager.recycle(sourceBitmap)
+            }
+            top += targetH + CELL_SPACING
+            memoryManager.checkMemory("collage_long_full_$index")
+        }
+        drawReportBar(canvas, 0, totalHeight - REPORT_BAR_HEIGHT, photoWidth, reportData)
+        return CollageResult(
+            bitmap = outputBitmap,
+            file = null,
+            width = photoWidth,
+            height = totalHeight,
+            isStreamed = false
+        )
+    }
+
+    /** 等比缩放到目标宽，高度不足则居中留边，绝不裁切画面内容 */
+    private fun scaleToFitWidth(source: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
+        val scale = targetWidth.toFloat() / source.width
+        val scaledW = targetWidth
+        val scaledH = maxOf(1, (source.height * scale).toInt())
+        val scaled = Bitmap.createScaledBitmap(source, scaledW, scaledH, true)
+        if (scaledH == targetHeight) return scaled
+        val out = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val c = Canvas(out)
+        c.drawColor(BG_COLOR)
+        val dy = (targetHeight - scaledH) / 2f
+        c.drawBitmap(scaled, 0f, dy, null)
+        if (scaled !== source) memoryManager.recycle(scaled)
+        return out
+    }
+
     private fun scaleAndCenterCrop(
         source: Bitmap,
         targetWidth: Int,

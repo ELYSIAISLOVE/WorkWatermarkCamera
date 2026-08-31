@@ -109,6 +109,7 @@ class WatermarkConfigDataSource @Inject constructor(
             put("template", config.template.name)
             put("timeStyle", config.timeStyle.name)
             put("customTitle", config.customTitle)
+            put("fieldsJson", config.fieldsJson)
             put("name", config.name)
             put("projectName", config.projectName)
             put("remark", config.remark)
@@ -139,6 +140,7 @@ class WatermarkConfigDataSource @Inject constructor(
                 TimeStyle.DEFAULT
             },
             customTitle = json.optString("customTitle", ""),
+            fieldsJson = json.optString("fieldsJson", "{}"),
             name = json.optString("name", ""),
             projectName = json.optString("projectName", ""),
             remark = json.optString("remark", ""),

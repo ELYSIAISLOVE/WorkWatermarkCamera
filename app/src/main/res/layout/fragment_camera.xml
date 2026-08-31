@@ -277,6 +277,7 @@
 
         <TextView
             android:id="@+id/zoomChip05"
+            android:visibility="gone"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_marginHorizontal="4dp"
@@ -289,6 +290,7 @@
 
         <TextView
             android:id="@+id/zoomChip1x"
+            android:visibility="gone"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_marginHorizontal="4dp"
@@ -301,6 +303,7 @@
 
         <TextView
             android:id="@+id/zoomChip2x"
+            android:visibility="gone"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_marginHorizontal="4dp"
@@ -370,11 +373,20 @@
         app:layout_constraintTop_toTopOf="parent" />
     <TextView
         android:id="@+id/tvZoomRatio"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
+        android:layout_width="52dp"
+        android:layout_height="32dp"
+        android:layout_marginBottom="6dp"
+        android:background="#99000000"
+        android:elevation="14dp"
+        android:gravity="center"
+        android:text="1.0x"
+        android:textColor="#FFFFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="visible"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent" />
     <TextView
         android:id="@+id/tvAspectRatio"
         android:layout_width="wrap_content"

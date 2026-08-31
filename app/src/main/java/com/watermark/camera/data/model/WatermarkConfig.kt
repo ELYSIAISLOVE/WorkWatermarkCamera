@@ -26,12 +26,14 @@ data class WatermarkConfig(
     val timeStyle: TimeStyle = TimeStyle.DEFAULT,
     /** 通用/自定义水印标题（用户输入） */
     val customTitle: String = "",
+    /** 各模板独立字段 JSON */
+    val fieldsJson: String = "{}",
     val name: String = "",
     val projectName: String = "",
     val remark: String = "",
     val location: String = "",
     val transparency: Float = 0.8f,
-    val fontScale: Float = 2.0f,
+    val fontScale: Float = 1.25f,
     val position: WatermarkPosition = WatermarkPosition.BOTTOM_LEFT,
     /**
      * Free-drag position of card top-left as fraction of [0,1] in view/photo space.

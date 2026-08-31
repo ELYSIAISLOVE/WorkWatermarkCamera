@@ -3,7 +3,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FF0D0D0D">
+    android:background="#FF0D0D0D"
+    android:fitsSystemWindows="true"
+    android:clipToPadding="false">
 
     <!-- Top: template format row -->
     <HorizontalScrollView

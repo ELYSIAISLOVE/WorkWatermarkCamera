@@ -11,6 +11,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
@@ -95,6 +97,8 @@ class CollageFragment : Fragment() {
     ): View = inflater.inflate(R.layout.fragment_collage, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        applySystemBarInsets(view)
+
         super.onViewCreated(view, savedInstanceState)
         try {
         tvCount = view.findViewById(R.id.tvHint)
@@ -265,4 +269,14 @@ class CollageFragment : Fragment() {
             }
         }
     }
+    private fun applySystemBarInsets(root: View) {
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(v.paddingLeft, bars.top, v.paddingRight, bars.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
+    }
+
+
 }

@@ -9,11 +9,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.appcompat.app.AlertDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.watermark.camera.R
 import com.watermark.camera.data.model.TimeStyle
@@ -88,11 +90,12 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         leftRv.layoutManager = GridLayoutManager(requireContext(), 2)
         val templateAdapter = TemplateGridAdapter(templates, config.template) { chosen ->
             config = config.copy(template = chosen)
-            customRow?.visibility = if (chosen == WatermarkTemplate.GENERAL) View.VISIBLE else View.GONE
+            runCatching { customRow?.visibility = View.GONE }
             refreshPreview()
             onSelectionChanged?.invoke(config)
+            showTemplateFieldsDialog(chosen)
         }
-        customRow?.visibility = if (config.template == WatermarkTemplate.GENERAL) View.VISIBLE else View.GONE
+        runCatching { customRow?.visibility = View.GONE }
         leftRv.adapter = templateAdapter
 
         val styles = listOf(
@@ -115,7 +118,7 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
 
     private fun refreshPreview() {
         val tmpl: WatermarkTemplate = config.template
-        previewTitle.text = tmpl.cardTitle(config.customTitle)
+        previewTitle.text = TemplateFormCatalog.specOf(tmpl).title
         val timeSample = when (config.timeStyle) {
             TimeStyle.DIGITAL_TUBE -> "12:34:56"
             TimeStyle.FLIP_CALENDAR -> "12:34"
@@ -148,6 +151,51 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
 
     companion object {
         fun newInstance(): WatermarkPickerSheet = WatermarkPickerSheet()
+    }
+
+
+    private fun showTemplateFieldsDialog(template: WatermarkTemplate) {
+        val spec = TemplateFormCatalog.specOf(template)
+        val ctx = requireContext()
+        val density = resources.displayMetrics.density
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((20 * density).toInt(), (12 * density).toInt(), (20 * density).toInt(), (4 * density).toInt())
+        }
+        val editors = linkedMapOf<String, EditText>()
+        for (field in spec.editable) {
+            container.addView(android.widget.TextView(ctx).apply {
+                text = field.label
+                textSize = 13f
+                setTextColor(0xFF333333.toInt())
+                setPadding(0, (10 * density).toInt(), 0, (4 * density).toInt())
+            })
+            val et = EditText(ctx).apply {
+                hint = field.hint
+                setText(TemplateFormCatalog.readField(config, template, field.key))
+                setSingleLine(true)
+                textSize = 15f
+                setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt())
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0xFFF5F5F5.toInt())
+                    cornerRadius = 8 * density
+                }
+            }
+            container.addView(et)
+            editors[field.key] = et
+        }
+        AlertDialog.Builder(ctx)
+            .setTitle("填写「${spec.title}」信息")
+            .setMessage("时间、地点自动生成；下列字段仅作用于本模板")
+            .setView(container)
+            .setPositiveButton("保存") { _, _ ->
+                val values = editors.mapValues { it.value.text?.toString().orEmpty() }
+                config = TemplateFormCatalog.writeFields(config, template, values)
+                refreshPreview()
+                onSelectionChanged?.invoke(config)
+            }
+            .setNegativeButton("跳过", null)
+            .show()
     }
 
     private class TemplateGridAdapter(
