@@ -339,7 +339,7 @@ class CollageFragment : Fragment() {
         reporter: String = reporterName
     ): Bitmap {
         // 贴边拼图：格比例跟第一张；缩放放入格内不丢内容；高质量
-        val pageW = 1600
+        val pageW = 2400
         val edge = 2 // 照片贴边，缝隙极小
         val headerH = (280 + 80 * (reportTextScale - 1f).coerceIn(0f, 1.2f)).toInt()
         val footerH = 140
@@ -399,7 +399,7 @@ class CollageFragment : Fragment() {
 
         val gridTop = headerH
         // 解码目标边长：保证清晰可辨
-        val decodeSide = maxOf(cellW, cellH) * 2
+        val decodeSide = maxOf(cellW, cellH) * 3
 
         for (i in 0 until n) {
             val r = i / cols
