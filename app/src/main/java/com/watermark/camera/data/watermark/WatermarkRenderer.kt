@@ -65,22 +65,24 @@ class WatermarkRenderer {
             OrientationHelper.DeviceOrientation.PORTRAIT,
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
-        val m = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
-        // 跟随陀螺仪：文字相对地面正向；横屏时卡片锚在左下
-        // 横屏旋转文字；倒立不翻 180，避免颠倒。位置由 resolveOrigin 保证左下（除非手势拖动）
+        // 预览：在重力坐标系里把卡片放左下。成片路径应传 PORTRAIT（图已正立）。
         val degrees = when (deviceOrientation) {
             OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
             OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
+            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
             else -> 0f
         }
+        val landscape = degrees == 90f || degrees == -90f
+        val logicalW = if (landscape) areaHeight else areaWidth
+        val logicalH = if (landscape) areaWidth else areaHeight
         canvas.save()
         if (degrees != 0f) {
-            // 以卡片左下角为轴旋转，旋转后仍贴在画面左下
-            val px = m.left
-            val py = m.top + m.height
-            canvas.rotate(degrees, px, py)
+            canvas.translate(areaWidth / 2f, areaHeight / 2f)
+            canvas.rotate(degrees)
+            canvas.translate(-logicalW / 2f, -logicalH / 2f)
         }
-        drawCard(canvas, m, config, locationText, timeMs)
+        val m = measure(logicalW, logicalH, config, locationText, timeMs)
+        if (m != null) drawCard(canvas, m, config, locationText, timeMs)
         canvas.restore()
         return m
     }
@@ -100,10 +102,10 @@ class WatermarkRenderer {
         val titleSize = body * 1.18f
         val headerH = titleSize * 2.35f
         val footerH = body * 1.25f
-        val rowH = body * 1.48f
+        val rowH = body * 1.42f
         val padH = body * 0.7f
         val padV = body * 0.4f
-        val radius = body * 0.5f
+        val radius = body * 0.55f
 
         val rows = buildRows(config, locationText, timeMs)
         textPaint.textSize = body * 0.9f
@@ -143,10 +145,14 @@ class WatermarkRenderer {
         val bodyTop = m.top + headerH
         val bodyBottom = m.top + m.height - footerH
 
-        // 圆角卡片底
+        fillPaint.style = Paint.Style.FILL
+        fillPaint.color = 0x33000000
+        canvas.drawRoundRect(
+            RectF(rect.left + 2f, rect.top + 3f, rect.right + 2f, rect.bottom + 4f),
+            m.radius, m.radius, fillPaint
+        )
         canvas.save()
         canvas.clipPath(Path().apply { addRoundRect(rect, m.radius, m.radius, Path.Direction.CW) })
-        fillPaint.style = Paint.Style.FILL
         fillPaint.color = bodyColor
         canvas.drawRect(rect, fillPaint)
 
@@ -197,9 +203,9 @@ class WatermarkRenderer {
         val iconCy = m.top + headerH * 0.5f
         val iconR = m.fontSize * 0.58f
         drawLogo(canvas, tmpl, iconCx, iconCy, iconR)
-        val title = if (tmpl == WatermarkTemplate.GENERAL && config.customTitle.isNotBlank()) {
-            config.customTitle.trim()
-        } else spec.title
+        val title = if ((tmpl == WatermarkTemplate.GENERAL || tmpl == WatermarkTemplate.WORK_REPORT)
+            && config.customTitle.isNotBlank()
+        ) config.customTitle.trim() else spec.title
         textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         textPaint.textSize = titleSize
         textPaint.color = 0xFFFFFFFF.toInt()
@@ -323,6 +329,7 @@ class WatermarkRenderer {
             rows.add(Row("地点: ", locationText.ifBlank { "定位中…" }))
         }
         for (f in TemplateFormCatalog.specOf(tmpl).editable) {
+            if (f.key == "wm_name") continue
             val v = TemplateFormCatalog.readField(config, tmpl, f.key)
             rows.add(Row("${f.label}: ", v.ifBlank { "—" }))
         }

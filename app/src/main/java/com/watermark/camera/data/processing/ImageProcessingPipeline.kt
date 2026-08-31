@@ -82,11 +82,12 @@ class ImageProcessingPipeline @Inject constructor(
             // Stage 3: Watermark
             Logger.i(TAG, "[$operationId] Stage 2/5: Applying watermark...")
             val watermarkCanvas = com.watermark.camera.data.watermark.WatermarkCanvas()
+            // 解码已按 rotationDegrees 校正为正立图，成片不再套陀螺仪角度
             watermarkedBitmap = watermarkCanvas.drawWatermark(
                 sourceBitmap = sourceBitmap,
                 config = watermarkConfig,
                 locationStr = locationStr,
-                deviceOrientation = deviceOrientation,
+                deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
                 capturedAtMs = captureResult.timestamp
             )
             // Explicitly recycle source bitmap to free native memory

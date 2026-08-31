@@ -61,8 +61,8 @@ object TemplateFormCatalog {
         WatermarkTemplate.GENERAL, WatermarkTemplate.WORK_REPORT -> Spec(
             "通用水印", "真实记录 · 规范留存",
             listOf(
-                EditableField("person", "记录人", "请输入记录人"),
-                EditableField("content", "内容", "请输入记录内容"),
+                EditableField("wm_name", "水印名称", "请输入水印名称"),
+                EditableField("content", "内容", "请输入内容"),
                 EditableField("remark", "备注", "请输入备注（可选）")
             )
         )
@@ -85,7 +85,8 @@ object TemplateFormCatalog {
     private fun legacy(config: WatermarkConfig, fieldKey: String): String = when (fieldKey) {
         "person" -> config.name
         "project", "item", "post", "jobId" -> config.projectName
-        "content" -> config.customTitle
+        "wm_name" -> config.customTitle
+        "content" -> ""
         "remark" -> config.remark
         else -> ""
     }
@@ -104,13 +105,13 @@ object TemplateFormCatalog {
         val person = values["person"] ?: readField(config, template, "person")
         val project = values["project"] ?: values["item"] ?: values["post"]
             ?: values["jobId"] ?: readField(config, template, "project")
-        val content = values["content"] ?: readField(config, template, "content")
+        val wmName = values["wm_name"] ?: readField(config, template, "wm_name")
         val remark = values["remark"] ?: readField(config, template, "remark")
         return config.copy(
             fieldsJson = jo.toString(),
             name = person,
             projectName = project,
-            customTitle = content,
+            customTitle = wmName.ifBlank { config.customTitle },
             remark = remark,
             template = template
         )

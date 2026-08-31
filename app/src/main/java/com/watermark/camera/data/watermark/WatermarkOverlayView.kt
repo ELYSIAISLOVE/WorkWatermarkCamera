@@ -61,13 +61,15 @@ class WatermarkOverlayView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (width <= 0 || height <= 0) return
+        val orient = if (watermarkConfig.useGyroscope) deviceOrientation
+            else OrientationHelper.DeviceOrientation.PORTRAIT
         lastMetrics = renderer.draw(
             canvas = canvas,
             areaWidth = width.toFloat(),
             areaHeight = height.toFloat(),
-            config = watermarkConfig.copy(showLocation = true),
+            config = watermarkConfig,
             locationText = locationText,
-            deviceOrientation = deviceOrientation,
+            deviceOrientation = orient,
             timeMs = System.currentTimeMillis()
         )
     }
@@ -77,6 +79,9 @@ class WatermarkOverlayView @JvmOverloads constructor(
         val m = lastMetrics ?: return super.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                val orient = if (watermarkConfig.useGyroscope) deviceOrientation
+                    else OrientationHelper.DeviceOrientation.PORTRAIT
+                if (orient != OrientationHelper.DeviceOrientation.PORTRAIT) return false
                 val inside = event.x >= m.left && event.x <= m.left + m.width &&
                     event.y >= m.top && event.y <= m.top + m.height
                 if (!inside) return false
@@ -138,7 +143,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
 
     fun captureSnapshot(): WatermarkSnapshot {
         return WatermarkSnapshot(
-            config = watermarkConfig.copy(showLocation = true),
+            config = watermarkConfig,
             locationText = locationText,
             deviceOrientation = deviceOrientation,
             capturedAtMs = System.currentTimeMillis()

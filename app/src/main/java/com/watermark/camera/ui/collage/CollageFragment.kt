@@ -319,7 +319,7 @@ class CollageFragment : Fragment() {
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             ?: throw IllegalStateException("无法创建相册条目")
         resolver.openOutputStream(uri)?.use { out ->
-            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 97, out)) {
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 98, out)) {
                 throw IllegalStateException("压缩失败")
             }
         } ?: throw IllegalStateException("无法写入文件")
@@ -339,7 +339,7 @@ class CollageFragment : Fragment() {
         reporter: String = reporterName
     ): Bitmap {
         // 贴边拼图：格比例跟第一张；缩放放入格内不丢内容；高质量
-        val pageW = 1600
+        val pageW = 2400
         val edge = 2 // 照片贴边，缝隙极小
         val headerH = (280 + 80 * (reportTextScale - 1f).coerceIn(0f, 1.2f)).toInt()
         val footerH = 140
