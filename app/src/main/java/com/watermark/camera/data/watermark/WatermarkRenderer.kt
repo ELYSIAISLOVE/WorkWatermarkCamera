@@ -67,16 +67,18 @@ class WatermarkRenderer {
     ): CardMetrics? {
         val m = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
         // 跟随陀螺仪：文字相对地面正向；横屏时卡片锚在左下
+        // 横屏旋转文字；倒立不翻 180，避免颠倒。位置由 resolveOrigin 保证左下（除非手势拖动）
         val degrees = when (deviceOrientation) {
             OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
             OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
-            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
             else -> 0f
         }
         canvas.save()
         if (degrees != 0f) {
-            // 绕卡片中心旋转，保持“左下角”语义相对重力
-            canvas.rotate(degrees, m.left + m.width / 2f, m.top + m.height / 2f)
+            // 以卡片左下角为轴旋转，旋转后仍贴在画面左下
+            val px = m.left
+            val py = m.top + m.height
+            canvas.rotate(degrees, px, py)
         }
         drawCard(canvas, m, config, locationText, timeMs)
         canvas.restore()
@@ -458,15 +460,17 @@ class WatermarkRenderer {
         val cx = config.customX
         val cy = config.customY
         if (cx != null && cy != null) {
+            // 用户拖动过：保留自定义位置
             return (cx.coerceIn(0f, 1f) * maxL).coerceIn(0f, maxL) to
                 (cy.coerceIn(0f, 1f) * maxT).coerceIn(0f, maxT)
         }
+        // 未拖动：始终左下（设置里点的位置按钮会写入 position 并清 custom）
         return when (config.position) {
             WatermarkPosition.TOP_LEFT -> 0f to 0f
             WatermarkPosition.TOP_RIGHT -> maxL to 0f
-            WatermarkPosition.BOTTOM_LEFT -> 0f to maxT
             WatermarkPosition.BOTTOM_RIGHT -> maxL to maxT
             WatermarkPosition.CENTER -> (maxL / 2f) to (maxT / 2f)
+            else -> 0f to maxT // BOTTOM_LEFT 默认
         }
     }
 }

@@ -3,16 +3,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FF101010">
+    android:background="#FF101010"
+    android:fitsSystemWindows="true"
+    android:clipToPadding="false">
 
-    <!-- Top title bar only -->
+    <!-- Top title bar: id for status-bar inset -->
     <LinearLayout
+        android:id="@+id/galleryTopBar"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingHorizontal="8dp"
-        android:background="#FF1A1A1A">
+        android:paddingBottom="4dp"
+        android:background="#FF1A1A1A"
+        android:fitsSystemWindows="true">
 
         <ImageButton
             android:id="@+id/btnBack"

@@ -3,6 +3,8 @@ package com.watermark.camera.ui.gallery
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -31,8 +33,23 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
     ): FragmentGalleryBinding = FragmentGalleryBinding.inflate(inflater, container, false)
 
     override fun initViews() {
+        applyGalleryInsets()
         setupRecyclerView()
         setupButtons()
+    }
+
+    private fun applyGalleryInsets() {
+        val top = binding.root.findViewById<View>(R.id.galleryTopBar) ?: binding.root
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            top.setPadding(top.paddingLeft, bars.top + 4, top.paddingRight, top.paddingBottom)
+            runCatching {
+                val bottom = binding.root.findViewById<View>(R.id.galleryBottomBar)
+                bottom?.setPadding(bottom.paddingLeft, bottom.paddingTop, bottom.paddingRight, bars.bottom + 4)
+            }
+            insets
+        }
+        ViewCompat.requestApplyInsets(binding.root)
     }
 
     override fun observeData() {

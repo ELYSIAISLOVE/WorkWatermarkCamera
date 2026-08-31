@@ -620,6 +620,13 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         orientationHelper = com.watermark.camera.util.OrientationHelper(requireContext()).apply {
             startListening { orientation ->
                 binding.watermarkOverlay.deviceOrientation = orientation
+                // 旋转时若未手动拖动，始终回到左下
+                val cfg = binding.watermarkOverlay.watermarkConfig
+                if (cfg.customX == null && cfg.customY == null) {
+                    binding.watermarkOverlay.watermarkConfig = cfg.copy(
+                        position = com.watermark.camera.data.model.WatermarkPosition.BOTTOM_LEFT
+                    )
+                }
                 viewModel.setDeviceOrientation(orientation)
             }
         }
@@ -712,7 +719,25 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun openSidePanel() {
         val root = binding.sidePanelRoot
         val sheet = binding.sidePanelSheet
-        // 顶图由布局 sidePanelHero 固定展示，不再动态塞入以免撑破面板
+        // 顶图下移，避开状态栏
+        runCatching {
+            val hero = binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePanelHero)
+            ViewCompat.setOnApplyWindowInsetsListener(sheet) { v, insets ->
+                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                hero?.setPadding(0, bars.top, 0, 0)
+                // 用 paddingTop 把图片整体顶下去
+                v.setPadding(v.paddingLeft, 0, v.paddingRight, v.paddingBottom)
+                hero?.let {
+                    val lp = it.layoutParams
+                    if (lp is android.view.ViewGroup.MarginLayoutParams) {
+                        lp.topMargin = bars.top
+                        it.layoutParams = lp
+                    }
+                }
+                insets
+            }
+            ViewCompat.requestApplyInsets(sheet)
+        }
         root.visibility = android.view.View.VISIBLE
         sheet.translationX = sheet.width.toFloat().takeIf { it > 0 } ?: 400f
         sheet.animate().translationX(0f).setDuration(200L).start()
