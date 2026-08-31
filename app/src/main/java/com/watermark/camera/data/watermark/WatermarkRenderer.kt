@@ -23,7 +23,7 @@ class WatermarkRenderer {
     companion object {
         private const val BASE_SHORT = 1080f
         /** 卡片最大约占短边宽度比例 — 缩小体积 */
-        private const val MAX_CARD_W_RATIO = 0.85f
+        private const val MAX_CARD_W_RATIO = 0.76f
     }
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -66,8 +66,18 @@ class WatermarkRenderer {
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
         val m = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
-        // 水印始终正向绘制，避免预览/成片颠倒
+        // 跟随陀螺仪：文字相对地面正向；横屏时卡片锚在左下
+        val degrees = when (deviceOrientation) {
+            OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
+            OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
+            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
+            else -> 0f
+        }
         canvas.save()
+        if (degrees != 0f) {
+            // 绕卡片中心旋转，保持“左下角”语义相对重力
+            canvas.rotate(degrees, m.left + m.width / 2f, m.top + m.height / 2f)
+        }
         drawCard(canvas, m, config, locationText, timeMs)
         canvas.restore()
         return m
@@ -84,7 +94,7 @@ class WatermarkRenderer {
         val short = minOf(areaWidth, areaHeight)
         val scale = (short / BASE_SHORT).coerceIn(0.30f, 1.6f)
         val user = config.clampedFontScale().coerceIn(0.85f, 2.2f)
-        val body = (20.0f * scale * user).coerceIn(16f, 52f)
+        val body = (18.0f * scale * user).coerceIn(14f, 46f)
         val titleSize = body * 1.18f
         val headerH = titleSize * 2.35f
         val footerH = body * 1.25f

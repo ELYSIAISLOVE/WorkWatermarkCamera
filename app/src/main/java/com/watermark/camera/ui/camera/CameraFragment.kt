@@ -712,31 +712,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun openSidePanel() {
         val root = binding.sidePanelRoot
         val sheet = binding.sidePanelSheet
-        // 设置页背景：放大铺满、不拉伸变形，偏上以露出脸部
-        runCatching {
-            val content = binding.sidePanelContent as? android.view.ViewGroup ?: return@runCatching
-            var bg = content.findViewWithTag<android.widget.ImageView>("settings_hero_bg")
-            if (bg == null) {
-                bg = android.widget.ImageView(requireContext()).apply {
-                    tag = "settings_hero_bg"
-                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                    // 略向上偏移，保证人物脸在可视区
-                    scaleX = 1.15f
-                    scaleY = 1.15f
-                    translationY = -80f
-                    setImageResource(com.watermark.camera.R.drawable.bg_settings_hero)
-                    alpha = 0.55f
-                }
-                content.addView(
-                    bg,
-                    0,
-                    android.view.ViewGroup.LayoutParams(
-                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                )
-            }
-        }
+        // 顶图由布局 sidePanelHero 固定展示，不再动态塞入以免撑破面板
         root.visibility = android.view.View.VISIBLE
         sheet.translationX = sheet.width.toFloat().takeIf { it > 0 } ?: 400f
         sheet.animate().translationX(0f).setDuration(200L).start()
@@ -746,6 +722,56 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         binding.sideThemeAuto.setOnClickListener { applyThemeMode("auto") }
         binding.sideThemeBlack.setOnClickListener { applyThemeMode("black") }
         binding.sideThemeWhite.setOnClickListener { applyThemeMode("white") }
+
+        // 基本设置开关
+        runCatching {
+            val prefs = requireContext().getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
+            val swLoc = binding.root.findViewById<androidx.appcompat.widget.SwitchCompat>(com.watermark.camera.R.id.sideSwitchLocation)
+            val swGyro = binding.root.findViewById<androidx.appcompat.widget.SwitchCompat>(com.watermark.camera.R.id.sideSwitchGyro)
+            val swOn = binding.root.findViewById<androidx.appcompat.widget.SwitchCompat>(com.watermark.camera.R.id.sideSwitchKeepOn)
+            val cfg = binding.watermarkOverlay.watermarkConfig
+            swLoc?.isChecked = cfg.showLocation
+            swGyro?.isChecked = cfg.useGyroscope
+            swOn?.isChecked = prefs.getBoolean("keep_screen_on", false)
+            swLoc?.setOnCheckedChangeListener { _, checked ->
+                val c = binding.watermarkOverlay.watermarkConfig.copy(showLocation = checked)
+                binding.watermarkOverlay.watermarkConfig = c
+                viewModel.applyLiveOverlayConfig(c)
+            }
+            swGyro?.setOnCheckedChangeListener { _, checked ->
+                val c = binding.watermarkOverlay.watermarkConfig.copy(useGyroscope = checked)
+                binding.watermarkOverlay.watermarkConfig = c
+                viewModel.applyLiveOverlayConfig(c)
+                if (checked) orientationHelper?.startListening { o ->
+                    binding.watermarkOverlay.deviceOrientation = o
+                } else {
+                    binding.watermarkOverlay.deviceOrientation =
+                        com.watermark.camera.util.OrientationHelper.DeviceOrientation.PORTRAIT
+                }
+            }
+            swOn?.setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean("keep_screen_on", checked).apply()
+                requireActivity().window.let { w ->
+                    if (checked) w.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    else w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
+            fun applyPos(pos: com.watermark.camera.data.model.WatermarkPosition) {
+                val c = binding.watermarkOverlay.watermarkConfig.copy(
+                    position = pos, customX = null, customY = null
+                )
+                binding.watermarkOverlay.watermarkConfig = c
+                viewModel.applyLiveOverlayConfig(c)
+            }
+            binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePosBL)
+                ?.setOnClickListener { applyPos(com.watermark.camera.data.model.WatermarkPosition.BOTTOM_LEFT) }
+            binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePosBR)
+                ?.setOnClickListener { applyPos(com.watermark.camera.data.model.WatermarkPosition.BOTTOM_RIGHT) }
+            binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePosTL)
+                ?.setOnClickListener { applyPos(com.watermark.camera.data.model.WatermarkPosition.TOP_LEFT) }
+            binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePosTR)
+                ?.setOnClickListener { applyPos(com.watermark.camera.data.model.WatermarkPosition.TOP_RIGHT) }
+        }
         highlightThemeButtons(
             requireContext().getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
                 .getString("theme_mode", "auto") ?: "auto"
