@@ -7,6 +7,12 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
+import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.Paint
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -189,20 +195,64 @@ class CollageFragment : Fragment() {
     }
 
     private fun buildCollage(uris: List<String>, tpl: Template): Bitmap {
-        val cell = 512
-        val rows = tpl.rows
-        val cols = tpl.cols
-        val out = Bitmap.createBitmap(cols * cell, rows * cell, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(out)
-        canvas.drawColor(Color.BLACK)
-        val opts = BitmapFactory.Options().apply {
-            inSampleSize = 4
-            inPreferredConfig = Bitmap.Config.RGB_565
+        // 参考「白班打点」工作汇报：白底 + 蓝色标题头 + 网格照片 + 底部品牌栏
+        val pageW = 1080
+        val margin = 36
+        val gap = 16
+        val cols = when {
+            tpl.cols >= 3 -> 3
+            tpl.cols == 2 -> 2
+            else -> tpl.cols.coerceAtLeast(1)
         }
-        val n = minOf(uris.size, tpl.capacity)
+        val n = minOf(uris.size, maxOf(tpl.capacity, 15))
+        val rows = maxOf(tpl.rows, (n + cols - 1) / cols)
+        val contentW = pageW - margin * 2
+        val cellW = (contentW - gap * (cols - 1)) / cols
+        val cellH = (cellW * 0.75f).toInt() // 4:3 格，尽量少裁切
+        val headerH = 280
+        val footerH = 160
+        val gridH = rows * cellH + (rows - 1).coerceAtLeast(0) * gap
+        val pageH = headerH + gridH + footerH + margin
+
+        val out = Bitmap.createBitmap(pageW, pageH, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        canvas.drawColor(Color.WHITE)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        // Header title
+        paint.color = 0xFF2F7BFF.toInt()
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = 72f
+        canvas.drawText("白班打点", pageW / 2f, 100f, paint)
+        paint.textSize = 32f
+        paint.typeface = Typeface.DEFAULT
+        paint.color = 0xFF5B8DEF.toInt()
+        canvas.drawText("工作现场照片汇总整理", pageW / 2f, 150f, paint)
+
+        paint.textAlign = Paint.Align.LEFT
+        paint.textSize = 28f
+        paint.color = 0xFF333333.toInt()
+        val dateStr = SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA).format(Date())
+        canvas.drawText("汇报人: —", margin.toFloat(), 210f, paint)
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText(dateStr, (pageW - margin).toFloat(), 210f, paint)
+
+        // Divider
+        paint.color = 0xFFE8EEF8.toInt()
+        paint.strokeWidth = 2f
+        canvas.drawLine(margin.toFloat(), 240f, (pageW - margin).toFloat(), 240f, paint)
+
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = 2
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val gridTop = headerH
         for (i in 0 until n) {
             val r = i / cols
             val c = i % cols
+            val left = margin + c * (cellW + gap)
+            val top = gridTop + r * (cellH + gap)
             val uri = Uri.parse(uris[i])
             val src = try {
                 requireContext().contentResolver.openInputStream(uri)?.use {
@@ -210,18 +260,59 @@ class CollageFragment : Fragment() {
                 }
             } catch (_: Exception) {
                 null
-            } ?: continue
-            val dest = Rect(c * cell, r * cell, (c + 1) * cell, (r + 1) * cell)
-            // center-crop
-            val scale = maxOf(cell.toFloat() / src.width, cell.toFloat() / src.height)
-            val sw = (cell / scale).toInt().coerceAtLeast(1)
-            val sh = (cell / scale).toInt().coerceAtLeast(1)
-            val sx = ((src.width - sw) / 2).coerceAtLeast(0)
-            val sy = ((src.height - sh) / 2).coerceAtLeast(0)
-            val srcRect = Rect(sx, sy, sx + sw, sy + sh)
-            canvas.drawBitmap(src, srcRect, dest, null)
+            }
+            // 白底圆角格
+            paint.style = Paint.Style.FILL
+            paint.color = 0xFFF5F7FA.toInt()
+            val cellRect = RectF(left.toFloat(), top.toFloat(), (left + cellW).toFloat(), (top + cellH).toFloat())
+            canvas.drawRoundRect(cellRect, 12f, 12f, paint)
+            if (src == null) continue
+            // 等比适配进格子，不裁切主体（letterbox）
+            val scale = minOf(cellW.toFloat() / src.width, cellH.toFloat() / src.height)
+            val dw = (src.width * scale).toInt().coerceAtLeast(1)
+            val dh = (src.height * scale).toInt().coerceAtLeast(1)
+            val dx = left + (cellW - dw) / 2
+            val dy = top + (cellH - dh) / 2
+            val dest = Rect(dx, dy, dx + dw, dy + dh)
+            canvas.drawBitmap(src, null, dest, null)
             src.recycle()
         }
+
+        // Footer bar
+        val fy = pageH - footerH
+        paint.style = Paint.Style.FILL
+        paint.color = 0xFFF7F9FC.toInt()
+        canvas.drawRect(0f, fy.toFloat(), pageW.toFloat(), pageH.toFloat(), paint)
+        paint.color = 0xFF2F7BFF.toInt()
+        paint.textAlign = Paint.Align.LEFT
+        paint.textSize = 36f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        canvas.drawText("工作水印相机", (margin + 80).toFloat(), fy + 70f, paint)
+        paint.textSize = 24f
+        paint.typeface = Typeface.DEFAULT
+        paint.color = 0xFF666666.toInt()
+        canvas.drawText("水印拍照 真实时间地点", (margin + 80).toFloat(), fy + 110f, paint)
+        // 简易圆形 logo
+        paint.color = 0xFF2F7BFF.toInt()
+        canvas.drawCircle((margin + 36).toFloat(), fy + 80f, 28f, paint)
+        paint.color = Color.WHITE
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = 28f
+        canvas.drawText("印", (margin + 36).toFloat(), fy + 90f, paint)
+        // 右侧二维码占位
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 3f
+        paint.color = 0xFF2F7BFF.toInt()
+        val qr = 72f
+        val qx = pageW - margin - qr
+        val qy = fy + 44f
+        canvas.drawRect(qx, qy, qx + qr, qy + qr, paint)
+        paint.style = Paint.Style.FILL
+        paint.textSize = 18f
+        paint.color = 0xFF888888.toInt()
+        paint.textAlign = Paint.Align.CENTER
+        canvas.drawText("扫码", qx + qr / 2f, qy + qr + 28f, paint)
+
         return out
     }
 

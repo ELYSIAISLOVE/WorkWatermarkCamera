@@ -23,7 +23,7 @@ class WatermarkRenderer {
     companion object {
         private const val BASE_SHORT = 1080f
         /** 卡片最大约占短边宽度比例 — 缩小体积 */
-        private const val MAX_CARD_W_RATIO = 0.52f
+        private const val MAX_CARD_W_RATIO = 0.62f
     }
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -92,7 +92,7 @@ class WatermarkRenderer {
         val short = minOf(areaWidth, areaHeight)
         val scale = (short / BASE_SHORT).coerceIn(0.30f, 1.6f)
         val user = config.clampedFontScale().coerceIn(0.85f, 2.2f)
-        val body = (11.5f * scale * user).coerceIn(10f, 32f)
+        val body = (13.8f * scale * user).coerceIn(12f, 38f)
         val titleSize = body * 1.18f
         val headerH = titleSize * 1.75f
         val footerH = body * 1.25f

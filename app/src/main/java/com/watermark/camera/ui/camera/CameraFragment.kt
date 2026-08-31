@@ -876,7 +876,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
     private fun setupZoomChips() {
-        // 去掉 0.5/1x/2 档位，仅按住拖动变焦并显示倍数
+        // 横向滑动变焦 + 波轮动画 + 倍数提示
         runCatching {
             binding.zoomChip05.visibility = View.GONE
             binding.zoomChip1x.visibility = View.GONE
@@ -887,7 +887,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             binding.tvZoomRatio.text = String.format("%.1fx", currentZoomRatio)
             binding.tvZoomRatio.elevation = 14f
         }
-        fun applyZoom(ratio: Float) {
+        fun applyZoom(ratio: Float, showTip: Boolean = true) {
             val minZ = viewModel.getMinZoomRatio()
             val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
             val target = ratio.coerceIn(minZ, maxZ)
@@ -896,9 +896,25 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             runCatching {
                 binding.tvZoomRatio.visibility = View.VISIBLE
                 binding.tvZoomRatio.text = String.format("%.1fx", target)
+                // 波轮动画
+                binding.tvZoomRatio.animate().cancel()
+                binding.tvZoomRatio.scaleX = 1f
+                binding.tvZoomRatio.scaleY = 1f
+                binding.tvZoomRatio.animate()
+                    .scaleX(1.18f).scaleY(1.18f)
+                    .setDuration(90L)
+                    .withEndAction {
+                        binding.tvZoomRatio.animate()
+                            .scaleX(1f).scaleY(1f)
+                            .setDuration(120L)
+                            .start()
+                    }.start()
+            }
+            if (showTip) {
+                showZoomTip(target)
             }
         }
-        var dragStartY = 0f
+        var dragStartX = 0f
         var dragStartZoom = 1f
         var dragging = false
         val slop = android.view.ViewConfiguration.get(requireContext()).scaledTouchSlop
@@ -907,19 +923,20 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         target?.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    dragStartY = event.rawY
+                    dragStartX = event.rawX
                     dragStartZoom = currentZoomRatio
                     dragging = false
                     true
                 }
                 android.view.MotionEvent.ACTION_MOVE -> {
-                    val dy = dragStartY - event.rawY
-                    if (!dragging && kotlin.math.abs(dy) > slop) {
+                    val dx = event.rawX - dragStartX
+                    if (!dragging && kotlin.math.abs(dx) > slop) {
                         dragging = true
                         v.parent?.requestDisallowInterceptTouchEvent(true)
                     }
                     if (dragging) {
-                        applyZoom(dragStartZoom + dy / 80f)
+                        // 横向：右滑放大，左滑缩小
+                        applyZoom(dragStartZoom + dx / 100f, showTip = false)
                         true
                     } else false
                 }
@@ -928,15 +945,37 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                     dragging = false
                     v.parent?.requestDisallowInterceptTouchEvent(false)
                     if (!was) {
-                        // 轻点复位 1x
-                        applyZoom(1.0f)
+                        applyZoom(1.0f, showTip = true)
+                    } else {
+                        showZoomTip(currentZoomRatio)
                     }
                     true
                 }
                 else -> false
             }
         }
-        // 双指捏合仍可用，上限 10x
+    }
+
+    private var zoomTipJob: Runnable? = null
+    private fun showZoomTip(ratio: Float) {
+        val tip = runCatching { binding.tvZoomRatio }.getOrNull() ?: return
+        // 简短弹出提示：在倍数旁/上方闪一下文字感
+        tip.alpha = 1f
+        tip.animate().cancel()
+        tip.alpha = 0.55f
+        tip.animate().alpha(1f).setDuration(80L).start()
+        runCatching {
+            android.widget.Toast.makeText(
+                requireContext(),
+                String.format("变焦 %.1fx", ratio),
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+        // 节流：取消过频 Toast 用 postDelayed 去抖
+        zoomTipJob?.let { tip.removeCallbacks(it) }
+        val r = Runnable { /* tip stays */ }
+        zoomTipJob = r
+        tip.postDelayed(r, 400L)
     }
 
 
