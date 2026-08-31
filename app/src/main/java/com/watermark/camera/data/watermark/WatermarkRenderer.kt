@@ -65,27 +65,22 @@ class WatermarkRenderer {
             OrientationHelper.DeviceOrientation.PORTRAIT,
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
-        // 以重力方向为“下”，在旋转坐标系里把水印放在左下（未拖动时）
+        val m = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
+        // 跟随陀螺仪：文字相对地面正向；横屏时卡片锚在左下
+        // 横屏旋转文字；倒立不翻 180，避免颠倒。位置由 resolveOrigin 保证左下（除非手势拖动）
         val degrees = when (deviceOrientation) {
             OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
             OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
-            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
             else -> 0f
         }
-        val landscape = degrees == 90f || degrees == -90f
-        val logicalW = if (landscape) areaHeight else areaWidth
-        val logicalH = if (landscape) areaWidth else areaHeight
-
         canvas.save()
         if (degrees != 0f) {
-            canvas.translate(areaWidth / 2f, areaHeight / 2f)
-            canvas.rotate(degrees)
-            canvas.translate(-logicalW / 2f, -logicalH / 2f)
+            // 以卡片左下角为轴旋转，旋转后仍贴在画面左下
+            val px = m.left
+            val py = m.top + m.height
+            canvas.rotate(degrees, px, py)
         }
-        val m = measure(logicalW, logicalH, config, locationText, timeMs)
-        if (m != null) {
-            drawCard(canvas, m, config, locationText, timeMs)
-        }
+        drawCard(canvas, m, config, locationText, timeMs)
         canvas.restore()
         return m
     }
@@ -202,9 +197,7 @@ class WatermarkRenderer {
         val iconCy = m.top + headerH * 0.5f
         val iconR = m.fontSize * 0.58f
         drawLogo(canvas, tmpl, iconCx, iconCy, iconR)
-        val title = if ((tmpl == WatermarkTemplate.GENERAL || tmpl == WatermarkTemplate.WORK_REPORT)
-            && config.customTitle.isNotBlank()
-        ) {
+        val title = if (tmpl == WatermarkTemplate.GENERAL && config.customTitle.isNotBlank()) {
             config.customTitle.trim()
         } else spec.title
         textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
@@ -330,8 +323,6 @@ class WatermarkRenderer {
             rows.add(Row("地点: ", locationText.ifBlank { "定位中…" }))
         }
         for (f in TemplateFormCatalog.specOf(tmpl).editable) {
-            // 水印名称只作表头，不在正文重复
-            if (f.key == "wm_name") continue
             val v = TemplateFormCatalog.readField(config, tmpl, f.key)
             rows.add(Row("${f.label}: ", v.ifBlank { "—" }))
         }
