@@ -712,6 +712,15 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun openSidePanel() {
         val root = binding.sidePanelRoot
         val sheet = binding.sidePanelSheet
+        // 设置页铺满背景图
+        runCatching {
+            val content = binding.sidePanelContent
+            content.background = androidx.core.content.ContextCompat.getDrawable(
+                requireContext(),
+                com.watermark.camera.R.drawable.bg_settings_hero
+            )
+            content.background?.alpha = 180
+        }
         root.visibility = android.view.View.VISIBLE
         sheet.translationX = sheet.width.toFloat().takeIf { it > 0 } ?: 400f
         sheet.animate().translationX(0f).setDuration(200L).start()
@@ -936,7 +945,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                     }
                     if (dragging) {
                         // 横向：右滑放大，左滑缩小
-                        applyZoom(dragStartZoom + dx / 100f, showTip = false)
+                        applyZoom(dragStartZoom + dx / 100f, showTip = true)
                         true
                     } else false
                 }
@@ -944,10 +953,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                     val was = dragging
                     dragging = false
                     v.parent?.requestDisallowInterceptTouchEvent(false)
+                    hideZoomTip()
                     if (!was) {
-                        applyZoom(1.0f, showTip = true)
-                    } else {
-                        showZoomTip(currentZoomRatio)
+                        applyZoom(1.0f, showTip = false)
                     }
                     true
                 }
@@ -957,26 +965,48 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
     private var zoomTipJob: Runnable? = null
-    private fun showZoomTip(ratio: Float) {
-        val tip = runCatching { binding.tvZoomRatio }.getOrNull() ?: return
-        // 简短弹出提示：在倍数旁/上方闪一下文字感
-        tip.alpha = 1f
-        tip.animate().cancel()
-        tip.alpha = 0.55f
-        tip.animate().alpha(1f).setDuration(80L).start()
-        runCatching {
-            android.widget.Toast.makeText(
-                requireContext(),
-                String.format("变焦 %.1fx", ratio),
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
+    private var zoomHugeView: android.widget.TextView? = null
+    private var zoomHintShown = false
+
+    private fun ensureZoomOverlay() {
+        if (zoomHugeView != null) return
+        val parent = binding.root as? android.view.ViewGroup ?: return
+        val tv = android.widget.TextView(requireContext()).apply {
+            layoutParams = android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.Gravity.CENTER
+            )
+            textSize = 64f
+            setTextColor(0xFFFFFFFF.toInt())
+            setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+            setShadowLayer(12f, 0f, 0f, 0xFF000000.toInt())
+            visibility = android.view.View.GONE
+            elevation = 40f
         }
-        // 节流：取消过频 Toast 用 postDelayed 去抖
-        zoomTipJob?.let { tip.removeCallbacks(it) }
-        val r = Runnable { /* tip stays */ }
-        zoomTipJob = r
-        tip.postDelayed(r, 400L)
+        parent.addView(tv)
+        zoomHugeView = tv
+        if (!zoomHintShown) {
+            zoomHintShown = true
+            android.widget.Toast.makeText(requireContext(), "提示：左右滑动可变焦", android.widget.Toast.LENGTH_LONG).show()
+        }
     }
+
+    private fun showZoomTip(ratio: Float) {
+        ensureZoomOverlay()
+        val tv = zoomHugeView ?: return
+        tv.text = String.format("%.1fx", ratio)
+        tv.visibility = android.view.View.VISIBLE
+        tv.alpha = 1f
+        tv.scaleX = 1.05f
+        tv.scaleY = 1.05f
+        tv.animate().scaleX(1f).scaleY(1f).setDuration(80L).start()
+    }
+
+    private fun hideZoomTip() {
+        zoomHugeView?.visibility = android.view.View.GONE
+    }
+
 
 
 }

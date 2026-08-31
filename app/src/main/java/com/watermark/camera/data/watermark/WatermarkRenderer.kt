@@ -23,7 +23,7 @@ class WatermarkRenderer {
     companion object {
         private const val BASE_SHORT = 1080f
         /** 卡片最大约占短边宽度比例 — 缩小体积 */
-        private const val MAX_CARD_W_RATIO = 0.62f
+        private const val MAX_CARD_W_RATIO = 0.72f
     }
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -92,9 +92,9 @@ class WatermarkRenderer {
         val short = minOf(areaWidth, areaHeight)
         val scale = (short / BASE_SHORT).coerceIn(0.30f, 1.6f)
         val user = config.clampedFontScale().coerceIn(0.85f, 2.2f)
-        val body = (13.8f * scale * user).coerceIn(12f, 38f)
+        val body = (15.5f * scale * user).coerceIn(13f, 42f)
         val titleSize = body * 1.18f
-        val headerH = titleSize * 1.75f
+        val headerH = titleSize * 2.35f
         val footerH = body * 1.25f
         val rowH = body * 1.48f
         val padH = body * 0.7f
@@ -133,19 +133,43 @@ class WatermarkRenderer {
         val valueColor = 0xFF222222.toInt()
 
         val rect = RectF(m.left, m.top, m.left + m.width, m.top + m.height)
-        val titleSize = m.fontSize * 1.18f
-        val headerH = titleSize * 1.75f
-        val footerH = m.fontSize * 1.25f
+        val titleSize = m.fontSize * 1.2f
+        val headerH = titleSize * 2.35f
+        val footerH = m.fontSize * 1.3f
         val bodyTop = m.top + headerH
         val bodyBottom = m.top + m.height - footerH
 
+        // 圆角卡片底
         canvas.save()
         canvas.clipPath(Path().apply { addRoundRect(rect, m.radius, m.radius, Path.Direction.CW) })
         fillPaint.style = Paint.Style.FILL
         fillPaint.color = bodyColor
         canvas.drawRect(rect, fillPaint)
+
+        // 表头底色
         fillPaint.color = headerColor
         canvas.drawRect(m.left, m.top, m.left + m.width, bodyTop, fillPaint)
+
+        // 斜切分界：标题区 | 时间区
+        val cutX = m.left + m.width * 0.52f
+        val diag = Path().apply {
+            moveTo(cutX - headerH * 0.25f, m.top)
+            lineTo(cutX + headerH * 0.15f, bodyTop)
+            lineTo(m.left + m.width, bodyTop)
+            lineTo(m.left + m.width, m.top)
+            close()
+        }
+        fillPaint.color = withAlpha(tmpl.resolvedHeaderColor(), (config.transparency * 0.88f).coerceIn(0.4f, 1f))
+        // 右侧略深
+        fillPaint.color = withAlpha(
+            (tmpl.resolvedHeaderColor() and 0x00FFFFFF) or 0x000000,
+            0.25f
+        )
+        // 用更深一点的叠色
+        fillPaint.color = 0x33000000
+        canvas.drawPath(diag, fillPaint)
+
+        fillPaint.color = headerColor
         canvas.drawRect(m.left, bodyBottom, m.left + m.width, m.top + m.height, fillPaint)
         canvas.restore()
 
@@ -155,13 +179,20 @@ class WatermarkRenderer {
         canvas.drawRoundRect(rect, m.radius, m.radius, fillPaint)
         fillPaint.style = Paint.Style.FILL
 
-        // Logo
+        // 斜切亮线
+        accentPaint.color = 0x66FFFFFF
+        accentPaint.strokeWidth = maxOf(2f, m.fontSize * 0.06f)
+        canvas.drawLine(
+            cutX - headerH * 0.25f, m.top,
+            cutX + headerH * 0.15f, bodyTop,
+            accentPaint
+        )
+
+        // Logo + 标题（左）
         val iconCx = m.left + m.paddingH + m.fontSize * 0.5f
         val iconCy = m.top + headerH * 0.5f
         val iconR = m.fontSize * 0.58f
         drawLogo(canvas, tmpl, iconCx, iconCy, iconR)
-
-        // Title
         val title = if (tmpl == WatermarkTemplate.GENERAL && config.customTitle.isNotBlank()) {
             config.customTitle.trim()
         } else spec.title
@@ -171,16 +202,26 @@ class WatermarkRenderer {
         textPaint.textAlign = Paint.Align.LEFT
         canvas.drawText(
             title,
-            iconCx + iconR + m.fontSize * 0.4f,
-            m.top + headerH * 0.62f + titleSize * 0.1f,
+            iconCx + iconR + m.fontSize * 0.35f,
+            m.top + headerH * 0.58f + titleSize * 0.1f,
             textPaint
         )
 
-        // Single column rows
-        val rows = buildRows(config, locationText, timeMs)
-        val labelSize = m.fontSize * 0.86f
-        val valueSize = m.fontSize * 0.9f
-        val rowH = m.fontSize * 1.48f
+        // 右上角大号时间
+        drawHeaderTime(
+            canvas,
+            config.timeStyle,
+            timeMs,
+            m.left + m.width - m.paddingH,
+            m.top + headerH * 0.42f,
+            m.fontSize * 1.05f
+        )
+
+        // 正文：地点 + 字段（不再重复时间），字号加大、对齐
+        val rows = buildRows(config, locationText, timeMs).filter { !it.isTime }
+        val labelSize = m.fontSize * 0.98f
+        val valueSize = m.fontSize * 1.05f
+        val rowH = m.fontSize * 1.65f
         var y = bodyTop + m.paddingV + labelSize
         for (row in rows) {
             accentPaint.color = labelColor
@@ -200,7 +241,7 @@ class WatermarkRenderer {
             textPaint.textAlign = Paint.Align.LEFT
             canvas.drawText(row.label, tx, y, textPaint)
             val lw = textPaint.measureText(row.label)
-            textPaint.typeface = if (row.isTime) typefaceFor(config.timeStyle) else Typeface.DEFAULT
+            textPaint.typeface = Typeface.DEFAULT
             textPaint.textSize = valueSize
             textPaint.color = valueColor
             canvas.drawText(row.value.ifBlank { "—" }, tx + lw, y, textPaint)
@@ -209,7 +250,7 @@ class WatermarkRenderer {
 
         // Footer
         textPaint.typeface = Typeface.DEFAULT
-        textPaint.textSize = m.fontSize * 0.7f
+        textPaint.textSize = m.fontSize * 0.72f
         textPaint.color = 0xCCFFFFFF.toInt()
         textPaint.textAlign = Paint.Align.CENTER
         canvas.drawText(spec.slogan, m.left + m.width / 2f, bodyBottom + footerH * 0.62f, textPaint)
@@ -285,20 +326,125 @@ class WatermarkRenderer {
 
     private fun formatTime(style: TimeStyle, timeMs: Long): String {
         val d = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA).format(Date(timeMs))
-        val t = when (style) {
+        val hm = when (style) {
             TimeStyle.FLIP_CALENDAR -> SimpleDateFormat("HH:mm", Locale.CHINA).format(Date(timeMs))
-            TimeStyle.RETRO_SLASH -> SimpleDateFormat("HH/mm/ss", Locale.CHINA).format(Date(timeMs))
+            TimeStyle.RETRO_SLASH -> toHanDigits(SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(timeMs)))
             else -> SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(timeMs))
         }
-        return "$d $t"
+        return if (style == TimeStyle.RETRO_SLASH) {
+            toHanDigits(d.replace("-", "")) + " " + hm
+        } else "$d $hm"
+    }
+
+    private fun formatTimeOnly(style: TimeStyle, timeMs: Long): String {
+        return when (style) {
+            TimeStyle.FLIP_CALENDAR -> SimpleDateFormat("HH:mm", Locale.CHINA).format(Date(timeMs))
+            TimeStyle.RETRO_SLASH -> toHanDigits(SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(timeMs)))
+            else -> SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(timeMs))
+        }
+    }
+
+    private fun formatDateOnly(style: TimeStyle, timeMs: Long): String {
+        val d = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA).format(Date(timeMs))
+        return if (style == TimeStyle.RETRO_SLASH) toHanDigits(d) else d
+    }
+
+    private fun toHanDigits(s: String): String {
+        val map = charArrayOf('〇', '一', '二', '三', '四', '五', '六', '七', '八', '九')
+        val sb = StringBuilder()
+        for (c in s) {
+            when (c) {
+                in '0'..'9' -> sb.append(map[c - '0'])
+                ':' -> sb.append('：')
+                '-' -> sb.append('－')
+                '/' -> sb.append('／')
+                else -> sb.append(c)
+            }
+        }
+        return sb.toString()
     }
 
     private fun typefaceFor(style: TimeStyle): Typeface = when (style) {
         TimeStyle.DIGITAL_TUBE -> Typeface.MONOSPACE
-        TimeStyle.FLIP_CALENDAR -> Typeface.SERIF
-        TimeStyle.RETRO_SLASH -> Typeface.create(Typeface.SANS_SERIF, Typeface.ITALIC)
-        else -> Typeface.DEFAULT
+        TimeStyle.FLIP_CALENDAR -> Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        TimeStyle.RETRO_SLASH -> Typeface.create(Typeface.SERIF, Typeface.BOLD)
+        else -> Typeface.DEFAULT_BOLD
     }
+
+    /** 顶部栏右侧大号时间（数字样式） */
+    private fun drawHeaderTime(
+        canvas: Canvas,
+        style: TimeStyle,
+        timeMs: Long,
+        right: Float,
+        cy: Float,
+        fontSize: Float
+    ) {
+        val timeStr = formatTimeOnly(style, timeMs)
+        val dateStr = formatDateOnly(style, timeMs)
+        val tp = textPaint
+        tp.textAlign = Paint.Align.RIGHT
+        when (style) {
+            TimeStyle.DIGITAL_TUBE -> {
+                tp.typeface = Typeface.MONOSPACE
+                tp.color = 0xFF00E676.toInt()
+                tp.textSize = fontSize * 1.35f
+                canvas.drawText(timeStr, right, cy + fontSize * 0.15f, tp)
+                tp.textSize = fontSize * 0.55f
+                tp.color = 0xCC00E676.toInt()
+                canvas.drawText(dateStr, right, cy + fontSize * 0.85f, tp)
+            }
+            TimeStyle.FLIP_CALENDAR -> {
+                // 翻页块
+                val digitH = fontSize * 1.15f
+                val digitW = fontSize * 0.72f
+                val gap = fontSize * 0.08f
+                var x = right
+                for (i in timeStr.length - 1 downTo 0) {
+                    val ch = timeStr[i].toString()
+                    if (ch == ":") {
+                        tp.color = 0xFFFFFFFF.toInt()
+                        tp.textSize = fontSize * 0.9f
+                        tp.typeface = Typeface.DEFAULT_BOLD
+                        canvas.drawText(":", x, cy + fontSize * 0.2f, tp)
+                        x -= fontSize * 0.35f
+                        continue
+                    }
+                    val left = x - digitW
+                    fillPaint.color = 0xFF1A1A1A.toInt()
+                    canvas.drawRoundRect(RectF(left, cy - digitH * 0.55f, x, cy + digitH * 0.45f), 6f, 6f, fillPaint)
+                    fillPaint.color = 0xFF333333.toInt()
+                    canvas.drawRect(left, cy - 1f, x, cy + 1f, fillPaint)
+                    tp.color = 0xFFFFFFFF.toInt()
+                    tp.textSize = fontSize * 0.85f
+                    tp.typeface = Typeface.DEFAULT_BOLD
+                    tp.textAlign = Paint.Align.CENTER
+                    canvas.drawText(ch, (left + x) / 2f, cy + fontSize * 0.28f, tp)
+                    tp.textAlign = Paint.Align.RIGHT
+                    x = left - gap
+                }
+            }
+            TimeStyle.RETRO_SLASH -> {
+                tp.typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
+                tp.color = 0xFFFFFFFF.toInt()
+                tp.textSize = fontSize * 1.05f
+                canvas.drawText(timeStr, right, cy + fontSize * 0.1f, tp)
+                tp.textSize = fontSize * 0.5f
+                canvas.drawText(dateStr, right, cy + fontSize * 0.75f, tp)
+            }
+            else -> {
+                tp.typeface = Typeface.DEFAULT_BOLD
+                tp.color = 0xFFFFFFFF.toInt()
+                tp.textSize = fontSize * 1.25f
+                canvas.drawText(timeStr, right, cy + fontSize * 0.12f, tp)
+                tp.textSize = fontSize * 0.52f
+                tp.color = 0xCCFFFFFF.toInt()
+                canvas.drawText(dateStr, right, cy + fontSize * 0.8f, tp)
+            }
+        }
+        tp.textAlign = Paint.Align.LEFT
+    }
+
 
     private fun withAlpha(color: Int, a01: Float): Int {
         val a = (a01.coerceIn(0.25f, 1f) * 255).toInt().coerceIn(50, 255)

@@ -52,6 +52,8 @@ class CollageFragment : Fragment() {
     private var reportTitle: String = "白班打点"
     private var reportSubtitle: String = "工作现场照片汇总整理"
     private var reporterName: String = "—"
+    /** 标题等文字倍率，默认 1.2 */
+    private var reportTextScale: Float = 1.2f
     private var tvEmptyHint: TextView? = null
 
     private var tvCount: TextView? = null
@@ -123,6 +125,20 @@ class CollageFragment : Fragment() {
         tvEmptyHint = view.findViewById(R.id.tvEmptyHint)
         // 排版按钮
         bindTemplateButtons(view)
+        val seek = view.findViewById<android.widget.SeekBar>(R.id.seekTextScale)
+        val tvScale = view.findViewById<TextView>(R.id.tvTextScale)
+        // progress 0..100 -> scale 1.0 .. 2.0, default 1.2 -> progress 20 mapped? 1.0+progress/50 -> 1.2 at 10
+        // use 1.0 + progress/100*1.0 => 1.0-2.0, default 1.2 => progress 20
+        seek?.progress = ((reportTextScale - 1.0f) * 100f).toInt().coerceIn(0, 100)
+        tvScale?.text = String.format("%.1fx", reportTextScale)
+        seek?.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                reportTextScale = 1.0f + progress / 100f
+                tvScale?.text = String.format("%.1fx", reportTextScale)
+            }
+            override fun onStartTrackingTouch(sb: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(sb: android.widget.SeekBar?) { autoPreview() }
+        })
 
         view.findViewById<Button>(R.id.btnClear)?.setOnClickListener {
             photoUris.clear()
@@ -299,7 +315,7 @@ class CollageFragment : Fragment() {
         // 贴边拼图：格比例跟第一张；缩放放入格内不丢内容；高质量
         val pageW = 1600
         val edge = 2 // 照片贴边，缝隙极小
-        val headerH = 260
+        val headerH = (260 * reportTextScale.coerceIn(1f, 1.6f)).toInt()
         val footerH = 140
         val n = minOf(uris.size, tpl.capacity).coerceAtLeast(0)
         if (n == 0) {
@@ -335,14 +351,15 @@ class CollageFragment : Fragment() {
         paint.color = 0xFF2F7BFF.toInt()
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = 64f
-        canvas.drawText(title.ifBlank { "白班打点" }, pageW / 2f, 90f, paint)
-        paint.textSize = 28f
+        val ts = reportTextScale
+        paint.textSize = 64f * ts
+        canvas.drawText(title.ifBlank { "白班打点" }, pageW / 2f, 90f * ts.coerceAtMost(1.3f), paint)
+        paint.textSize = 28f * ts
         paint.typeface = Typeface.DEFAULT
         paint.color = 0xFF5B8DEF.toInt()
         canvas.drawText(subtitle.ifBlank { "工作现场照片汇总整理" }, pageW / 2f, 136f, paint)
         paint.textAlign = Paint.Align.LEFT
-        paint.textSize = 26f
+        paint.textSize = 26f * ts
         paint.color = 0xFF333333.toInt()
         val dateStr = SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA).format(Date())
         val margin = 28

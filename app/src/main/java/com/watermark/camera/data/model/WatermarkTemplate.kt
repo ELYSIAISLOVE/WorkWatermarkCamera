@@ -108,9 +108,9 @@ enum class TimeStyle(
     val designAsset: String
 ) {
     DEFAULT("默认", "design/time_styles/time_default.svg"),
-    DIGITAL_TUBE("数码管", "design/time_styles/time_digital_tube.svg"),
+    DIGITAL_TUBE("七段数码管", "design/time_styles/time_digital_tube.svg"),
     FLIP_CALENDAR("翻页日历", "design/time_styles/time_flip_calendar.svg"),
-    RETRO_SLASH("复古斜线", "design/time_styles/time_retro_slash.svg");
+    RETRO_SLASH("汉字样式", "design/time_styles/time_retro_slash.svg");
 
     companion object {
         fun default(): TimeStyle = DEFAULT

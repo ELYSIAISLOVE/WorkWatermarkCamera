@@ -269,9 +269,9 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         override fun onBindViewHolder(holder: H, position: Int) {
             val item = items[position]
             holder.name.text = when (item) {
-                TimeStyle.DIGITAL_TUBE -> "数码管"
+                TimeStyle.DIGITAL_TUBE -> "七段数码管"
                 TimeStyle.FLIP_CALENDAR -> "翻页日历"
-                TimeStyle.RETRO_SLASH -> "复古斜线"
+                TimeStyle.RETRO_SLASH -> "汉字样式"
                 else -> "默认"
             }
             holder.sample.text = when (item) {
