@@ -23,7 +23,7 @@ class WatermarkRenderer {
     companion object {
         private const val BASE_SHORT = 1080f
         /** 卡片最大约占短边宽度比例 — 缩小体积 */
-        private const val MAX_CARD_W_RATIO = 0.72f
+        private const val MAX_CARD_W_RATIO = 0.85f
     }
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -66,16 +66,8 @@ class WatermarkRenderer {
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
         val m = measure(areaWidth, areaHeight, config, locationText, timeMs) ?: return null
-        val degrees = when (deviceOrientation) {
-            OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
-            OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
-            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
-            else -> 0f
-        }
+        // 水印始终正向绘制，避免预览/成片颠倒
         canvas.save()
-        if (degrees != 0f) {
-            canvas.rotate(degrees, m.left + m.width / 2f, m.top + m.height / 2f)
-        }
         drawCard(canvas, m, config, locationText, timeMs)
         canvas.restore()
         return m
@@ -92,7 +84,7 @@ class WatermarkRenderer {
         val short = minOf(areaWidth, areaHeight)
         val scale = (short / BASE_SHORT).coerceIn(0.30f, 1.6f)
         val user = config.clampedFontScale().coerceIn(0.85f, 2.2f)
-        val body = (15.5f * scale * user).coerceIn(13f, 42f)
+        val body = (20.0f * scale * user).coerceIn(16f, 52f)
         val titleSize = body * 1.18f
         val headerH = titleSize * 2.35f
         val footerH = body * 1.25f
@@ -313,7 +305,8 @@ class WatermarkRenderer {
     private fun buildRows(config: WatermarkConfig, locationText: String, timeMs: Long): List<Row> {
         val tmpl = config.template
         val rows = mutableListOf<Row>()
-        rows.add(Row("时间: ", formatTime(config.timeStyle, timeMs), isTime = true))
+        // 日期在白色正文；时间只在顶栏
+        rows.add(Row("日期: ", formatDateOnly(config.timeStyle, timeMs), isTime = false))
         if (config.showLocation) {
             rows.add(Row("地点: ", locationText.ifBlank { "定位中…" }))
         }
@@ -389,10 +382,7 @@ class WatermarkRenderer {
                 tp.typeface = Typeface.MONOSPACE
                 tp.color = 0xFF00E676.toInt()
                 tp.textSize = fontSize * 1.35f
-                canvas.drawText(timeStr, right, cy + fontSize * 0.15f, tp)
-                tp.textSize = fontSize * 0.55f
-                tp.color = 0xCC00E676.toInt()
-                canvas.drawText(dateStr, right, cy + fontSize * 0.85f, tp)
+                canvas.drawText(timeStr, right, cy + fontSize * 0.35f, tp)
             }
             TimeStyle.FLIP_CALENDAR -> {
                 // 翻页块
@@ -428,18 +418,13 @@ class WatermarkRenderer {
                 tp.typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
                 tp.color = 0xFFFFFFFF.toInt()
                 tp.textSize = fontSize * 1.05f
-                canvas.drawText(timeStr, right, cy + fontSize * 0.1f, tp)
-                tp.textSize = fontSize * 0.5f
-                canvas.drawText(dateStr, right, cy + fontSize * 0.75f, tp)
+                canvas.drawText(timeStr, right, cy + fontSize * 0.35f, tp)
             }
             else -> {
                 tp.typeface = Typeface.DEFAULT_BOLD
                 tp.color = 0xFFFFFFFF.toInt()
-                tp.textSize = fontSize * 1.25f
-                canvas.drawText(timeStr, right, cy + fontSize * 0.12f, tp)
-                tp.textSize = fontSize * 0.52f
-                tp.color = 0xCCFFFFFF.toInt()
-                canvas.drawText(dateStr, right, cy + fontSize * 0.8f, tp)
+                tp.textSize = fontSize * 1.45f
+                canvas.drawText(timeStr, right, cy + fontSize * 0.35f, tp)
             }
         }
         tp.textAlign = Paint.Align.LEFT

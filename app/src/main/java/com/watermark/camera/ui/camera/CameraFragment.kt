@@ -712,14 +712,30 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun openSidePanel() {
         val root = binding.sidePanelRoot
         val sheet = binding.sidePanelSheet
-        // 设置页铺满背景图
+        // 设置页背景：放大铺满、不拉伸变形，偏上以露出脸部
         runCatching {
-            val content = binding.sidePanelContent
-            content.background = androidx.core.content.ContextCompat.getDrawable(
-                requireContext(),
-                com.watermark.camera.R.drawable.bg_settings_hero
-            )
-            content.background?.alpha = 180
+            val content = binding.sidePanelContent as? android.view.ViewGroup ?: return@runCatching
+            var bg = content.findViewWithTag<android.widget.ImageView>("settings_hero_bg")
+            if (bg == null) {
+                bg = android.widget.ImageView(requireContext()).apply {
+                    tag = "settings_hero_bg"
+                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                    // 略向上偏移，保证人物脸在可视区
+                    scaleX = 1.15f
+                    scaleY = 1.15f
+                    translationY = -80f
+                    setImageResource(com.watermark.camera.R.drawable.bg_settings_hero)
+                    alpha = 0.55f
+                }
+                content.addView(
+                    bg,
+                    0,
+                    android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
         }
         root.visibility = android.view.View.VISIBLE
         sheet.translationX = sheet.width.toFloat().takeIf { it > 0 } ?: 400f
@@ -972,23 +988,24 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         if (zoomHugeView != null) return
         val parent = binding.root as? android.view.ViewGroup ?: return
         val tv = android.widget.TextView(requireContext()).apply {
-            layoutParams = android.widget.FrameLayout.LayoutParams(
+            val lp = android.widget.FrameLayout.LayoutParams(
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
-                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
-                android.view.Gravity.CENTER
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            textSize = 64f
+            // 正中：用 post 定位到 root 中心（兼容 ConstraintLayout）
+            layoutParams = lp
+            textSize = 72f
             setTextColor(0xFFFFFFFF.toInt())
             setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-            setShadowLayer(12f, 0f, 0f, 0xFF000000.toInt())
+            setShadowLayer(16f, 0f, 0f, 0xFF000000.toInt())
             visibility = android.view.View.GONE
-            elevation = 40f
+            elevation = 50f
         }
         parent.addView(tv)
         zoomHugeView = tv
-        if (!zoomHintShown) {
-            zoomHintShown = true
-            android.widget.Toast.makeText(requireContext(), "提示：左右滑动可变焦", android.widget.Toast.LENGTH_LONG).show()
+        parent.post {
+            tv.x = (parent.width - tv.width) / 2f
+            tv.y = (parent.height - tv.height) / 2f
         }
     }
 
@@ -998,8 +1015,14 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         tv.text = String.format("%.1fx", ratio)
         tv.visibility = android.view.View.VISIBLE
         tv.alpha = 1f
-        tv.scaleX = 1.05f
-        tv.scaleY = 1.05f
+        val parent = binding.root
+        parent.post {
+            tv.measure(0, 0)
+            tv.x = ((parent.width - tv.measuredWidth) / 2f).coerceAtLeast(0f)
+            tv.y = ((parent.height - tv.measuredHeight) / 2f).coerceAtLeast(0f)
+        }
+        tv.scaleX = 1.08f
+        tv.scaleY = 1.08f
         tv.animate().scaleX(1f).scaleY(1f).setDuration(80L).start()
     }
 

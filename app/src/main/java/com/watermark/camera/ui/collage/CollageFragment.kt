@@ -229,21 +229,47 @@ class CollageFragment : Fragment() {
             resultBitmap = bmp
             ivPreview?.setImageBitmap(bmp)
             tvEmptyHint?.visibility = View.GONE
-            if (showToast) Toast.makeText(requireContext(), "预览已更新", Toast.LENGTH_SHORT).show()
+            // 仅重要提示保留（保存成功/失败）
         }
     }
 
     private fun promptEdit(title: String, current: String, onOk: (String) -> Unit) {
         val ctx = requireContext()
+        val density = resources.displayMetrics.density
+        val box = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((20 * density).toInt(), (12 * density).toInt(), (20 * density).toInt(), (8 * density).toInt())
+        }
         val et = EditText(ctx).apply {
             setText(current)
             setSelection(text.length)
             setSingleLine(true)
             hint = title
         }
+        box.addView(et)
+        val scaleLabel = TextView(ctx).apply {
+            text = String.format("文字大小 %.1fx", reportTextScale)
+            setTextColor(0xFF666666.toInt())
+            textSize = 13f
+            setPadding(0, (12 * density).toInt(), 0, (4 * density).toInt())
+        }
+        box.addView(scaleLabel)
+        val seek = android.widget.SeekBar(ctx).apply {
+            max = 100
+            progress = ((reportTextScale - 1.0f) * 100f).toInt().coerceIn(0, 100)
+        }
+        seek.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                reportTextScale = 1.0f + progress / 100f
+                scaleLabel.text = String.format("文字大小 %.1fx", reportTextScale)
+            }
+            override fun onStartTrackingTouch(sb: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(sb: android.widget.SeekBar?) {}
+        })
+        box.addView(seek)
         AlertDialog.Builder(ctx)
             .setTitle(title)
-            .setView(et)
+            .setView(box)
             .setPositiveButton("确定") { _, _ -> onOk(et.text?.toString()?.trim().orEmpty()) }
             .setNegativeButton("取消", null)
             .show()
@@ -315,7 +341,7 @@ class CollageFragment : Fragment() {
         // 贴边拼图：格比例跟第一张；缩放放入格内不丢内容；高质量
         val pageW = 1600
         val edge = 2 // 照片贴边，缝隙极小
-        val headerH = (260 * reportTextScale.coerceIn(1f, 1.6f)).toInt()
+        val headerH = (280 + 80 * (reportTextScale - 1f).coerceIn(0f, 1.2f)).toInt()
         val footerH = 140
         val n = minOf(uris.size, tpl.capacity).coerceAtLeast(0)
         if (n == 0) {
@@ -351,13 +377,14 @@ class CollageFragment : Fragment() {
         paint.color = 0xFF2F7BFF.toInt()
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.CENTER
-        val ts = reportTextScale
+        val ts = reportTextScale.coerceIn(1.0f, 2.0f)
         paint.textSize = 64f * ts
-        canvas.drawText(title.ifBlank { "白班打点" }, pageW / 2f, 90f * ts.coerceAtMost(1.3f), paint)
+        val titleY = 70f + 40f * ts
+        canvas.drawText(title.ifBlank { "白班打点" }, pageW / 2f, titleY, paint)
         paint.textSize = 28f * ts
         paint.typeface = Typeface.DEFAULT
         paint.color = 0xFF5B8DEF.toInt()
-        canvas.drawText(subtitle.ifBlank { "工作现场照片汇总整理" }, pageW / 2f, 136f, paint)
+        canvas.drawText(subtitle.ifBlank { "工作现场照片汇总整理" }, pageW / 2f, titleY + 36f * ts, paint)
         paint.textAlign = Paint.Align.LEFT
         paint.textSize = 26f * ts
         paint.color = 0xFF333333.toInt()
