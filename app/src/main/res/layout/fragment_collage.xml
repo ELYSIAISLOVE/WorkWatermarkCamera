@@ -7,73 +7,28 @@
     android:fitsSystemWindows="true"
     android:clipToPadding="false">
 
-    <!-- 主区域：最终拼图预览，点文字可改 -->
+    <!-- 预览区：点文字改内容 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:padding="0dp">
+        android:layout_weight="1">
 
         <ImageView
             android:id="@+id/ivPreview"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:adjustViewBounds="true"
             android:scaleType="fitCenter"
-            android:background="#FF0D0D0D"
+            android:background="#FF111111"
             android:contentDescription="拼图预览" />
-
-        <LinearLayout
-            android:id="@+id/editHintBar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="top"
-            android:orientation="horizontal"
-            android:padding="8dp"
-            android:background="#CC000000">
-
-            <TextView
-                android:id="@+id/btnEditTitle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="点此改标题"
-                android:textColor="#FFFFFFFF"
-                android:textSize="13sp"
-                android:padding="6dp" />
-
-            <TextView
-                android:id="@+id/btnEditReporter"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="点此改汇报人"
-                android:textColor="#FFFFFFFF"
-                android:textSize="13sp"
-                android:padding="6dp" />
-
-            <TextView
-                android:id="@+id/btnEditSubtitle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="点此改副标题"
-                android:textColor="#FFFFFFFF"
-                android:textSize="13sp"
-                android:padding="6dp" />
-        </LinearLayout>
 
         <TextView
             android:id="@+id/tvEmptyHint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="点底部「选图」开始拼图"
+            android:text="点「选图」开始拼图"
             android:textColor="#FF888888"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
 
         <ProgressBar
             android:id="@+id/progressBar"
@@ -83,45 +38,89 @@
             android:visibility="gone" />
     </FrameLayout>
 
-
-    <!-- 排版预设 -->
-    <HorizontalScrollView
+    <!-- 状态 -->
+    <TextView
+        android:id="@+id/tvHint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:scrollbars="none"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp">
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <Button
-                android:id="@+id/tplVertical"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:text="竖向"
-                android:textSize="12sp"
-                android:layout_marginEnd="6dp" />
-            <Button
-                android:id="@+id/tpl2x2"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:text="2×2"
-                android:textSize="12sp"
-                android:layout_marginEnd="6dp" />
-            <Button
-                android:id="@+id/tpl3xN"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:text="3×N"
-                android:textSize="12sp"
-                android:layout_marginEnd="6dp" />
-        </LinearLayout>
-    </HorizontalScrollView>
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp"
+        android:text="已选 0 张"
+        android:textColor="#FFAAAAAA"
+        android:textSize="12sp" />
 
+    <!-- 排版 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp">
+        <Button
+            android:id="@+id/tplVertical"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="竖向"
+            android:textSize="13sp" />
+        <Button
+            android:id="@+id/tpl2x2"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="2×2"
+            android:textSize="13sp" />
+        <Button
+            android:id="@+id/tpl3xN"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="3列"
+            android:textSize="13sp" />
+    </LinearLayout>
 
+    <!-- 编辑：标题 / 汇报人 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp">
+        <Button
+            android:id="@+id/btnEditTitle"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="改标题"
+            android:textSize="13sp"
+            style="?attr/materialButtonOutlinedStyle" />
+        <Button
+            android:id="@+id/btnEditReporter"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="改汇报人"
+            android:textSize="13sp"
+            style="?attr/materialButtonOutlinedStyle" />
+        <Button
+            android:id="@+id/btnEditSubtitle"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="改副标题"
+            android:textSize="13sp"
+            style="?attr/materialButtonOutlinedStyle" />
+    </LinearLayout>
+
+    <!-- 字号 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -129,11 +128,11 @@
         android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingBottom="4dp">
+        android:paddingBottom="8dp">
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="文字"
+            android:text="字号"
             android:textColor="#FFAAAAAA"
             android:textSize="12sp" />
         <SeekBar
@@ -142,10 +141,10 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:max="100"
-            android:progress="40" />
+            android:progress="20" />
         <TextView
             android:id="@+id/tvTextScale"
-            android:layout_width="48dp"
+            android:layout_width="40dp"
             android:layout_height="wrap_content"
             android:gravity="end"
             android:text="1.2x"
@@ -153,50 +152,33 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/tvHint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:text="已选 0 张"
-        android:textColor="#FFAAAAAA"
-        android:textSize="12sp" />
-
-    <!-- 底部操作：选图 / 保存 -->
+    <!-- 主操作 -->
     <LinearLayout
         android:id="@+id/collageBottomBar"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center"
-        android:padding="8dp"
-        android:background="#FF1A1A1A"
-        android:elevation="0dp">
-
+        android:padding="12dp"
+        android:gravity="center">
         <Button
             android:id="@+id/btnClear"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="48dp"
             android:layout_weight="1"
+            android:layout_marginEnd="8dp"
             android:text="清空"
-            android:layout_marginEnd="6dp"
             style="?attr/materialButtonOutlinedStyle" />
-
         <Button
             android:id="@+id/btnPick"
             android:layout_width="0dp"
-            android:layout_height="44dp"
-            android:layout_weight="1"
-            android:text="选图"
-            android:layout_marginEnd="6dp" />
-
+            android:layout_height="48dp"
+            android:layout_weight="1.2"
+            android:layout_marginEnd="8dp"
+            android:text="选图" />
         <Button
             android:id="@+id/btnGenerate"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="48dp"
             android:layout_weight="1"
             android:text="保存"
             android:enabled="false" />

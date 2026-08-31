@@ -100,7 +100,7 @@ class WatermarkRenderer {
         val user = config.clampedFontScale().coerceIn(0.85f, 2.2f)
         val body = (18.0f * scale * user).coerceIn(14f, 46f)
         val titleSize = body * 1.18f
-        val headerH = titleSize * 2.35f
+        val headerH = titleSize * 2.55f
         val footerH = body * 1.25f
         val rowH = body * 1.42f
         val padH = body * 0.7f
@@ -115,7 +115,7 @@ class WatermarkRenderer {
             if (w > maxLine) maxLine = w
         }
         val cardW = (padH * 2f + maxLine + body * 1.6f).coerceIn(
-            body * 11f,
+            body * 14f,
             areaWidth * MAX_CARD_W_RATIO
         )
         val bodyH = padV + rows.size * rowH + padV
@@ -140,7 +140,7 @@ class WatermarkRenderer {
 
         val rect = RectF(m.left, m.top, m.left + m.width, m.top + m.height)
         val titleSize = m.fontSize * 1.2f
-        val headerH = titleSize * 2.35f
+        val headerH = titleSize * 2.55f
         val footerH = m.fontSize * 1.3f
         val bodyTop = m.top + headerH
         val bodyBottom = m.top + m.height - footerH
@@ -198,63 +198,89 @@ class WatermarkRenderer {
             accentPaint
         )
 
-        // Logo + 标题（左）
-        val iconCx = m.left + m.paddingH + m.fontSize * 0.5f
+        // 表头分左右两栏：左标题、右时间，互不重叠
+        val iconCx = m.left + m.paddingH + m.fontSize * 0.48f
         val iconCy = m.top + headerH * 0.5f
-        val iconR = m.fontSize * 0.58f
+        val iconR = m.fontSize * 0.55f
         drawLogo(canvas, tmpl, iconCx, iconCy, iconR)
         val title = if ((tmpl == WatermarkTemplate.GENERAL || tmpl == WatermarkTemplate.WORK_REPORT)
             && config.customTitle.isNotBlank()
         ) config.customTitle.trim() else spec.title
+
+        // 右栏预留时间宽度（约 5.5 个数字宽）
+        val timeReserve = m.fontSize * 6.2f
+        val titleMaxRight = m.left + m.width - m.paddingH - timeReserve - m.fontSize * 0.3f
+        val titleStart = iconCx + iconR + m.fontSize * 0.3f
         textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         textPaint.textSize = titleSize
         textPaint.color = 0xFFFFFFFF.toInt()
         textPaint.textAlign = Paint.Align.LEFT
+        var drawnTitle = title
+        while (drawnTitle.isNotEmpty() && textPaint.measureText(drawnTitle) > (titleMaxRight - titleStart).coerceAtLeast(m.fontSize * 2f)) {
+            drawnTitle = if (drawnTitle.length <= 1) "" else drawnTitle.dropLast(1)
+        }
+        if (drawnTitle != title && drawnTitle.isNotEmpty()) {
+            drawnTitle = drawnTitle.dropLast(1).trimEnd() + "…"
+        }
         canvas.drawText(
-            title,
-            iconCx + iconR + m.fontSize * 0.35f,
-            m.top + headerH * 0.58f + titleSize * 0.1f,
+            drawnTitle,
+            titleStart,
+            m.top + headerH * 0.58f + titleSize * 0.08f,
             textPaint
         )
 
-        // 右上角大号时间
+        // 右栏时间（只占右半，不压标题）
         drawHeaderTime(
             canvas,
             config.timeStyle,
             timeMs,
             m.left + m.width - m.paddingH,
-            m.top + headerH * 0.42f,
-            m.fontSize * 1.05f
+            m.top + headerH * 0.48f,
+            m.fontSize * 1.0f
         )
 
         // 正文：地点 + 字段（不再重复时间），字号加大、对齐
         val rows = buildRows(config, locationText, timeMs).filter { !it.isTime }
-        val labelSize = m.fontSize * 0.98f
-        val valueSize = m.fontSize * 1.05f
-        val rowH = m.fontSize * 1.65f
+        val labelSize = m.fontSize * 0.95f
+        val valueSize = m.fontSize * 1.0f
+        val rowH = m.fontSize * 1.55f
         var y = bodyTop + m.paddingV + labelSize
+        val tx = m.left + m.paddingH
+        // 标签固定列宽，数值对齐
+        var labelCol = 0f
+        for (row in rows) {
+            textPaint.textSize = labelSize
+            labelCol = maxOf(labelCol, textPaint.measureText(row.label))
+        }
+        labelCol = labelCol.coerceAtLeast(m.fontSize * 3.2f) + m.fontSize * 0.25f
         for (row in rows) {
             accentPaint.color = labelColor
             canvas.drawRoundRect(
                 RectF(
-                    m.left + m.paddingH * 0.45f,
-                    y - labelSize * 0.7f,
-                    m.left + m.paddingH * 0.45f + labelSize * 0.15f,
-                    y + labelSize * 0.1f
+                    m.left + m.paddingH * 0.4f,
+                    y - labelSize * 0.72f,
+                    m.left + m.paddingH * 0.4f + labelSize * 0.14f,
+                    y + labelSize * 0.08f
                 ),
                 2f, 2f, accentPaint
             )
-            val tx = m.left + m.paddingH
             textPaint.typeface = Typeface.DEFAULT
             textPaint.textSize = labelSize
             textPaint.color = labelColor
             textPaint.textAlign = Paint.Align.LEFT
             canvas.drawText(row.label, tx, y, textPaint)
-            val lw = textPaint.measureText(row.label)
-            textPaint.typeface = Typeface.DEFAULT
             textPaint.textSize = valueSize
             textPaint.color = valueColor
-            canvas.drawText(row.value.ifBlank { "—" }, tx + lw, y, textPaint)
+            // 数值过长省略
+            var valText = row.value.ifBlank { "—" }
+            val valMax = (m.left + m.width - m.paddingH) - (tx + labelCol)
+            while (valText.length > 1 && textPaint.measureText(valText) > valMax) {
+                valText = valText.dropLast(1)
+            }
+            if (valText != row.value.ifBlank { "—" } && valText.isNotEmpty()) {
+                valText = valText.dropLast(1).trimEnd() + "…"
+            }
+            canvas.drawText(valText, tx + labelCol, y, textPaint)
             y += rowH
         }
 
