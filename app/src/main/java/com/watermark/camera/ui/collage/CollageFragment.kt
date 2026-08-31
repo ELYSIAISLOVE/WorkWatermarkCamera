@@ -47,7 +47,7 @@ import kotlinx.coroutines.withContext
 class CollageFragment : Fragment() {
 
     private var photoUris: MutableList<String> = mutableListOf()
-    private var template: Template = Template.GRID_3X3
+    private var template: Template = Template.GRID_3XN
     private var resultBitmap: Bitmap? = null
     private var reportTitle: String = "白班打点"
     private var reportSubtitle: String = "工作现场照片汇总整理"
@@ -65,7 +65,7 @@ class CollageFragment : Fragment() {
         ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
         if (uris.isEmpty()) return@registerForActivityResult
-        val cap = 15
+        val cap = template.capacity
         for (u in uris) {
             if (photoUris.size >= cap) break
             val s = u.toString()
@@ -78,28 +78,27 @@ class CollageFragment : Fragment() {
         autoPreview()
     }
 
-    enum class Template(val rows: Int, val cols: Int, val label: String) {
-        GRID_2X2(2, 2, "2×2"),
-        GRID_3X3(3, 3, "3×3"),
-        GRID_4X4(4, 4, "4×4"),
-        ROW_1X3(1, 3, "1×3"),
-        COL_3X1(3, 1, "3×1"),
-        ROW_1X2(1, 2, "1×2"),
-        COL_2X1(2, 1, "2×1");
+        enum class Template(val cols: Int, val fixedRows: Int?, val label: String, val capacity: Int) {
+        VERTICAL(1, null, "竖向", 30),
+        GRID_2X2(2, 2, "2×2", 4),
+        GRID_3XN(3, null, "3×N", 30);
 
-        val capacity: Int get() = rows * cols
+        fun rowsFor(count: Int): Int {
+            val n = count.coerceAtLeast(1)
+            return fixedRows ?: ((n + cols - 1) / cols)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val fromArgs = arguments?.getStringArrayList(ARG_URIS)
         if (!fromArgs.isNullOrEmpty()) {
-            photoUris = fromArgs.take(9).toMutableList()
+            photoUris = fromArgs.take(30).toMutableList()
         }
     }
 
     fun setPhotoPaths(paths: List<String>) {
-        photoUris = paths.take(9).toMutableList()
+        photoUris = paths.take(30).toMutableList()
         // Also stash into arguments so recreate survives
         if (arguments == null) arguments = Bundle()
         arguments?.putStringArrayList(ARG_URIS, ArrayList(photoUris))
@@ -122,7 +121,8 @@ class CollageFragment : Fragment() {
         progress = view.findViewById(R.id.progressBar)
         btnGenerate = view.findViewById(R.id.btnGenerate)
         tvEmptyHint = view.findViewById(R.id.tvEmptyHint)
-        // 简化布局已去掉模板条与选图列表，仅保留预览 + 选图/保存
+        // 排版按钮
+        bindTemplateButtons(view)
 
         view.findViewById<Button>(R.id.btnClear)?.setOnClickListener {
             photoUris.clear()
@@ -157,13 +157,27 @@ class CollageFragment : Fragment() {
     }
 
     private fun bindTemplateButtons(view: View) {
-        // 模板入口已从布局移除，固定使用 3 列汇报排版
+        val map = listOf(
+            R.id.tplVertical to Template.VERTICAL,
+            R.id.tpl2x2 to Template.GRID_2X2,
+            R.id.tpl3xN to Template.GRID_3XN
+        )
+        for ((id, tpl) in map) {
+            view.findViewById<Button>(id)?.setOnClickListener {
+                template = tpl
+                if (photoUris.size > tpl.capacity) {
+                    photoUris = photoUris.take(tpl.capacity).toMutableList()
+                }
+                refreshUi()
+                autoPreview()
+            }
+        }
     }
 
     private fun refreshUi() {
         adapter?.notifyDataSetChanged()
         val cap = template.capacity
-        tvCount?.text = "已选 ${photoUris.size} 张 · 点击上方文字可改标题/汇报人"
+        tvCount?.text = "已选 ${photoUris.size}/${template.capacity} 张 · ${template.label} · 点上方可改标题/汇报人"
         btnGenerate?.isEnabled = photoUris.isNotEmpty()
         tvEmptyHint?.visibility = if (photoUris.isEmpty() && resultBitmap == null) View.VISIBLE else View.GONE
     }
@@ -263,7 +277,7 @@ class CollageFragment : Fragment() {
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             ?: throw IllegalStateException("无法创建相册条目")
         resolver.openOutputStream(uri)?.use { out ->
-            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)) {
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 97, out)) {
                 throw IllegalStateException("压缩失败")
             }
         } ?: throw IllegalStateException("无法写入文件")
@@ -275,126 +289,157 @@ class CollageFragment : Fragment() {
         return uri
     }
 
-    private fun buildCollage(uris: List<String>, tpl: Template, title: String = reportTitle, subtitle: String = reportSubtitle, reporter: String = reporterName): Bitmap {
-        // 参考「白班打点」工作汇报：白底 + 蓝色标题头 + 网格照片 + 底部品牌栏
-        val pageW = 1080
-        val margin = 36
-        val gap = 16
-        val cols = when {
-            tpl.cols >= 3 -> 3
-            tpl.cols == 2 -> 2
-            else -> tpl.cols.coerceAtLeast(1)
+    private fun buildCollage(
+        uris: List<String>,
+        tpl: Template,
+        title: String = reportTitle,
+        subtitle: String = reportSubtitle,
+        reporter: String = reporterName
+    ): Bitmap {
+        // 贴边拼图：格比例跟第一张；缩放放入格内不丢内容；高质量
+        val pageW = 1600
+        val edge = 2 // 照片贴边，缝隙极小
+        val headerH = 260
+        val footerH = 140
+        val n = minOf(uris.size, tpl.capacity).coerceAtLeast(0)
+        if (n == 0) {
+            return Bitmap.createBitmap(pageW, headerH + footerH, Bitmap.Config.ARGB_8888).also {
+                Canvas(it).drawColor(Color.WHITE)
+            }
         }
-        val n = minOf(uris.size, maxOf(tpl.capacity, 15))
-        val rows = maxOf(tpl.rows, (n + cols - 1) / cols)
-        val contentW = pageW - margin * 2
-        val cellW = (contentW - gap * (cols - 1)) / cols
-        val cellH = (cellW * 0.75f).toInt() // 4:3 格，尽量少裁切
-        val headerH = 280
-        val footerH = 160
-        val gridH = rows * cellH + (rows - 1).coerceAtLeast(0) * gap
-        val pageH = headerH + gridH + footerH + margin
+
+        // 第一张尺寸 → 统一格子比例
+        val firstBounds = decodeBounds(uris[0])
+        val aspect = if (firstBounds != null && firstBounds.first > 0) {
+            firstBounds.second.toFloat() / firstBounds.first.toFloat()
+        } else {
+            0.75f
+        }.coerceIn(0.4f, 2.5f)
+
+        val cols = tpl.cols
+        val rows = tpl.rowsFor(n)
+        val contentW = pageW
+        val cellW = (contentW - edge * (cols - 1)) / cols
+        val cellH = maxOf(1, (cellW * aspect).toInt())
+        val gridH = rows * cellH + (rows - 1).coerceAtLeast(0) * edge
+        val pageH = headerH + gridH + footerH
 
         val out = Bitmap.createBitmap(pageW, pageH, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
         canvas.drawColor(Color.WHITE)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            isFilterBitmap = true
+        }
 
-        // Header title
+        // Header
         paint.color = 0xFF2F7BFF.toInt()
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = 72f
-        canvas.drawText(title.ifBlank { "白班打点" }, pageW / 2f, 100f, paint)
-        paint.textSize = 32f
+        paint.textSize = 64f
+        canvas.drawText(title.ifBlank { "白班打点" }, pageW / 2f, 90f, paint)
+        paint.textSize = 28f
         paint.typeface = Typeface.DEFAULT
         paint.color = 0xFF5B8DEF.toInt()
-        canvas.drawText(subtitle.ifBlank { "工作现场照片汇总整理" }, pageW / 2f, 150f, paint)
-
+        canvas.drawText(subtitle.ifBlank { "工作现场照片汇总整理" }, pageW / 2f, 136f, paint)
         paint.textAlign = Paint.Align.LEFT
-        paint.textSize = 28f
+        paint.textSize = 26f
         paint.color = 0xFF333333.toInt()
         val dateStr = SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA).format(Date())
-        canvas.drawText("汇报人: ${reporter.ifBlank { "—" }}", margin.toFloat(), 210f, paint)
+        val margin = 28
+        canvas.drawText("汇报人: ${reporter.ifBlank { "—" }}", margin.toFloat(), 190f, paint)
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText(dateStr, (pageW - margin).toFloat(), 210f, paint)
-
-        // Divider
+        canvas.drawText(dateStr, (pageW - margin).toFloat(), 190f, paint)
         paint.color = 0xFFE8EEF8.toInt()
         paint.strokeWidth = 2f
-        canvas.drawLine(margin.toFloat(), 240f, (pageW - margin).toFloat(), 240f, paint)
+        canvas.drawLine(margin.toFloat(), 220f, (pageW - margin).toFloat(), 220f, paint)
 
-        val opts = BitmapFactory.Options().apply {
-            inSampleSize = 2
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-        }
         val gridTop = headerH
+        // 解码目标边长：保证清晰可辨
+        val decodeSide = maxOf(cellW, cellH) * 2
+
         for (i in 0 until n) {
             val r = i / cols
             val c = i % cols
-            val left = margin + c * (cellW + gap)
-            val top = gridTop + r * (cellH + gap)
-            val uri = Uri.parse(uris[i])
-            val src = try {
-                requireContext().contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it, null, opts)
-                }
-            } catch (_: Exception) {
-                null
+            val left = c * (cellW + edge)
+            val top = gridTop + r * (cellH + edge)
+            val src = decodeUri(uris[i], decodeSide) ?: continue
+            try {
+                // 按第一张比例的格子：等比完整放入（不丢内容），居中，可有极少留白
+                val scale = minOf(cellW.toFloat() / src.width, cellH.toFloat() / src.height)
+                val dw = maxOf(1, (src.width * scale).toInt())
+                val dh = maxOf(1, (src.height * scale).toInt())
+                val dx = left + (cellW - dw) / 2
+                val dy = top + (cellH - dh) / 2
+                // 格底浅灰，便于辨认边界
+                paint.style = Paint.Style.FILL
+                paint.color = 0xFFF3F5F8.toInt()
+                canvas.drawRect(left.toFloat(), top.toFloat(), (left + cellW).toFloat(), (top + cellH).toFloat(), paint)
+                val dest = Rect(dx, dy, dx + dw, dy + dh)
+                canvas.drawBitmap(src, null, dest, paint)
+            } finally {
+                src.recycle()
             }
-            // 白底圆角格
-            paint.style = Paint.Style.FILL
-            paint.color = 0xFFF5F7FA.toInt()
-            val cellRect = RectF(left.toFloat(), top.toFloat(), (left + cellW).toFloat(), (top + cellH).toFloat())
-            canvas.drawRoundRect(cellRect, 12f, 12f, paint)
-            if (src == null) continue
-            // 等比适配进格子，不裁切主体（letterbox）
-            val scale = minOf(cellW.toFloat() / src.width, cellH.toFloat() / src.height)
-            val dw = (src.width * scale).toInt().coerceAtLeast(1)
-            val dh = (src.height * scale).toInt().coerceAtLeast(1)
-            val dx = left + (cellW - dw) / 2
-            val dy = top + (cellH - dh) / 2
-            val dest = Rect(dx, dy, dx + dw, dy + dh)
-            canvas.drawBitmap(src, null, dest, null)
-            src.recycle()
         }
 
-        // Footer bar
+        // Footer
         val fy = pageH - footerH
         paint.style = Paint.Style.FILL
         paint.color = 0xFFF7F9FC.toInt()
         canvas.drawRect(0f, fy.toFloat(), pageW.toFloat(), pageH.toFloat(), paint)
         paint.color = 0xFF2F7BFF.toInt()
         paint.textAlign = Paint.Align.LEFT
-        paint.textSize = 36f
+        paint.textSize = 32f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("工作水印相机", (margin + 80).toFloat(), fy + 70f, paint)
-        paint.textSize = 24f
+        canvas.drawText("工作水印相机", (margin + 70).toFloat(), fy + 60f, paint)
+        paint.textSize = 22f
         paint.typeface = Typeface.DEFAULT
         paint.color = 0xFF666666.toInt()
-        canvas.drawText("水印拍照 真实时间地点", (margin + 80).toFloat(), fy + 110f, paint)
-        // 简易圆形 logo
+        canvas.drawText("水印拍照 真实时间地点", (margin + 70).toFloat(), fy + 98f, paint)
         paint.color = 0xFF2F7BFF.toInt()
-        canvas.drawCircle((margin + 36).toFloat(), fy + 80f, 28f, paint)
+        canvas.drawCircle((margin + 30).toFloat(), fy + 72f, 24f, paint)
         paint.color = Color.WHITE
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = 28f
-        canvas.drawText("印", (margin + 36).toFloat(), fy + 90f, paint)
-        // 右侧二维码占位
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 3f
-        paint.color = 0xFF2F7BFF.toInt()
-        val qr = 72f
-        val qx = pageW - margin - qr
-        val qy = fy + 44f
-        canvas.drawRect(qx, qy, qx + qr, qy + qr, paint)
-        paint.style = Paint.Style.FILL
-        paint.textSize = 18f
-        paint.color = 0xFF888888.toInt()
-        paint.textAlign = Paint.Align.CENTER
-        canvas.drawText("扫码", qx + qr / 2f, qy + qr + 28f, paint)
+        paint.textSize = 24f
+        canvas.drawText("印", (margin + 30).toFloat(), fy + 80f, paint)
 
         return out
+    }
+
+    private fun decodeBounds(uriStr: String): Pair<Int, Int>? {
+        return try {
+            val uri = Uri.parse(uriStr)
+            requireContext().contentResolver.openInputStream(uri)?.use { stream ->
+                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeStream(stream, null, opts)
+                if (opts.outWidth > 0 && opts.outHeight > 0) opts.outWidth to opts.outHeight else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun decodeUri(uriStr: String, maxSide: Int): Bitmap? {
+        return try {
+            val uri = Uri.parse(uriStr)
+            // 先 bounds 再采样，尽量高清
+            val bounds = requireContext().contentResolver.openInputStream(uri)?.use { stream ->
+                val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeStream(stream, null, o)
+                o.outWidth to o.outHeight
+            } ?: return null
+            var sample = 1
+            val maxDim = maxOf(bounds.first, bounds.second)
+            while (maxDim / sample > maxSide * 2) sample *= 2
+            requireContext().contentResolver.openInputStream(uri)?.use { stream ->
+                val opts = BitmapFactory.Options().apply {
+                    inSampleSize = sample.coerceAtLeast(1)
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                BitmapFactory.decodeStream(stream, null, opts)
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private class UriAdapter(
