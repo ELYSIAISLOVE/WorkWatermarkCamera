@@ -97,25 +97,20 @@ class WatermarkRenderer {
         val pos = when (orientation) {
             OrientationHelper.DeviceOrientation.PORTRAIT,
             OrientationHelper.DeviceOrientation.UNKNOWN ->
-                // 竖持 / 成片正立：贴底边
-                when (config.position) {
-                    WatermarkPosition.TOP_LEFT -> WatermarkPosition.BOTTOM_LEFT
-                    WatermarkPosition.TOP_RIGHT -> WatermarkPosition.BOTTOM_RIGHT
-                    WatermarkPosition.CENTER -> WatermarkPosition.BOTTOM_LEFT
-                    else -> config.position // BOTTOM_* 保持
-                }
+                // 竖持 / 成片正立：尊重用户设定的角，不强制改写
+                config.position
             OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT ->
-                // 手机左侧朝下 → 贴左边缘
+                // 手机左侧朝下 → 水印贴左边缘（跟重力）
                 when (config.position) {
-                    WatermarkPosition.TOP_RIGHT, WatermarkPosition.BOTTOM_RIGHT ->
+                    WatermarkPosition.TOP_LEFT, WatermarkPosition.TOP_RIGHT ->
                         WatermarkPosition.TOP_LEFT
                     WatermarkPosition.CENTER -> WatermarkPosition.BOTTOM_LEFT
                     else -> WatermarkPosition.BOTTOM_LEFT
                 }
             OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT ->
-                // 手机右侧朝下 → 贴右边缘
+                // 手机右侧朝下 → 水印贴右边缘
                 when (config.position) {
-                    WatermarkPosition.TOP_LEFT, WatermarkPosition.BOTTOM_LEFT ->
+                    WatermarkPosition.TOP_LEFT, WatermarkPosition.TOP_RIGHT ->
                         WatermarkPosition.TOP_RIGHT
                     WatermarkPosition.CENTER -> WatermarkPosition.BOTTOM_RIGHT
                     else -> WatermarkPosition.BOTTOM_RIGHT
@@ -123,10 +118,11 @@ class WatermarkRenderer {
             OrientationHelper.DeviceOrientation.UPSIDE_DOWN ->
                 // 倒持 → 贴顶边
                 when (config.position) {
-                    WatermarkPosition.BOTTOM_LEFT -> WatermarkPosition.TOP_LEFT
-                    WatermarkPosition.BOTTOM_RIGHT -> WatermarkPosition.TOP_RIGHT
-                    WatermarkPosition.CENTER -> WatermarkPosition.TOP_LEFT
-                    else -> config.position
+                    WatermarkPosition.BOTTOM_LEFT, WatermarkPosition.TOP_LEFT ->
+                        WatermarkPosition.TOP_LEFT
+                    WatermarkPosition.BOTTOM_RIGHT, WatermarkPosition.TOP_RIGHT ->
+                        WatermarkPosition.TOP_RIGHT
+                    else -> WatermarkPosition.TOP_LEFT
                 }
         }
         return if (pos == config.position) config else config.copy(position = pos)

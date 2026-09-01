@@ -184,9 +184,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         setupZoomChips()
         applyLetterboxTheme()
 
-        binding.tvZoomRatio.setOnClickListener {
-            viewModel.setZoomRatio(1.0f)
-        }
+        // tvZoomRatio click 在 setupZoomChips 中绑定（弹出楔形变焦条）
 
         // Aspect ratio click to cycle
         binding.tvAspectRatio.setOnClickListener {
@@ -346,12 +344,15 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                 override fun onScale(detector: ScaleGestureDetector): Boolean {
                     val scale = detector.scaleFactor
-                    val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
-                    val newZoom = (currentZoomRatio * scale).coerceIn(
-                        viewModel.getMinZoomRatio(),
-                        maxZ
-                    )
+                    val minZ = viewModel.getMinZoomRatio().coerceAtLeast(1f)
+                    val maxZ = minOf(viewModel.getMaxZoomRatio().coerceAtLeast(minZ + 0.1f), MAX_USER_ZOOM)
+                    val newZoom = (currentZoomRatio * scale).coerceIn(minZ, maxZ)
+                    currentZoomRatio = newZoom
                     viewModel.setZoomRatio(newZoom)
+                    runCatching {
+                        binding.tvZoomRatio.visibility = View.VISIBLE
+                        binding.tvZoomRatio.text = String.format("%.1fx", newZoom)
+                    }
                     return true
                 }
             }
@@ -644,8 +645,11 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         runCatching { binding.btnSettingsTop.visibility = View.GONE }
         runCatching { binding.btnVerify.visibility = View.GONE }
         runCatching { binding.btnMenu.visibility = View.GONE }
-        // zoom can stay or hide — hide to declutter
-        runCatching { binding.tvZoomRatio.visibility = View.GONE }
+        // tvZoomRatio 必须可见：变焦入口（点击弹出楔形条 / 双指捏合辅助显示）
+        runCatching {
+            binding.tvZoomRatio.visibility = View.VISIBLE
+            binding.tvZoomRatio.elevation = 14f
+        }
     }
 
     private fun flashGalleryButton() {
@@ -947,34 +951,44 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
 
-    /** 音量楔形变焦条（按住 tvZoomRatio / 预览右侧区域弹出） */
+
+    /** 音量楔形变焦条 */
     private var zoomWedgeView: com.watermark.camera.ui.widget.ZoomWedgeView? = null
     private var zoomWedgeHost: android.widget.FrameLayout? = null
     private var zoomCenterLabel: android.widget.TextView? = null
+    private var zoomWedgeVisible = false
 
     private fun setupZoomChips() {
-        // 隐藏旧 chip
+        // 隐藏旧 chip 行
         runCatching {
             binding.zoomChip05.visibility = View.GONE
             binding.zoomChip1x.visibility = View.GONE
             binding.zoomChip2x.visibility = View.GONE
             binding.zoomChipRow.visibility = View.GONE
         }
+        // 倍率文字必须可见，作为变焦入口
         runCatching {
             binding.tvZoomRatio.visibility = View.VISIBLE
             binding.tvZoomRatio.text = String.format("%.1fx", currentZoomRatio)
-            binding.tvZoomRatio.elevation = 14f
+            binding.tvZoomRatio.elevation = 16f
+            binding.tvZoomRatio.isClickable = true
+            binding.tvZoomRatio.isFocusable = true
         }
         ensureZoomWedge()
-        // 长按倍率文字 → 弹出楔形条；短按复位 1x
+
+        // 点击倍率：弹出楔形条（按住拖动变焦）；再点空白关闭
         binding.tvZoomRatio.setOnClickListener {
-            applyZoomFromUi(1.0f)
+            if (zoomWedgeVisible) {
+                hideZoomWedge()
+            } else {
+                showZoomWedge()
+            }
         }
+        // 去掉会覆盖 click 的 longClick；用 click 更可靠
         binding.tvZoomRatio.setOnLongClickListener {
             showZoomWedge()
             true
         }
-        // 双指捏合仍由 preview 的 ScaleGestureDetector 处理
     }
 
     private fun ensureZoomWedge() {
@@ -988,19 +1002,21 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             )
             visibility = View.GONE
             isClickable = true
-            setBackgroundColor(0x33000000)
+            setBackgroundColor(0x66000000)
+            elevation = 30f
             setOnClickListener { hideZoomWedge() }
         }
         val wedge = com.watermark.camera.ui.widget.ZoomWedgeView(requireContext()).apply {
             val lp = android.widget.FrameLayout.LayoutParams(
-                (56 * dens).toInt(),
-                (220 * dens).toInt()
+                (64 * dens).toInt(),
+                (260 * dens).toInt()
             )
-            // 右侧中部
             lp.gravity = android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
-            lp.marginEnd = (16 * dens).toInt()
+            lp.marginEnd = (20 * dens).toInt()
             layoutParams = lp
             elevation = 40f
+            // 阻止点击穿透到 host 导致立刻关闭
+            isClickable = true
             onZoomChanged = { z ->
                 applyZoomFromUi(z, showCenter = true)
             }
@@ -1012,12 +1028,14 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             )
             lp.gravity = android.view.Gravity.CENTER
             layoutParams = lp
-            textSize = 48f
+            textSize = 52f
             setTextColor(0xFFFFFFFF.toInt())
             setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-            setShadowLayer(12f, 0f, 0f, 0xFF000000.toInt())
+            setShadowLayer(14f, 0f, 0f, 0xFF000000.toInt())
             elevation = 50f
             visibility = View.GONE
+            // 不拦截点击
+            isClickable = false
         }
         host.addView(wedge)
         host.addView(label)
@@ -1029,27 +1047,31 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
     private fun showZoomWedge() {
         ensureZoomWedge()
-        val minZ = viewModel.getMinZoomRatio()
-        val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
+        val minZ = viewModel.getMinZoomRatio().coerceAtLeast(1f)
+        val maxZ = minOf(viewModel.getMaxZoomRatio().coerceAtLeast(minZ + 0.1f), MAX_USER_ZOOM)
         zoomWedgeView?.minZoom = minZ
         zoomWedgeView?.maxZoom = maxZ
-        zoomWedgeView?.zoomRatio = currentZoomRatio.coerceIn(minZ, maxZ)
+        val cur = currentZoomRatio.coerceIn(minZ, maxZ)
+        zoomWedgeView?.zoomRatio = cur
         zoomWedgeHost?.visibility = View.VISIBLE
+        zoomWedgeVisible = true
         zoomCenterLabel?.let {
-            it.text = String.format("%.1fx", currentZoomRatio)
+            it.text = String.format("%.1fx", cur)
             it.visibility = View.VISIBLE
             it.alpha = 1f
         }
+        runCatching { binding.tvZoomRatio.visibility = View.VISIBLE }
     }
 
     private fun hideZoomWedge() {
         zoomWedgeHost?.visibility = View.GONE
         zoomCenterLabel?.visibility = View.GONE
+        zoomWedgeVisible = false
     }
 
     private fun applyZoomFromUi(ratio: Float, showCenter: Boolean = false) {
-        val minZ = viewModel.getMinZoomRatio()
-        val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
+        val minZ = viewModel.getMinZoomRatio().coerceAtLeast(1f)
+        val maxZ = minOf(viewModel.getMaxZoomRatio().coerceAtLeast(minZ + 0.1f), MAX_USER_ZOOM)
         val target = ratio.coerceIn(minZ, maxZ)
         viewModel.setZoomRatio(target)
         currentZoomRatio = target
@@ -1062,16 +1084,10 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             zoomCenterLabel?.let {
                 it.visibility = View.VISIBLE
                 it.text = String.format("%.1fx", target)
-                it.animate().cancel()
-                it.alpha = 1f
-                it.scaleX = 1.05f
-                it.scaleY = 1.05f
-                it.animate().scaleX(1f).scaleY(1f).setDuration(80L).start()
             }
         }
     }
 
-    // 保留空实现，避免旧调用编译失败
     private fun showZoomTip(ratio: Float) {
         applyZoomFromUi(ratio, showCenter = true)
     }
@@ -1079,6 +1095,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun hideZoomTip() {
         zoomCenterLabel?.visibility = View.GONE
     }
+
+
 
 
 
