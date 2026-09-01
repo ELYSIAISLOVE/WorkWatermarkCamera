@@ -619,9 +619,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun startOrientationSensor() {
         orientationHelper = com.watermark.camera.util.OrientationHelper(requireContext()).apply {
             startListening { orientation ->
-                // 仅同步朝向状态；不再旋转水印画布，也不强制改 position
-                // 预览与成片共用 config.position/customX,Y，避免横拍映射错位
+                // 同步朝向 → Overlay 重绘时 applyGravityEdge 贴重力边
                 binding.watermarkOverlay.deviceOrientation = orientation
+                binding.watermarkOverlay.invalidate()
                 viewModel.setDeviceOrientation(orientation)
             }
         }
@@ -946,135 +946,140 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         runCatching { binding.zoomChipRow.elevation = 12f }
     }
 
+
+    /** 音量楔形变焦条（按住 tvZoomRatio / 预览右侧区域弹出） */
+    private var zoomWedgeView: com.watermark.camera.ui.widget.ZoomWedgeView? = null
+    private var zoomWedgeHost: android.widget.FrameLayout? = null
+    private var zoomCenterLabel: android.widget.TextView? = null
+
     private fun setupZoomChips() {
-        // 横向滑动变焦 + 波轮动画 + 倍数提示
+        // 隐藏旧 chip
         runCatching {
             binding.zoomChip05.visibility = View.GONE
             binding.zoomChip1x.visibility = View.GONE
             binding.zoomChip2x.visibility = View.GONE
+            binding.zoomChipRow.visibility = View.GONE
         }
         runCatching {
             binding.tvZoomRatio.visibility = View.VISIBLE
             binding.tvZoomRatio.text = String.format("%.1fx", currentZoomRatio)
             binding.tvZoomRatio.elevation = 14f
         }
-        fun applyZoom(ratio: Float, showTip: Boolean = true) {
-            val minZ = viewModel.getMinZoomRatio()
-            val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
-            val target = ratio.coerceIn(minZ, maxZ)
-            viewModel.setZoomRatio(target)
-            currentZoomRatio = target
-            runCatching {
-                binding.tvZoomRatio.visibility = View.VISIBLE
-                binding.tvZoomRatio.text = String.format("%.1fx", target)
-                // 波轮动画
-                binding.tvZoomRatio.animate().cancel()
-                binding.tvZoomRatio.scaleX = 1f
-                binding.tvZoomRatio.scaleY = 1f
-                binding.tvZoomRatio.animate()
-                    .scaleX(1.18f).scaleY(1.18f)
-                    .setDuration(90L)
-                    .withEndAction {
-                        binding.tvZoomRatio.animate()
-                            .scaleX(1f).scaleY(1f)
-                            .setDuration(120L)
-                            .start()
-                    }.start()
-            }
-            if (showTip) {
-                showZoomTip(target)
-            }
+        ensureZoomWedge()
+        // 长按倍率文字 → 弹出楔形条；短按复位 1x
+        binding.tvZoomRatio.setOnClickListener {
+            applyZoomFromUi(1.0f)
         }
-        var dragStartX = 0f
-        var dragStartZoom = 1f
-        var dragging = false
-        val slop = android.view.ViewConfiguration.get(requireContext()).scaledTouchSlop
-        val target = runCatching { binding.tvZoomRatio }.getOrNull()
-            ?: runCatching { binding.zoomChipRow }.getOrNull()
-        target?.setOnTouchListener { v, event ->
-            when (event.actionMasked) {
-                android.view.MotionEvent.ACTION_DOWN -> {
-                    dragStartX = event.rawX
-                    dragStartZoom = currentZoomRatio
-                    dragging = false
-                    true
-                }
-                android.view.MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - dragStartX
-                    if (!dragging && kotlin.math.abs(dx) > slop) {
-                        dragging = true
-                        v.parent?.requestDisallowInterceptTouchEvent(true)
-                    }
-                    if (dragging) {
-                        // 横向：右滑放大，左滑缩小
-                        applyZoom(dragStartZoom + dx / 100f, showTip = true)
-                        true
-                    } else false
-                }
-                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                    val was = dragging
-                    dragging = false
-                    v.parent?.requestDisallowInterceptTouchEvent(false)
-                    hideZoomTip()
-                    if (!was) {
-                        applyZoom(1.0f, showTip = false)
-                    }
-                    true
-                }
-                else -> false
-            }
+        binding.tvZoomRatio.setOnLongClickListener {
+            showZoomWedge()
+            true
         }
+        // 双指捏合仍由 preview 的 ScaleGestureDetector 处理
     }
 
-    private var zoomTipJob: Runnable? = null
-    private var zoomHugeView: android.widget.TextView? = null
-    private var zoomHintShown = false
-
-    private fun ensureZoomOverlay() {
-        if (zoomHugeView != null) return
+    private fun ensureZoomWedge() {
+        if (zoomWedgeHost != null) return
         val parent = binding.root as? android.view.ViewGroup ?: return
-        val tv = android.widget.TextView(requireContext()).apply {
+        val dens = resources.displayMetrics.density
+        val host = android.widget.FrameLayout(requireContext()).apply {
+            layoutParams = android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            visibility = View.GONE
+            isClickable = true
+            setBackgroundColor(0x33000000)
+            setOnClickListener { hideZoomWedge() }
+        }
+        val wedge = com.watermark.camera.ui.widget.ZoomWedgeView(requireContext()).apply {
+            val lp = android.widget.FrameLayout.LayoutParams(
+                (56 * dens).toInt(),
+                (220 * dens).toInt()
+            )
+            // 右侧中部
+            lp.gravity = android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
+            lp.marginEnd = (16 * dens).toInt()
+            layoutParams = lp
+            elevation = 40f
+            onZoomChanged = { z ->
+                applyZoomFromUi(z, showCenter = true)
+            }
+        }
+        val label = android.widget.TextView(requireContext()).apply {
             val lp = android.widget.FrameLayout.LayoutParams(
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            // 正中：用 post 定位到 root 中心（兼容 ConstraintLayout）
+            lp.gravity = android.view.Gravity.CENTER
             layoutParams = lp
-            textSize = 72f
+            textSize = 48f
             setTextColor(0xFFFFFFFF.toInt())
             setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-            setShadowLayer(16f, 0f, 0f, 0xFF000000.toInt())
-            visibility = android.view.View.GONE
+            setShadowLayer(12f, 0f, 0f, 0xFF000000.toInt())
             elevation = 50f
+            visibility = View.GONE
         }
-        parent.addView(tv)
-        zoomHugeView = tv
-        parent.post {
-            tv.x = (parent.width - tv.width) / 2f
-            tv.y = (parent.height - tv.height) / 2f
+        host.addView(wedge)
+        host.addView(label)
+        parent.addView(host)
+        zoomWedgeHost = host
+        zoomWedgeView = wedge
+        zoomCenterLabel = label
+    }
+
+    private fun showZoomWedge() {
+        ensureZoomWedge()
+        val minZ = viewModel.getMinZoomRatio()
+        val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
+        zoomWedgeView?.minZoom = minZ
+        zoomWedgeView?.maxZoom = maxZ
+        zoomWedgeView?.zoomRatio = currentZoomRatio.coerceIn(minZ, maxZ)
+        zoomWedgeHost?.visibility = View.VISIBLE
+        zoomCenterLabel?.let {
+            it.text = String.format("%.1fx", currentZoomRatio)
+            it.visibility = View.VISIBLE
+            it.alpha = 1f
         }
     }
 
-    private fun showZoomTip(ratio: Float) {
-        ensureZoomOverlay()
-        val tv = zoomHugeView ?: return
-        tv.text = String.format("%.1fx", ratio)
-        tv.visibility = android.view.View.VISIBLE
-        tv.alpha = 1f
-        val parent = binding.root
-        parent.post {
-            tv.measure(0, 0)
-            tv.x = ((parent.width - tv.measuredWidth) / 2f).coerceAtLeast(0f)
-            tv.y = ((parent.height - tv.measuredHeight) / 2f).coerceAtLeast(0f)
+    private fun hideZoomWedge() {
+        zoomWedgeHost?.visibility = View.GONE
+        zoomCenterLabel?.visibility = View.GONE
+    }
+
+    private fun applyZoomFromUi(ratio: Float, showCenter: Boolean = false) {
+        val minZ = viewModel.getMinZoomRatio()
+        val maxZ = minOf(viewModel.getMaxZoomRatio(), MAX_USER_ZOOM)
+        val target = ratio.coerceIn(minZ, maxZ)
+        viewModel.setZoomRatio(target)
+        currentZoomRatio = target
+        runCatching {
+            binding.tvZoomRatio.visibility = View.VISIBLE
+            binding.tvZoomRatio.text = String.format("%.1fx", target)
         }
-        tv.scaleX = 1.08f
-        tv.scaleY = 1.08f
-        tv.animate().scaleX(1f).scaleY(1f).setDuration(80L).start()
+        zoomWedgeView?.zoomRatio = target
+        if (showCenter) {
+            zoomCenterLabel?.let {
+                it.visibility = View.VISIBLE
+                it.text = String.format("%.1fx", target)
+                it.animate().cancel()
+                it.alpha = 1f
+                it.scaleX = 1.05f
+                it.scaleY = 1.05f
+                it.animate().scaleX(1f).scaleY(1f).setDuration(80L).start()
+            }
+        }
+    }
+
+    // 保留空实现，避免旧调用编译失败
+    private fun showZoomTip(ratio: Float) {
+        applyZoomFromUi(ratio, showCenter = true)
     }
 
     private fun hideZoomTip() {
-        zoomHugeView?.visibility = android.view.View.GONE
+        zoomCenterLabel?.visibility = View.GONE
     }
+
 
 
 

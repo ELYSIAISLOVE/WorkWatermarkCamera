@@ -65,17 +65,71 @@ class WatermarkRenderer {
             OrientationHelper.DeviceOrientation.PORTRAIT,
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
-        // 预览与成片统一路径：
-        // 1) 画布不随陀螺仪旋转，文字始终相对图像/预览区域正立
-        // 2) 位置只由 config.position / customX,Y 决定（与成片同一套 resolveOrigin）
-        // 3) deviceOrientation 参数保留以兼容调用方，但不再旋转坐标系
-        //    （横竖拍映射一致性：成片 bitmap 已按 rotationDegrees 转正，
-        //     直接使用同一 config 即可保证「预览看到的角落 = 成片角落」）
-        @Suppress("UNUSED_PARAMETER")
-        val _orient = deviceOrientation
-        val m = measure(areaWidth, areaHeight, config, locationText, timeMs)
-        if (m != null) drawCard(canvas, m, config, locationText, timeMs)
+        // 画布不旋转（文字相对画面正立）。
+        // 开启陀螺仪且未手动拖拽时：按重力把默认角落贴到「朝下」的边。
+        // 成片 bitmap 已转正 → 调用方应传 PORTRAIT，贴底边；预览可传实时朝向。
+        val effective = applyGravityEdge(config, deviceOrientation)
+        val m = measure(areaWidth, areaHeight, effective, locationText, timeMs)
+        if (m != null) drawCard(canvas, m, effective, locationText, timeMs)
         return m
+    }
+
+    /**
+     * 陀螺仪「跟重力贴边」：
+     * - 有 customX/Y（用户拖过）→ 不改
+     * - useGyroscope=false → 不改
+     * - 否则按设备朝向把 position 映射到重力朝下的边角
+     *
+     * 约定（竖屏锁定 Activity + 画面坐标）：
+     * PORTRAIT        → 底边（保留 BOTTOM_* / 默认左下）
+     * LANDSCAPE_LEFT  → 左边（手机左侧朝下）
+     * LANDSCAPE_RIGHT → 右边（手机右侧朝下）
+     * UPSIDE_DOWN     → 顶边
+     *
+     * 成片路径请传 PORTRAIT：图已按 rotationDegrees 转正，重力底 = 图底。
+     */
+    fun applyGravityEdge(
+        config: WatermarkConfig,
+        orientation: OrientationHelper.DeviceOrientation
+    ): WatermarkConfig {
+        if (!config.useGyroscope) return config
+        if (config.customX != null && config.customY != null) return config
+        val pos = when (orientation) {
+            OrientationHelper.DeviceOrientation.PORTRAIT,
+            OrientationHelper.DeviceOrientation.UNKNOWN ->
+                // 竖持 / 成片正立：贴底边
+                when (config.position) {
+                    WatermarkPosition.TOP_LEFT -> WatermarkPosition.BOTTOM_LEFT
+                    WatermarkPosition.TOP_RIGHT -> WatermarkPosition.BOTTOM_RIGHT
+                    WatermarkPosition.CENTER -> WatermarkPosition.BOTTOM_LEFT
+                    else -> config.position // BOTTOM_* 保持
+                }
+            OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT ->
+                // 手机左侧朝下 → 贴左边缘
+                when (config.position) {
+                    WatermarkPosition.TOP_RIGHT, WatermarkPosition.BOTTOM_RIGHT ->
+                        WatermarkPosition.TOP_LEFT
+                    WatermarkPosition.CENTER -> WatermarkPosition.BOTTOM_LEFT
+                    else -> WatermarkPosition.BOTTOM_LEFT
+                }
+            OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT ->
+                // 手机右侧朝下 → 贴右边缘
+                when (config.position) {
+                    WatermarkPosition.TOP_LEFT, WatermarkPosition.BOTTOM_LEFT ->
+                        WatermarkPosition.TOP_RIGHT
+                    WatermarkPosition.CENTER -> WatermarkPosition.BOTTOM_RIGHT
+                    else -> WatermarkPosition.BOTTOM_RIGHT
+                }
+            OrientationHelper.DeviceOrientation.UPSIDE_DOWN ->
+                // 倒持 → 贴顶边
+                when (config.position) {
+                    WatermarkPosition.BOTTOM_LEFT -> WatermarkPosition.TOP_LEFT
+                    WatermarkPosition.BOTTOM_RIGHT -> WatermarkPosition.TOP_RIGHT
+                    WatermarkPosition.CENTER -> WatermarkPosition.TOP_LEFT
+                    else -> config.position
+                }
+        }
+        return if (pos == config.position) config else config.copy(position = pos)
     }
 
     fun measure(
@@ -235,9 +289,10 @@ class WatermarkRenderer {
         )
 
         // 表头分左右两栏：左标题、右时间，互不重叠
-        val iconCx = m.left + m.paddingH + m.fontSize * 0.48f
+        // Logo 放大：半径约 0.78 * 正文字号（原 0.50）
+        val iconR = m.fontSize * 0.78f
+        val iconCx = m.left + m.paddingH + iconR
         val iconCy = m.top + headerH * 0.5f
-        val iconR = m.fontSize * 0.50f
         drawLogo(canvas, tmpl, iconCx, iconCy, iconR)
         val title = if ((tmpl == WatermarkTemplate.GENERAL || tmpl == WatermarkTemplate.WORK_REPORT)
             && config.customTitle.isNotBlank()

@@ -82,14 +82,16 @@ class ImageProcessingPipeline @Inject constructor(
             // Stage 3: Watermark
             Logger.i(TAG, "[$operationId] Stage 2/5: Applying watermark...")
             val watermarkCanvas = com.watermark.camera.data.watermark.WatermarkCanvas()
-            // 解码已按 rotationDegrees 校正为正立图。
-            // 仍传入拍摄时冻结的 deviceOrientation，使「默认角落」映射与预览一致
-            //（WatermarkRenderer 不再旋转画布，只按朝向重映射 position）。
+            // 成片 bitmap 已按 rotationDegrees 转正：重力「底」= 图像底边。
+            // 传 PORTRAIT 让 applyGravityEdge 贴底；预览路径才传实时朝向贴侧边。
+            // 若用户拖拽过（customX/Y），gravity 逻辑不会覆盖坐标。
+            @Suppress("UNUSED_VARIABLE")
+            val _frozenOrient = deviceOrientation
             watermarkedBitmap = watermarkCanvas.drawWatermark(
                 sourceBitmap = sourceBitmap,
                 config = watermarkConfig,
                 locationStr = locationStr,
-                deviceOrientation = deviceOrientation,
+                deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
                 capturedAtMs = captureResult.timestamp
             )
             // Explicitly recycle source bitmap to free native memory
