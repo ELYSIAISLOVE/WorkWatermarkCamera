@@ -49,7 +49,9 @@ class WatermarkOverlayView @JvmOverloads constructor(
     private val timeHandler = Handler(Looper.getMainLooper())
     private val timeTicker = object : Runnable {
         override fun run() {
-            invalidate()
+            if (isAttachedToWindow && visibility == View.VISIBLE) {
+                invalidate()
+            }
             timeHandler.postDelayed(this, 1000L)
         }
     }

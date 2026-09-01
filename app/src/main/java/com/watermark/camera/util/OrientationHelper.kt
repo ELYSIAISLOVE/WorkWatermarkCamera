@@ -24,9 +24,9 @@ class OrientationHelper(context: Context) {
     companion object {
         private const val TAG = "OrientationHelper"
         /** Threshold for determining orientation change (in G). */
-        private const val TILT_THRESHOLD = 0.7f
+        private const val TILT_THRESHOLD = 0.85f
         /** Minimum time between orientation updates (ms). */
-        private const val UPDATE_INTERVAL_MS = 500L
+        private const val UPDATE_INTERVAL_MS = 200L
     }
 
     /**

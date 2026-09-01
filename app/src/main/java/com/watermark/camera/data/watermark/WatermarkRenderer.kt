@@ -23,7 +23,7 @@ class WatermarkRenderer {
     companion object {
         private const val BASE_SHORT = 1080f
         /** 卡片最大约占短边宽度比例 — 缩小体积 */
-        private const val MAX_CARD_W_RATIO = 0.76f
+        private const val MAX_CARD_W_RATIO = 0.92f
     }
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -96,32 +96,77 @@ class WatermarkRenderer {
     ): CardMetrics? {
         if (areaWidth <= 1f || areaHeight <= 1f) return null
         val short = minOf(areaWidth, areaHeight)
-        val scale = (short / BASE_SHORT).coerceIn(0.30f, 1.6f)
+        val scale = (short / BASE_SHORT).coerceIn(0.32f, 1.5f)
         val user = config.clampedFontScale().coerceIn(0.85f, 2.2f)
-        val body = (18.0f * scale * user).coerceIn(14f, 46f)
-        val titleSize = body * 1.18f
-        val headerH = titleSize * 2.55f
-        val footerH = body * 1.25f
-        val rowH = body * 1.42f
-        val padH = body * 0.7f
-        val padV = body * 0.4f
-        val radius = body * 0.55f
+        // 和谐比例：正文为基准，标题略大，行距宽松
+        val body = (16.5f * scale * user).coerceIn(13f, 40f)
+        val titleSize = body * 1.12f
+        val headerH = titleSize * 2.4f
+        val footerH = body * 1.15f
+        val rowH = body * 1.48f
+        val padH = body * 0.75f
+        val padV = body * 0.45f
+        val radius = body * 0.48f
 
         val rows = buildRows(config, locationText, timeMs)
-        textPaint.textSize = body * 0.9f
-        var maxLine = titleSize * 5.5f
+        textPaint.textSize = body
+        // 卡片尽量宽以完整显示地址（上限 92% 画面）
+        val maxCardW = areaWidth * MAX_CARD_W_RATIO
+        val minCardW = (body * 16f).coerceAtMost(maxCardW)
+        var contentW = body * 12f
         for (r in rows) {
             val w = textPaint.measureText(r.label + r.value)
-            if (w > maxLine) maxLine = w
+            if (w > contentW) contentW = w
         }
-        val cardW = (padH * 2f + maxLine + body * 1.6f).coerceIn(
-            body * 14f,
-            areaWidth * MAX_CARD_W_RATIO
-        )
-        val bodyH = padV + rows.size * rowH + padV
+        val cardW = (padH * 2f + contentW + body * 0.8f).coerceIn(minCardW, maxCardW)
+        val labelCol = estimateLabelCol(rows, body)
+        val valueMaxW = (cardW - padH * 2f - labelCol).coerceAtLeast(body * 4f)
+        var linesCount = 0
+        for (r in rows) {
+            linesCount += wrapLines(r.value.ifBlank { "—" }, valueMaxW, body).size.coerceAtLeast(1)
+        }
+        val bodyH = padV + linesCount * rowH + padV
         val cardH = headerH + bodyH + footerH
         val (left, top) = resolveOrigin(config, areaWidth, areaHeight, cardW, cardH)
-        return CardMetrics(left, top, cardW, cardH, padH, padV, body, body * 0.2f, radius, emptyList())
+        return CardMetrics(left, top, cardW, cardH, padH, padV, body, body * 0.18f, radius, emptyList())
+    }
+
+    private fun estimateLabelCol(rows: List<Row>, body: Float): Float {
+        textPaint.textSize = body * 0.95f
+        var col = body * 3.2f
+        for (r in rows) col = maxOf(col, textPaint.measureText(r.label))
+        return col + body * 0.3f
+    }
+
+    /** 按宽度拆行，保证地址等长文本完整显示 */
+    private fun wrapLines(text: String, maxW: Float, textSize: Float): List<String> {
+        if (text.isEmpty()) return listOf("—")
+        textPaint.textSize = textSize
+        if (textPaint.measureText(text) <= maxW) return listOf(text)
+        val lines = mutableListOf<String>()
+        var i = 0
+        while (i < text.length) {
+            var j = i + 1
+            var lastOk = i + 1
+            while (j <= text.length) {
+                val chunk = text.substring(i, j)
+                if (textPaint.measureText(chunk) <= maxW) {
+                    lastOk = j
+                    j++
+                } else break
+            }
+            if (lastOk <= i) lastOk = (i + 1).coerceAtMost(text.length)
+            lines.add(text.substring(i, lastOk))
+            i = lastOk
+            if (lines.size >= 6) { // 最多 6 行，防止极端长串撑爆
+                if (i < text.length) {
+                    val last = lines.removeLast()
+                    lines.add(last) // 已完整切分到 lastOk
+                }
+                break
+            }
+        }
+        return lines.ifEmpty { listOf(text) }
     }
 
     private fun drawCard(
@@ -201,7 +246,7 @@ class WatermarkRenderer {
         // 表头分左右两栏：左标题、右时间，互不重叠
         val iconCx = m.left + m.paddingH + m.fontSize * 0.48f
         val iconCy = m.top + headerH * 0.5f
-        val iconR = m.fontSize * 0.55f
+        val iconR = m.fontSize * 0.50f
         drawLogo(canvas, tmpl, iconCx, iconCy, iconR)
         val title = if ((tmpl == WatermarkTemplate.GENERAL || tmpl == WatermarkTemplate.WORK_REPORT)
             && config.customTitle.isNotBlank()
@@ -243,16 +288,11 @@ class WatermarkRenderer {
         val rows = buildRows(config, locationText, timeMs).filter { !it.isTime }
         val labelSize = m.fontSize * 0.95f
         val valueSize = m.fontSize * 1.0f
-        val rowH = m.fontSize * 1.55f
+        val rowH = m.fontSize * 1.48f
         var y = bodyTop + m.paddingV + labelSize
         val tx = m.left + m.paddingH
-        // 标签固定列宽，数值对齐
-        var labelCol = 0f
-        for (row in rows) {
-            textPaint.textSize = labelSize
-            labelCol = maxOf(labelCol, textPaint.measureText(row.label))
-        }
-        labelCol = labelCol.coerceAtLeast(m.fontSize * 3.2f) + m.fontSize * 0.25f
+        val labelCol = estimateLabelCol(rows, m.fontSize)
+        val valueMaxW = (m.left + m.width - m.paddingH) - (tx + labelCol)
         for (row in rows) {
             accentPaint.color = labelColor
             canvas.drawRoundRect(
@@ -271,17 +311,11 @@ class WatermarkRenderer {
             canvas.drawText(row.label, tx, y, textPaint)
             textPaint.textSize = valueSize
             textPaint.color = valueColor
-            // 数值过长省略
-            var valText = row.value.ifBlank { "—" }
-            val valMax = (m.left + m.width - m.paddingH) - (tx + labelCol)
-            while (valText.length > 1 && textPaint.measureText(valText) > valMax) {
-                valText = valText.dropLast(1)
+            val lines = wrapLines(row.value.ifBlank { "—" }, valueMaxW.coerceAtLeast(m.fontSize * 3f), valueSize)
+            for ((idx, line) in lines.withIndex()) {
+                canvas.drawText(line, tx + labelCol, y + idx * rowH, textPaint)
             }
-            if (valText != row.value.ifBlank { "—" } && valText.isNotEmpty()) {
-                valText = valText.dropLast(1).trimEnd() + "…"
-            }
-            canvas.drawText(valText, tx + labelCol, y, textPaint)
-            y += rowH
+            y += rowH * lines.size
         }
 
         // Footer
@@ -488,22 +522,21 @@ class WatermarkRenderer {
         cardWidth: Float,
         cardHeight: Float
     ): Pair<Float, Float> {
-        val maxL = (areaWidth - cardWidth).coerceAtLeast(0f)
-        val maxT = (areaHeight - cardHeight).coerceAtLeast(0f)
+        // 与边缘留一点间距，横竖屏都更贴「角」且不贴死边
+        val edge = minOf(areaWidth, areaHeight) * 0.02f
+        val maxL = (areaWidth - cardWidth - edge).coerceAtLeast(0f)
+        val maxT = (areaHeight - cardHeight - edge).coerceAtLeast(0f)
         val cx = config.customX
         val cy = config.customY
         if (cx != null && cy != null) {
-            // 用户拖动过：保留自定义位置
-            return (cx.coerceIn(0f, 1f) * maxL).coerceIn(0f, maxL) to
-                (cy.coerceIn(0f, 1f) * maxT).coerceIn(0f, maxT)
+            return (edge + cx.coerceIn(0f, 1f) * maxL) to (edge + cy.coerceIn(0f, 1f) * maxT)
         }
-        // 未拖动：始终左下（设置里点的位置按钮会写入 position 并清 custom）
         return when (config.position) {
-            WatermarkPosition.TOP_LEFT -> 0f to 0f
-            WatermarkPosition.TOP_RIGHT -> maxL to 0f
-            WatermarkPosition.BOTTOM_RIGHT -> maxL to maxT
-            WatermarkPosition.CENTER -> (maxL / 2f) to (maxT / 2f)
-            else -> 0f to maxT // BOTTOM_LEFT 默认
+            WatermarkPosition.TOP_LEFT -> edge to edge
+            WatermarkPosition.TOP_RIGHT -> (edge + maxL) to edge
+            WatermarkPosition.BOTTOM_RIGHT -> (edge + maxL) to (edge + maxT)
+            WatermarkPosition.CENTER -> (edge + maxL / 2f) to (edge + maxT / 2f)
+            else -> edge to (edge + maxT) // BOTTOM_LEFT
         }
     }
 }
