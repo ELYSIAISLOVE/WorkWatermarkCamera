@@ -82,8 +82,21 @@ class ImageProcessingPipeline @Inject constructor(
             // Stage 3: Watermark
             Logger.i(TAG, "[$operationId] Stage 2/5: Applying watermark...")
             val watermarkCanvas = com.watermark.camera.data.watermark.WatermarkCanvas()
-            // 成片 bitmap 已按 rotationDegrees 转正：场景重力底 = 图像底边。
-            // 传 PORTRAIT；若开启陀螺仪，applyGravityEdge 会贴 BOTTOM_* 并清 custom。
+            // CameraX 只按竖屏 Activity 转正；横拍需再按快门朝向转到重力正立。
+            val decoded = sourceBitmap
+                ?: throw IllegalStateException("decode returned null bitmap")
+            val extra = extraDegreesForGravity(deviceOrientation)
+            val upright: Bitmap = if (extra != 0) {
+                val rotated = rotateBitmap(decoded, extra)
+                if (rotated !== decoded) {
+                    memoryManager.recycle(decoded)
+                }
+                Logger.i(TAG, "[$operationId] gravity rotate extra=$extra -> ${rotated.width}x${rotated.height}")
+                rotated
+            } else {
+                decoded
+            }
+            sourceBitmap = upright
             val saveConfig = if (watermarkConfig.useGyroscope) {
                 watermarkConfig.copy(
                     position = com.watermark.camera.data.model.WatermarkPosition.BOTTOM_LEFT,
@@ -91,10 +104,8 @@ class ImageProcessingPipeline @Inject constructor(
                     customY = null
                 )
             } else watermarkConfig
-            @Suppress("UNUSED_VARIABLE")
-            val _frozenOrient = deviceOrientation
             watermarkedBitmap = watermarkCanvas.drawWatermark(
-                sourceBitmap = sourceBitmap,
+                sourceBitmap = upright,
                 config = saveConfig,
                 locationStr = locationStr,
                 deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
@@ -240,4 +251,26 @@ class ImageProcessingPipeline @Inject constructor(
             watermarkConfigJson = "{\"template\":\"${watermarkConfig.template.displayName}\"}"
         )
     }
+
+    /**
+     * Activity 已锁定竖屏时，CameraX 转正后的图仍是「竖持正立」。
+     * 再按陀螺仪朝向补转，使成片与马克水印相机一样：横拍得到横图且内容重力正立。
+     */
+    private fun extraDegreesForGravity(
+        orientation: OrientationHelper.DeviceOrientation
+    ): Int = when (orientation) {
+        OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90
+        OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> 270
+        OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180
+        else -> 0
+    }
+
+    private fun rotateBitmap(source: android.graphics.Bitmap, degrees: Int): android.graphics.Bitmap {
+        if (degrees % 360 == 0) return source
+        val matrix = android.graphics.Matrix().apply { postRotate((degrees % 360).toFloat()) }
+        return android.graphics.Bitmap.createBitmap(
+            source, 0, 0, source.width, source.height, matrix, true
+        )
+    }
+
 }
