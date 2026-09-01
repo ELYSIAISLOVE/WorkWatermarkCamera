@@ -259,8 +259,8 @@ class ImageProcessingPipeline @Inject constructor(
     private fun extraDegreesForGravity(
         orientation: OrientationHelper.DeviceOrientation
     ): Int = when (orientation) {
-        OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90
-        OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> 270
+        OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 270
+        OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> 90
         OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180
         else -> 0
     }
