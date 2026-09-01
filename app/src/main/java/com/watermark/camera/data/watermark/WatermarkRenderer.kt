@@ -65,12 +65,52 @@ class WatermarkRenderer {
             OrientationHelper.DeviceOrientation.PORTRAIT,
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
-        // 画布不旋转（文字相对画面正立）。
-        // 开启陀螺仪且未手动拖拽时：按重力把默认角落贴到「朝下」的边。
-        // 成片 bitmap 已转正 → 调用方应传 PORTRAIT，贴底边；预览可传实时朝向。
-        val effective = applyGravityEdge(config, deviceOrientation)
-        val m = measure(areaWidth, areaHeight, effective, locationText, timeMs)
-        if (m != null) drawCard(canvas, m, effective, locationText, timeMs)
+        // 参考「马克水印相机」：
+        // 预览 + 陀螺仪开启 + 非竖持：旋转卡片，使文字相对重力正立，并贴重力朝下的边。
+        // 成片路径传 PORTRAIT：图已转正，不旋转，贴图像底边。
+        val gyro = config.useGyroscope
+        val orient = if (gyro) deviceOrientation else OrientationHelper.DeviceOrientation.PORTRAIT
+        val degrees = if (!gyro) 0f else when (orient) {
+            OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
+            OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
+            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
+            else -> 0f
+        }
+
+        if (degrees == 0f) {
+            val effective = applyGravityEdge(config, orient)
+            val m = measure(areaWidth, areaHeight, effective, locationText, timeMs)
+            if (m != null) drawCard(canvas, m, effective, locationText, timeMs)
+            return m
+        }
+
+        // 绕中心旋转后，90° 时宽高对调；再平移使旋转坐标系的 (0,0) 落在新的左上角。
+        val drawW: Float
+        val drawH: Float
+        val tx: Float
+        val ty: Float
+        if (degrees == 90f || degrees == -90f) {
+            drawW = areaHeight
+            drawH = areaWidth
+            tx = (areaWidth - areaHeight) / 2f
+            ty = (areaHeight - areaWidth) / 2f
+        } else {
+            drawW = areaWidth
+            drawH = areaHeight
+            tx = 0f
+            ty = 0f
+        }
+        val placed = config.copy(
+            position = com.watermark.camera.data.model.WatermarkPosition.BOTTOM_LEFT,
+            customX = null,
+            customY = null
+        )
+        val m = measure(drawW, drawH, placed, locationText, timeMs)
+        canvas.save()
+        canvas.rotate(degrees, areaWidth / 2f, areaHeight / 2f)
+        canvas.translate(tx, ty)
+        if (m != null) drawCard(canvas, m, placed, locationText, timeMs)
+        canvas.restore()
         return m
     }
 

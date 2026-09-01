@@ -49,7 +49,7 @@ class CollageFragment : Fragment() {
     private var photoUris: MutableList<String> = mutableListOf()
     private var template: Template = Template.GRID_3XN
     private var resultBitmap: Bitmap? = null
-    private var reportTitle: String = "白班打点"
+    private var reportTitle: String = "工作汇报"
     private var reportSubtitle: String = "工作现场照片汇总整理"
     private var reporterName: String = "—"
     /** 标题等文字倍率，默认 1.2 */
@@ -380,7 +380,7 @@ class CollageFragment : Fragment() {
         val ts = reportTextScale.coerceIn(1.0f, 2.0f)
         paint.textSize = 64f * ts
         val titleY = 70f + 40f * ts
-        canvas.drawText(title.ifBlank { "白班打点" }, pageW / 2f, titleY, paint)
+        canvas.drawText(title.ifBlank { "工作汇报" }, pageW / 2f, titleY, paint)
         paint.textSize = 28f * ts
         paint.typeface = Typeface.DEFAULT
         paint.color = 0xFF5B8DEF.toInt()
