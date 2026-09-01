@@ -82,14 +82,20 @@ class ImageProcessingPipeline @Inject constructor(
             // Stage 3: Watermark
             Logger.i(TAG, "[$operationId] Stage 2/5: Applying watermark...")
             val watermarkCanvas = com.watermark.camera.data.watermark.WatermarkCanvas()
-            // 成片 bitmap 已按 rotationDegrees 转正：重力「底」= 图像底边。
-            // 传 PORTRAIT 让 applyGravityEdge 贴底；预览路径才传实时朝向贴侧边。
-            // 若用户拖拽过（customX/Y），gravity 逻辑不会覆盖坐标。
+            // 成片 bitmap 已按 rotationDegrees 转正：场景重力底 = 图像底边。
+            // 传 PORTRAIT；若开启陀螺仪，applyGravityEdge 会贴 BOTTOM_* 并清 custom。
+            val saveConfig = if (watermarkConfig.useGyroscope) {
+                watermarkConfig.copy(
+                    position = com.watermark.camera.data.model.WatermarkPosition.BOTTOM_LEFT,
+                    customX = null,
+                    customY = null
+                )
+            } else watermarkConfig
             @Suppress("UNUSED_VARIABLE")
             val _frozenOrient = deviceOrientation
             watermarkedBitmap = watermarkCanvas.drawWatermark(
                 sourceBitmap = sourceBitmap,
-                config = watermarkConfig,
+                config = saveConfig,
                 locationStr = locationStr,
                 deviceOrientation = OrientationHelper.DeviceOrientation.PORTRAIT,
                 capturedAtMs = captureResult.timestamp

@@ -75,57 +75,39 @@ class WatermarkRenderer {
     }
 
     /**
-     * 陀螺仪「跟重力贴边」：
-     * - 有 customX/Y（用户拖过）→ 不改
-     * - useGyroscope=false → 不改
-     * - 否则按设备朝向把 position 映射到重力朝下的边角
+     * 陀螺仪「跟重力贴边」——与 OrientationHelper 注释一致：
+     * - PORTRAIT: 底边
+     * - LANDSCAPE_LEFT (x>0, 顺时针 90°): **右边**
+     * - LANDSCAPE_RIGHT (x<0, 逆时针 90°): **左边**
+     * - UPSIDE_DOWN: 顶边
      *
-     * 约定（竖屏锁定 Activity + 画面坐标）：
-     * PORTRAIT        → 底边（保留 BOTTOM_* / 默认左下）
-     * LANDSCAPE_LEFT  → 左边（手机左侧朝下）
-     * LANDSCAPE_RIGHT → 右边（手机右侧朝下）
-     * UPSIDE_DOWN     → 顶边
+     * 开启陀螺仪时忽略 customX/Y（拖拽坐标），始终跟重力；
+     * 关闭陀螺仪后才使用用户拖拽/角落设定。
      *
-     * 成片路径请传 PORTRAIT：图已按 rotationDegrees 转正，重力底 = 图底。
+     * 成片请传 PORTRAIT：bitmap 已转正，重力底 = 图底 → BOTTOM_*。
      */
     fun applyGravityEdge(
         config: WatermarkConfig,
         orientation: OrientationHelper.DeviceOrientation
     ): WatermarkConfig {
         if (!config.useGyroscope) return config
-        if (config.customX != null && config.customY != null) return config
+        // 开启陀螺仪：强制跟重力，清掉拖拽坐标，避免卡在旧位置
+        val preferRight = config.position == WatermarkPosition.TOP_RIGHT ||
+            config.position == WatermarkPosition.BOTTOM_RIGHT
         val pos = when (orientation) {
             OrientationHelper.DeviceOrientation.PORTRAIT,
             OrientationHelper.DeviceOrientation.UNKNOWN ->
-                // 竖持 / 成片正立：尊重用户设定的角，不强制改写
-                config.position
+                if (preferRight) WatermarkPosition.BOTTOM_RIGHT else WatermarkPosition.BOTTOM_LEFT
             OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT ->
-                // 手机左侧朝下 → 水印贴左边缘（跟重力）
-                when (config.position) {
-                    WatermarkPosition.TOP_LEFT, WatermarkPosition.TOP_RIGHT ->
-                        WatermarkPosition.TOP_LEFT
-                    WatermarkPosition.CENTER -> WatermarkPosition.BOTTOM_LEFT
-                    else -> WatermarkPosition.BOTTOM_LEFT
-                }
+                // 顺时针 90°：右侧朝下 → 贴右边缘
+                if (preferRight) WatermarkPosition.TOP_RIGHT else WatermarkPosition.BOTTOM_RIGHT
             OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT ->
-                // 手机右侧朝下 → 水印贴右边缘
-                when (config.position) {
-                    WatermarkPosition.TOP_LEFT, WatermarkPosition.TOP_RIGHT ->
-                        WatermarkPosition.TOP_RIGHT
-                    WatermarkPosition.CENTER -> WatermarkPosition.BOTTOM_RIGHT
-                    else -> WatermarkPosition.BOTTOM_RIGHT
-                }
+                // 逆时针 90°：左侧朝下 → 贴左边缘
+                if (preferRight) WatermarkPosition.TOP_LEFT else WatermarkPosition.BOTTOM_LEFT
             OrientationHelper.DeviceOrientation.UPSIDE_DOWN ->
-                // 倒持 → 贴顶边
-                when (config.position) {
-                    WatermarkPosition.BOTTOM_LEFT, WatermarkPosition.TOP_LEFT ->
-                        WatermarkPosition.TOP_LEFT
-                    WatermarkPosition.BOTTOM_RIGHT, WatermarkPosition.TOP_RIGHT ->
-                        WatermarkPosition.TOP_RIGHT
-                    else -> WatermarkPosition.TOP_LEFT
-                }
+                if (preferRight) WatermarkPosition.TOP_RIGHT else WatermarkPosition.TOP_LEFT
         }
-        return if (pos == config.position) config else config.copy(position = pos)
+        return config.copy(position = pos, customX = null, customY = null)
     }
 
     fun measure(

@@ -763,14 +763,24 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 viewModel.applyLiveOverlayConfig(c)
             }
             swGyro?.setOnCheckedChangeListener { _, checked ->
-                val c = binding.watermarkOverlay.watermarkConfig.copy(useGyroscope = checked)
+                // 开陀螺仪：清掉拖拽坐标，让重力贴边立即生效
+                val c = binding.watermarkOverlay.watermarkConfig.copy(
+                    useGyroscope = checked,
+                    customX = if (checked) null else binding.watermarkOverlay.watermarkConfig.customX,
+                    customY = if (checked) null else binding.watermarkOverlay.watermarkConfig.customY
+                )
                 binding.watermarkOverlay.watermarkConfig = c
                 viewModel.applyLiveOverlayConfig(c)
-                if (checked) orientationHelper?.startListening { o ->
-                    binding.watermarkOverlay.deviceOrientation = o
+                if (checked) {
+                    // 立即用当前朝向重绘（传感器回调有防抖，可能要等）
+                    orientationHelper?.getCurrentOrientation()?.let { o ->
+                        binding.watermarkOverlay.deviceOrientation = o
+                    }
+                    binding.watermarkOverlay.invalidate()
                 } else {
                     binding.watermarkOverlay.deviceOrientation =
                         com.watermark.camera.util.OrientationHelper.DeviceOrientation.PORTRAIT
+                    binding.watermarkOverlay.invalidate()
                 }
             }
             swOn?.setOnCheckedChangeListener { _, checked ->
@@ -781,10 +791,12 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 }
             }
             fun applyPos(pos: com.watermark.camera.data.model.WatermarkPosition) {
+                // 设定偏好角；若陀螺仪开启，下次朝向变化仍会跟重力，但左右偏好保留
                 val c = binding.watermarkOverlay.watermarkConfig.copy(
                     position = pos, customX = null, customY = null
                 )
                 binding.watermarkOverlay.watermarkConfig = c
+                binding.watermarkOverlay.invalidate()
                 viewModel.applyLiveOverlayConfig(c)
             }
             binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePosBL)
