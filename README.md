@@ -1,4 +1,4 @@
-# Work Camera (工作相机) — 修复版工程说明
+# Work Camera (工作相机) — 工程说明
 
 ## 版本
 - package: com.watermark.camera
@@ -26,7 +26,7 @@
 # 1. 生成签名（若尚未生成）
 keytool -genkeypair -keystore app/workcamera-release.jks -alias workcamera \
   -keyalg RSA -keysize 2048 -validity 9125 \
-  -storepass 'WorkCamera#2026Release' -keypass 'WorkCamera#2026Release' \
+  -storepass 'WorkCamera#2026Release' -keypass 'null' \
   -dname "CN=Work Camera, OU=Mobile, O=Work Camera, L=Shanghai, ST=Shanghai, C=CN"
 
 # 2. local.properties
@@ -37,6 +37,3 @@ echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 # 输出: app/build/outputs/apk/release/app-release.apk
 ```
 
-## 签名口令（仅内测）
-- store/key password: WorkCamera#2026Release
-- 上架前请自行更换强口令与正式证书
