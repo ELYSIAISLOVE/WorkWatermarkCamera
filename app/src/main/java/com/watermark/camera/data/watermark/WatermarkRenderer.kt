@@ -65,25 +65,16 @@ class WatermarkRenderer {
             OrientationHelper.DeviceOrientation.PORTRAIT,
         timeMs: Long = System.currentTimeMillis()
     ): CardMetrics? {
-        // 预览：在重力坐标系里把卡片放左下。成片路径应传 PORTRAIT（图已正立）。
-        val degrees = when (deviceOrientation) {
-            OrientationHelper.DeviceOrientation.LANDSCAPE_LEFT -> 90f
-            OrientationHelper.DeviceOrientation.LANDSCAPE_RIGHT -> -90f
-            OrientationHelper.DeviceOrientation.UPSIDE_DOWN -> 180f
-            else -> 0f
-        }
-        val landscape = degrees == 90f || degrees == -90f
-        val logicalW = if (landscape) areaHeight else areaWidth
-        val logicalH = if (landscape) areaWidth else areaHeight
-        canvas.save()
-        if (degrees != 0f) {
-            canvas.translate(areaWidth / 2f, areaHeight / 2f)
-            canvas.rotate(degrees)
-            canvas.translate(-logicalW / 2f, -logicalH / 2f)
-        }
-        val m = measure(logicalW, logicalH, config, locationText, timeMs)
+        // 预览与成片统一路径：
+        // 1) 画布不随陀螺仪旋转，文字始终相对图像/预览区域正立
+        // 2) 位置只由 config.position / customX,Y 决定（与成片同一套 resolveOrigin）
+        // 3) deviceOrientation 参数保留以兼容调用方，但不再旋转坐标系
+        //    （横竖拍映射一致性：成片 bitmap 已按 rotationDegrees 转正，
+        //     直接使用同一 config 即可保证「预览看到的角落 = 成片角落」）
+        @Suppress("UNUSED_PARAMETER")
+        val _orient = deviceOrientation
+        val m = measure(areaWidth, areaHeight, config, locationText, timeMs)
         if (m != null) drawCard(canvas, m, config, locationText, timeMs)
-        canvas.restore()
         return m
     }
 

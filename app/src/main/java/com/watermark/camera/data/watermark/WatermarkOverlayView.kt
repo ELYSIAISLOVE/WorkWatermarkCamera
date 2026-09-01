@@ -81,9 +81,7 @@ class WatermarkOverlayView @JvmOverloads constructor(
         val m = lastMetrics ?: return super.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                val orient = if (watermarkConfig.useGyroscope) deviceOrientation
-                    else OrientationHelper.DeviceOrientation.PORTRAIT
-                if (orient != OrientationHelper.DeviceOrientation.PORTRAIT) return false
+                // 横竖屏均可拖拽；位置以视图像素为准，与成片 resolveOrigin 一致
                 val inside = event.x >= m.left && event.x <= m.left + m.width &&
                     event.y >= m.top && event.y <= m.top + m.height
                 if (!inside) return false

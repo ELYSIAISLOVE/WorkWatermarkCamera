@@ -619,14 +619,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun startOrientationSensor() {
         orientationHelper = com.watermark.camera.util.OrientationHelper(requireContext()).apply {
             startListening { orientation ->
+                // 仅同步朝向状态；不再旋转水印画布，也不强制改 position
+                // 预览与成片共用 config.position/customX,Y，避免横拍映射错位
                 binding.watermarkOverlay.deviceOrientation = orientation
-                // 旋转时若未手动拖动，始终回到左下
-                val cfg = binding.watermarkOverlay.watermarkConfig
-                if (cfg.customX == null && cfg.customY == null) {
-                    binding.watermarkOverlay.watermarkConfig = cfg.copy(
-                        position = com.watermark.camera.data.model.WatermarkPosition.BOTTOM_LEFT
-                    )
-                }
                 viewModel.setDeviceOrientation(orientation)
             }
         }
