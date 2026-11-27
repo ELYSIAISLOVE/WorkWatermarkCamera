@@ -128,8 +128,19 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         if (!large) return
         runCatching {
             val bar = binding.bottomBar
-            (bar.getChildAt(0) as? android.widget.LinearLayout)?.orientation =
-                android.widget.LinearLayout.VERTICAL
+            val inner = bar.getChildAt(0) as? android.widget.LinearLayout ?: return@runCatching
+            // layout-land / layout-sw600dp 变体里已经是右侧竖栏，无需再改
+            if (inner.orientation == android.widget.LinearLayout.VERTICAL) return@runCatching
+            inner.orientation = android.widget.LinearLayout.VERTICAL
+            // 竖直排列时子项改为「宽度撑满 + 按权重分高度」
+            for (i in 0 until inner.childCount) {
+                val child = inner.getChildAt(i)
+                val lp = child.layoutParams as? android.widget.LinearLayout.LayoutParams ?: continue
+                lp.width = android.widget.LinearLayout.LayoutParams.MATCH_PARENT
+                lp.height = 0
+                if (lp.weight <= 0f) lp.weight = 1f
+                child.layoutParams = lp
+            }
             val barLp = bar.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
             barLp.width = (96 * resources.displayMetrics.density).toInt()
             barLp.height = 0
