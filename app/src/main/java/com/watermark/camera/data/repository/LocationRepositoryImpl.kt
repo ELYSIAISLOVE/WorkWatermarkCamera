@@ -108,6 +108,8 @@ class LocationRepositoryImpl @Inject constructor(
 
     // region Location Updates
 
+    // 运行时已用 hasLocationPermission() 前置校验；lint 无法穿透自定义校验函数，故显式声明。
+    @android.annotation.SuppressLint("MissingPermission")
     override suspend fun startLocationUpdates(updateIntervalMs: Long) {
         if (!hasLocationPermission()) {
             _locationState.value = LocationState.PermissionDenied
@@ -178,6 +180,8 @@ class LocationRepositoryImpl @Inject constructor(
 
     // region One-shot Location
 
+    // 同上：入口已校验定位权限，拒绝时直接返回 null。
+    @android.annotation.SuppressLint("MissingPermission")
     override suspend fun getLastKnownLocation(): LocationData? {
         if (!hasLocationPermission()) return null
 
@@ -192,6 +196,8 @@ class LocationRepositoryImpl @Inject constructor(
         }
     }
 
+    // 同上：无权限时在下方返回 SecurityException 失败。
+    @android.annotation.SuppressLint("MissingPermission")
     override suspend fun getCurrentLocation(timeoutMs: Long): Result<LocationData> {
         tryAmapOnce()?.let { return Result.success(it) }
         if (!hasLocationPermission()) {

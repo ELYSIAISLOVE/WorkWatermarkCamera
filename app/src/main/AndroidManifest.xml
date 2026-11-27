@@ -6,6 +6,9 @@
     <!-- Camera -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="true" />
+
+    <!-- Shutter haptic feedback -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <!-- Storage -->
