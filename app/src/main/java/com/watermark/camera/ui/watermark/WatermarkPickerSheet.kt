@@ -455,6 +455,8 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
             val card: View = v.findViewById(R.id.itemPickerTemplateCard)
             val name: TextView = v.findViewById(R.id.itemPickerTemplateName)
             val hint: TextView = v.findViewById(R.id.itemPickerTemplateHint)
+            val preview: WatermarkPreviewView = v.findViewById(R.id.itemPickerTemplatePreview)
+            val check: View = v.findViewById(R.id.itemPickerTemplateCheck)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): H {
@@ -467,13 +469,26 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
             val item = items[position]
             holder.name.text = item.cardTitle()
             holder.hint.text = item.description
+
+            // 真实渲染缩略图：与成片同一个 WatermarkRenderer（规范 §5）
+            holder.preview.config = WatermarkConfig(template = item, showLocation = true)
+            holder.preview.locationText = "示例地点 · 示例路 100 号"
+            holder.preview.timeBadge = "可信时间"
+
             val gd = GradientDrawable()
             gd.cornerRadius = 10f * holder.itemView.resources.displayMetrics.density
-            gd.setColor(item.resolvedHeaderColor())
-            val strokeW = if (item == selected) 3 else 1
-            val strokeC = if (item == selected) Color.WHITE else 0x66FFFFFF.toInt()
+            gd.setColor(holder.itemView.context.getColor(R.color.app_surface_alt))
+            val isSelected = item == selected
+            val strokeW = if (isSelected) 3 else 1
+            val strokeC = if (isSelected) {
+                holder.itemView.context.getColor(R.color.color_primary)
+            } else {
+                holder.itemView.context.getColor(R.color.app_divider)
+            }
             gd.setStroke(strokeW, strokeC)
             holder.card.background = gd
+            // 选中态：主色描边 + 右上角对勾（规范 §5）
+            holder.check.visibility = if (isSelected) View.VISIBLE else View.GONE
             // 同步资源卡片色（drawable 备份）
             runCatching {
                 val resName = TemplateFormCatalog.drawableName(item)

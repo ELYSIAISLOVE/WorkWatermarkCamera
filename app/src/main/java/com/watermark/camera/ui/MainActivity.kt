@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.core.view.WindowCompat
 import com.watermark.camera.R
 import com.watermark.camera.databinding.ActivityMainBinding
 import com.watermark.camera.ui.common.Feedback
@@ -53,6 +54,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 真正的 edge-to-edge：内容延伸到系统栏之下，安全区由各页面按 insets 处理（规范 §8）
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         applySystemBarInsets()

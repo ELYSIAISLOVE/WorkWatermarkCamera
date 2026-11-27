@@ -204,6 +204,12 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         binding.btnCollage.setOnClickListener {
             openCollage()
         }
+
+        // 镜头切换：叠在取景区底部（规范 §4）
+        binding.btnSwitchCamera.setOnClickListener {
+            viewModel.switchCamera()
+            performCaptureHaptic()
+        }
         binding.btnSettingsTop.setOnClickListener {
             binding.btnSettings.performClick()
         }
@@ -361,7 +367,10 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             }
             is CameraState.Error -> {
                 binding.btnCapture.isEnabled = state.recoverable
-                Feedback.actionable(binding.root, state.message)
+                // 失败用常驻 Snackbar，并给「重试」（规范 §4）
+                Feedback.actionable(binding.root, state.message, R.string.feedback_retry) {
+                    viewModel.capturePhoto()
+                }
             }
         }
     }
@@ -406,6 +415,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             is CameraEvent.ShutterFeedback -> {
                 playShutterAnimation()
                 playThumbnailFlyIn()
+                updateGalleryThumbnail()
             }
             is CameraEvent.RequestCameraPermission -> {
                 requestCameraPermissionIfNeeded()
@@ -541,6 +551,55 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
     /**
+     * 底栏左侧显示「最近一张照片」的缩略图（规范 §4）。
+     * 没有照片时回退为相册图标，保证入口永远可识别。
+     */
+    private fun updateGalleryThumbnail() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val uri = runCatching {
+                databaseRepository.getRecentPhotos(1).firstOrNull()?.uri
+            }.getOrNull()
+            val bitmap = uri?.let { u ->
+                runCatching {
+                    requireContext().contentResolver.openInputStream(android.net.Uri.parse(u))
+                        ?.use {
+                            android.graphics.BitmapFactory.decodeStream(
+                                it, null,
+                                android.graphics.BitmapFactory.Options().apply { inSampleSize = 8 }
+                            )
+                        }
+                }.getOrNull()
+            }
+            runCatching {
+                if (bitmap != null) {
+                    binding.btnGallery.setImageBitmap(bitmap)
+                    binding.btnGallery.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                    binding.btnGallery.imageTintList = null
+                    binding.btnGallery.setPadding(0, 0, 0, 0)
+                    binding.btnGallery.clipToOutline = true
+                    binding.btnGallery.outlineProvider =
+                        object : android.view.ViewOutlineProvider() {
+                            override fun getOutline(
+                                view: android.view.View,
+                                outline: android.graphics.Outline
+                            ) {
+                                outline.setOval(0, 0, view.width, view.height)
+                            }
+                        }
+                    binding.btnGallery.invalidateOutline()
+                } else {
+                    binding.btnGallery.setImageResource(R.drawable.ic_ui_gallery)
+                    binding.btnGallery.scaleType =
+                        android.widget.ImageView.ScaleType.CENTER_INSIDE
+                    binding.btnGallery.setPadding(px(12), px(12), px(12), px(12))
+                }
+            }
+        }
+    }
+
+    private fun px(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
+
+    /**
      * 缩略图「飞入」相册入口（规范 §4）：从取景区中心飞向相册按钮后淡出。
      * 缩略图取最近一张照片，取不到就跳过动效，不影响拍照主流程。
      */
@@ -635,6 +694,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                     binding.watermarkOverlay.invalidate()
                 }
             }, 400)
+            updateGalleryThumbnail()
         }
         requireView().isFocusableInTouchMode = true
         requireView().requestFocus()
@@ -724,7 +784,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 return@runCatching
             }
             binding.queueBadge.visibility = View.VISIBLE
-            binding.queueBadgeProgress.visibility = View.GONE
+            // 处理中：转圈 + 数字同时显示（规范 §4）
+            binding.queueBadgeProgress.visibility = View.VISIBLE
             binding.tvQueueCount.visibility = View.VISIBLE
             binding.tvQueueCount.text = depth.coerceAtMost(99).toString()
             binding.queueBadge.contentDescription =
@@ -825,14 +886,27 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
-            // 顶栏 = 状态栏高 + 56dp；横屏时左右也避开挖孔（规范 §4、§8）
-            val px12 = (12 * resources.displayMetrics.density).toInt()
+            // 顶栏 = 状态栏高 + 56dp（高度要跟着加，否则内容会被状态栏内边距压扁）
+            val topLp = binding.topBar.layoutParams
+            topLp.height = px(56) + bars.top
+            binding.topBar.layoutParams = topLp
             binding.topBar.updatePadding(
-                left = px12 + bars.left,
+                left = px(12) + bars.left,
                 top = bars.top,
-                right = px12 + bars.right
+                right = px(12) + bars.right
             )
-            // 底栏整体避开导航栏与横屏挖孔
+
+            // 底栏：竖排（底部横栏）时高度 = 112dp + 导航栏；宽屏右栏时宽度 = 112dp + 右侧挖孔
+            val barLp = binding.bottomBar.layoutParams
+            if (barLp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
+                if (barLp.width > 0) {
+                    barLp.width = px(112) + bars.right
+                    barLp.height = 0
+                } else {
+                    barLp.height = px(112) + bars.bottom
+                }
+                binding.bottomBar.layoutParams = barLp
+            }
             binding.bottomBar.updatePadding(
                 left = bars.left,
                 right = bars.right,
@@ -984,6 +1058,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
             // 没有补光灯的设备直接隐藏按钮
             if (!viewModel.hasFlashUnit()) binding.btnFlash.visibility = View.GONE
+
+            updateZoomChipStyles(currentZoomRatio)
         }
         // 倍率文字必须可见，作为变焦入口
         runCatching {
@@ -1094,6 +1170,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         val target = ratio.coerceIn(minZ, maxZ)
         viewModel.setZoomRatio(target)
         currentZoomRatio = target
+        updateZoomChipStyles(target)
         runCatching {
             binding.tvZoomRatio.visibility = View.VISIBLE
             binding.tvZoomRatio.text = String.format("%.1fx", target)
@@ -1109,6 +1186,34 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
     private fun showZoomTip(ratio: Float) {
         applyZoomFromUi(ratio, showCenter = true)
+    }
+
+    /**
+     * 变焦芯片选中态：颜色 + 尺寸双重区分（规范 §4），不只靠白底。
+     * 选中 = 主色实底 + 白色文字 + 1.08 倍放大。
+     */
+    private fun updateZoomChipStyles(zoom: Float) {
+        runCatching {
+            val chips = listOf(
+                0.5f to binding.zoomChip05,
+                1f to binding.zoomChip1x,
+                2f to binding.zoomChip2x
+            )
+            for ((ratio, chip) in chips) {
+                val selected = kotlin.math.abs(zoom - ratio) < 0.12f
+                chip.setBackgroundResource(
+                    if (selected) R.drawable.bg_zoom_chip_selected else R.drawable.bg_zoom_chip
+                )
+                chip.setTextColor(
+                    androidx.core.content.ContextCompat.getColor(
+                        requireContext(),
+                        if (selected) R.color.camera_surface_white else R.color.camera_on_primary
+                    )
+                )
+                chip.scaleX = if (selected) 1.08f else 1f
+                chip.scaleY = if (selected) 1.08f else 1f
+            }
+        }
     }
 
     private fun hideZoomTip() {

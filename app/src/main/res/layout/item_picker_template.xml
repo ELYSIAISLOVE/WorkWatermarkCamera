@@ -1,34 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  模板卡（规范 §5）：真实渲染的迷你卡片（WatermarkPreviewView 与成片同一个渲染器）
+  + 名称 + 一句说明；选中态用主色描边 + 右上角对勾表示，不只靠底色。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="88dp"
+    android:layout_height="116dp"
     android:padding="4dp">
 
     <LinearLayout
         android:id="@+id/itemPickerTemplateCard"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center_vertical"
         android:orientation="vertical"
-        android:padding="10dp">
+        android:padding="6dp">
+
+        <com.watermark.camera.ui.watermark.WatermarkPreviewView
+            android:id="@+id/itemPickerTemplatePreview"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="@color/app_surface_alt" />
 
         <TextView
             android:id="@+id/itemPickerTemplateName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:textColor="@color/camera_on_surface"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/itemPickerTemplateHint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/camera_on_surface_secondary"
-            android:textSize="10sp" />
+            android:textSize="12sp" />
     </LinearLayout>
+
+    <!-- 选中标记：对勾 + 主色底 -->
+    <ImageView
+        android:id="@+id/itemPickerTemplateCheck"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="6dp"
+        android:background="@color/color_primary"
+        android:contentDescription="@null"
+        android:padding="3dp"
+        android:src="@drawable/ic_ui_check"
+        android:visibility="gone"
+        app:tint="@color/camera_surface_white" />
 </FrameLayout>

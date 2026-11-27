@@ -9,10 +9,13 @@ import android.view.animation.OvershootInterpolator
  * Simple iOS-like press scale animation for buttons.
  */
 object ViewAnim {
-    private const val PRESS_SCALE = 0.88f
-    private const val DURATION = 120L
+    /** 规范 §4：拍照键等按下缩放到 0.94；其余按钮沿用同一手感。 */
+    private const val PRESS_SCALE = 0.94f
+    private const val DURATION = 150L
 
     fun attachPressScale(view: View) {
+        // 尊重系统「移除动画」设置（规范 §7）
+        if (!Motion.enabled(view.context)) return
         view.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {

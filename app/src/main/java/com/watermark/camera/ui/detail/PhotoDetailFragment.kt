@@ -36,6 +36,17 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
         FragmentPhotoDetailBinding.inflate(inflater, container, false)
 
     override fun initViews() {
+        // edge-to-edge：详情页自己避开状态栏与导航栏（规范 §8）
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+            val bars = insets.getInsets(
+                androidx.core.view.WindowInsetsCompat.Type.systemBars() or
+                    androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+            )
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        androidx.core.view.ViewCompat.requestApplyInsets(binding.root)
+
         val start = arguments?.getString(ARG_PHOTO_URI)
         if (start.isNullOrBlank()) {
             Feedback.light(binding.root, getString(R.string.feedback_invalid_photo))

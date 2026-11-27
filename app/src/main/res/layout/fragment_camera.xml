@@ -335,6 +335,21 @@
     </LinearLayout>
 
 
+    <!-- 镜头切换：叠在取景区底部（规范 §4） -->
+    <ImageButton
+        android:id="@+id/btnSwitchCamera"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_margin="12dp"
+        android:background="@drawable/bg_icon_circle"
+        android:contentDescription="@string/switch_camera"
+        android:padding="12dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_ui_switch_camera"
+        app:layout_constraintBottom_toBottomOf="@id/previewView"
+        app:layout_constraintEnd_toEndOf="@id/previewView"
+        app:tint="@color/camera_on_surface" />
+
     <!-- Focus frame (centered in preview) -->
     <View
         android:id="@+id/focusFrame"

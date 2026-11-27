@@ -68,6 +68,24 @@ class CameraViewModel @Inject constructor(
      * verifiable coordinates, not just the address text shown on the watermark.
      */
     private val _locationData = MutableStateFlow<com.watermark.camera.domain.repository.LocationData?>(null)
+    /** 当前镜头朝向，默认后置；切换后按同一预览面重绑（规范 §4 镜头切换）。 */
+    private var lensFacing: Int = androidx.camera.core.CameraSelector.LENS_FACING_BACK
+
+    /** 切换前后摄像头。 */
+    fun switchCamera() {
+        lensFacing = if (lensFacing == androidx.camera.core.CameraSelector.LENS_FACING_BACK) {
+            androidx.camera.core.CameraSelector.LENS_FACING_FRONT
+        } else {
+            androidx.camera.core.CameraSelector.LENS_FACING_BACK
+        }
+        val owner = lastLifecycleOwner ?: return
+        val surface = lastPreviewSurface ?: return
+        viewModelScope.launch {
+            runCatching { cameraRepository.stopPreview() }
+            startPreview(owner, surface)
+            Logger.i(TAG, "Camera lens switched to $lensFacing")
+        }
+    }
     val locationData: kotlinx.coroutines.flow.StateFlow<com.watermark.camera.domain.repository.LocationData?> = _locationData
 
     private val _watermarkConfigDisplay = MutableStateFlow(WatermarkConfig())
@@ -172,7 +190,8 @@ class CameraViewModel @Inject constructor(
         viewModelScope.launch {
             val result = cameraRepository.startPreview(
                 lifecycleOwner = lifecycleOwner,
-                previewSurface = previewSurface
+                previewSurface = previewSurface,
+                lensFacing = lensFacing
             )
             result.onSuccess {
                 val flashMode = (_uiState.value as? CameraState.Previewing)?.flashMode

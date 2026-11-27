@@ -11,13 +11,13 @@
         <item name="android:windowBackground">@color/app_background</item>
         <item name="android:colorBackground">@color/app_background</item>
 
-        <!-- 状态栏 -->
-        <item name="android:statusBarColor">@color/app_surface</item>
+        <!-- 状态栏：edge-to-edge 下透明，由页面内容延伸（规范 §8） -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowTranslucentStatus">false</item>
         <item name="android:windowLightStatusBar">true</item>
 
         <!-- 导航栏 -->
-        <item name="android:navigationBarColor">@color/app_background</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowTranslucentNavigation">false</item>
 
         <!-- 关闭厂商强制深色，避免取景区与水印预览被改色（规范 §8）。

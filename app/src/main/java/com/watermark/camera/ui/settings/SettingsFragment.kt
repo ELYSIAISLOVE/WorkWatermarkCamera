@@ -10,6 +10,9 @@ import android.view.ViewGroup
 import android.widget.RadioGroup
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.watermark.camera.BuildConfig
@@ -52,6 +55,14 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>() {
     ): FragmentSettingsBinding = FragmentSettingsBinding.inflate(inflater, container, false)
 
     override fun initViews() {
+        // edge-to-edge：页面自己吃掉状态栏/导航栏安全区（规范 §8）
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(top = bars.top, bottom = bars.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(binding.root)
+
         binding.btnSettingsBack.setOnClickListener { findNavController().popBackStack() }
 
         // 拍摄：主题模式
