@@ -25,7 +25,7 @@
         android:id="@+id/viewSelectionOverlay"
         android:layout_width="match_parent"
         android:layout_height="120dp"
-        android:background="#66000000"
+        android:background="@color/camera_scrim_medium"
         android:visibility="gone" />
 
     <!-- 选中序号徽标 -->
@@ -37,7 +37,7 @@
         android:layout_margin="4dp"
         android:background="@drawable/bg_gallery_index_badge"
         android:gravity="center"
-        android:textColor="#FFFFFFFF"
+        android:textColor="@color/camera_on_surface"
         android:textSize="12sp"
         android:textStyle="bold"
         android:visibility="gone" />

@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF000000">
+    android:background="@color/camera_viewer_background">
 
     <ImageView
         android:id="@+id/ivPhoto"
@@ -20,10 +20,10 @@
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
         android:layout_marginTop="12dp"
-        android:background="#66000000"
+        android:background="@color/camera_scrim_medium"
         android:paddingHorizontal="12dp"
         android:paddingVertical="4dp"
-        android:textColor="#FFFFFFFF"
+        android:textColor="@color/camera_on_surface"
         android:textSize="12sp" />
 
     <!-- top back -->
@@ -43,7 +43,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:orientation="vertical"
-        android:background="#EE111111">
+        android:background="@color/camera_viewer_bar">
 
         <TextView
             android:id="@+id/tvInfo"
@@ -51,7 +51,7 @@
             android:layout_height="wrap_content"
             android:maxLines="4"
             android:padding="10dp"
-            android:textColor="#FFCCCCCC"
+            android:textColor="@color/camera_on_surface_secondary"
             android:textSize="12sp"
             android:text="左右滑动切换照片" />
 

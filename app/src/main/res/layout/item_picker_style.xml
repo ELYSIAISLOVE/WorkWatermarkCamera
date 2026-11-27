@@ -11,7 +11,7 @@
         android:id="@+id/itemPickerStyleName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#FF333333"
+        android:textColor="@color/app_on_surface"
         android:textSize="12sp"
         android:textStyle="bold" />
 

@@ -24,7 +24,7 @@
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="#FFFFFFFF"
+        android:textColor="@color/camera_on_surface"
         android:textSize="12sp"
         android:textStyle="bold" />
 </LinearLayout>

@@ -2,7 +2,7 @@
 <!-- Transparent fill + light stroke; actual rounding via clipToOutline on PreviewView -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#00000000" />
-    <stroke android:width="1.5dp" android:color="#33FFFFFF" />
+    <solid android:color="@android:color/transparent" />
+    <stroke android:width="1.5dp" android:color="@color/camera_hairline" />
     <corners android:radius="20dp" />
 </shape>

@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="#FFF5F5F5"
+    android:background="@color/app_surface"
     android:orientation="vertical"
     android:paddingBottom="12dp">
 
@@ -20,7 +20,7 @@
             android:layout_width="0dp"
             android:layout_height="132dp"
             android:layout_weight="1"
-            android:background="#FFE6E9EE" />
+            android:background="@color/app_divider" />
 
         <ImageButton
             android:id="@+id/pickerClose"
@@ -39,7 +39,7 @@
         android:paddingEnd="12dp"
         android:paddingBottom="4dp"
         android:text="工作水印 · 左模板 / 右数字样式（可独立滑动）"
-        android:textColor="#FF666666"
+        android:textColor="@color/app_on_surface_secondary"
         android:textSize="11sp" />
 
     <!-- Dual pane -->
@@ -63,7 +63,7 @@
             android:layout_height="match_parent"
             android:layout_marginStart="4dp"
             android:layout_marginEnd="4dp"
-            android:background="#22000000" />
+            android:background="@color/camera_scrim_weak" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/pickerStyleList"
@@ -92,7 +92,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="自定义文字"
-            android:textColor="#FF333333"
+            android:textColor="@color/app_on_surface"
             android:textSize="13sp" />
 
         <EditText
@@ -101,15 +101,15 @@
             android:layout_height="40dp"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:background="#FFFFFFFF"
+            android:background="@color/app_surface_alt"
             android:hint="输入水印标题"
             android:imeOptions="actionDone"
             android:inputType="text"
             android:maxLines="1"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
-            android:textColor="#FF111111"
-            android:textColorHint="#FF999999"
+            android:textColor="@color/app_on_surface"
+            android:textColorHint="@color/app_on_surface_secondary"
             android:textSize="14sp" />
     </LinearLayout>
 
@@ -128,7 +128,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="透明度"
-            android:textColor="#FF333333"
+            android:textColor="@color/app_on_surface"
             android:textSize="13sp" />
 
         <SeekBar
@@ -147,7 +147,7 @@
             android:layout_height="wrap_content"
             android:gravity="end"
             android:text="100%"
-            android:textColor="#FF333333"
+            android:textColor="@color/app_on_surface"
             android:textSize="12sp" />
     </LinearLayout>
 
@@ -166,7 +166,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="字号"
-            android:textColor="#FF333333"
+            android:textColor="@color/app_on_surface"
             android:textSize="13sp" />
 
         <SeekBar
@@ -185,7 +185,7 @@
             android:layout_height="wrap_content"
             android:gravity="end"
             android:text="1.25x"
-            android:textColor="#FF333333"
+            android:textColor="@color/app_on_surface"
             android:textSize="12sp" />
     </LinearLayout>
 
@@ -204,7 +204,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="字体"
-            android:textColor="#FF333333"
+            android:textColor="@color/app_on_surface"
             android:textSize="13sp" />
 
         <LinearLayout
@@ -233,7 +233,7 @@
             android:layout_height="wrap_content"
             android:checked="true"
             android:text="显示日期"
-            android:textColor="#FF333333"
+            android:textColor="@color/app_on_surface"
             android:textSize="13sp" />
 
         <View
@@ -245,7 +245,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="位置"
-            android:textColor="#FF333333"
+            android:textColor="@color/app_on_surface"
             android:textSize="13sp" />
 
         <LinearLayout

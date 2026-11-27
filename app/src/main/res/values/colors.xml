@@ -48,4 +48,32 @@
     <!-- 权限常驻提示条（警示用，仍随 DayNight 切换取值） -->
     <color name="warning_container">#FFFFF3E0</color>
     <color name="on_warning_container">#FF8A4B00</color>
+
+    <!-- ===== 相机页固定深色语义组 =====
+         相机取景区与照片查看始终深色，不随 DayNight 翻转（规范 §7）；
+         因此这些色值只在 values/ 定义，values-night 不覆盖。 -->
+    <color name="camera_on_surface">#FFFFFFFF</color>
+    <color name="camera_on_surface_secondary">#FFCCCCCC</color>
+    <color name="camera_on_surface_tertiary">#FFAAAAAA</color>
+    <color name="camera_on_primary">#FF111111</color>
+    <color name="camera_scrim_strong">#99000000</color>
+    <color name="camera_scrim_medium">#66000000</color>
+    <color name="camera_scrim_weak">#22000000</color>
+    <color name="camera_sheet">#E6121212</color>
+    <color name="camera_chip">#FF3A3A3A</color>
+    <color name="camera_queue_slot">#33FFFFFF</color>
+    <color name="camera_surface_white">#FFFFFFFF</color>
+    <color name="camera_viewer_background">#FF000000</color>
+    <color name="camera_viewer_bar">#EE111111</color>
+    <color name="camera_chip_pressed">#40FFFFFF</color>
+    <color name="camera_chip_dark">#FF2A2A2A</color>
+    <color name="camera_bar">#F21A1A1A</color>
+    <color name="camera_bar_solid">#F2000000</color>
+    <color name="camera_top_bar">#E6000000</color>
+    <color name="camera_hairline">#33FFFFFF</color>
+    <color name="camera_hairline_strong">#55FFFFFF</color>
+    <color name="camera_hairline_soft">#44FFFFFF</color>
+    <color name="camera_glass_fill">#66222222</color>
+    <color name="camera_surface_white_glass">#E6FFFFFF</color>
+    <color name="focus_accent">#FFFFD700</color>
 </resources>
