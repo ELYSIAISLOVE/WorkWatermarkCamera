@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="220" viewBox="0 0 1000 220">
+
+<rect x="12" y="12" width="976" height="196" rx="24" fill="#211B16" stroke="#6A5848" stroke-width="3"/>
+<text x="500" y="142" text-anchor="middle" fill="#D8B98A" font-family="serif" font-size="82" font-style="italic" letter-spacing="2">2026/08/23 10:30</text>
+<path d="M235 65 770 155" stroke="#B88C58" stroke-width="5" opacity=".7"/>
+
+</svg>

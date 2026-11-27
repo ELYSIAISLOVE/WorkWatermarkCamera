@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 基础主题：颜色全部走语义色，随 DayNight 切换（见 values-night/） -->
+    <style name="Theme.WatermarkCamera" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/color_primary</item>
+        <item name="colorPrimaryDark">@color/color_primary_dark</item>
+        <item name="colorAccent">@color/color_primary</item>
+
+        <!-- 背景：不再硬编码黑色，跟随主题 -->
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:colorBackground">@color/app_background</item>
+
+        <!-- 状态栏 -->
+        <item name="android:statusBarColor">@color/app_surface</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- 导航栏 -->
+        <item name="android:navigationBarColor">@color/app_background</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+
+        <!-- 文字：跟随主题 -->
+        <item name="android:textColorPrimary">@color/app_on_surface</item>
+        <item name="android:textColorSecondary">@color/app_on_surface_secondary</item>
+    </style>
+
+    <style name="Theme.WatermarkCamera.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+    <style name="Theme.WatermarkCamera.Splash" parent="Theme.WatermarkCamera">
+        <item name="android:windowBackground">@color/app_background</item>
+    </style>
+
+</resources>

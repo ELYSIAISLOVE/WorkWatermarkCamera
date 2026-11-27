@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色主题：与 values/colors.xml 中的语义色一一对应 -->
+    <color name="app_background">#FF101010</color>
+    <color name="app_surface">#FF1A1A1A</color>
+    <color name="app_surface_alt">#FF222222</color>
+    <color name="app_on_surface">#FFFFFFFF</color>
+    <color name="app_on_surface_secondary">#FFAAAAAA</color>
+    <color name="app_divider">#FF2A2A2A</color>
+</resources>

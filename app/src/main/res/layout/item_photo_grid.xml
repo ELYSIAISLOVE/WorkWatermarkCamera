@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="2dp">
+
+    <!-- Thumbnail Image：正方形，随列宽自适应 -->
+    <ImageView
+        android:id="@+id/ivThumbnail"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:scaleType="centerCrop"
+        android:background="@color/app_surface_alt"
+        android:contentDescription="照片缩略图" />
+
+    <!-- 选中态：主色描边 -->
+    <View
+        android:id="@+id/viewSelectionFrame"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:background="@drawable/bg_gallery_selected_frame"
+        android:visibility="gone" />
+
+    <View
+        android:id="@+id/viewSelectionOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:background="#66000000"
+        android:visibility="gone" />
+
+    <!-- 选中序号徽标 -->
+    <TextView
+        android:id="@+id/tvSelectionIndex"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="4dp"
+        android:background="@drawable/bg_gallery_index_badge"
+        android:gravity="center"
+        android:textColor="#FFFFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+</FrameLayout>

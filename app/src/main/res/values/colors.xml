@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary brand color -->
+    <color name="color_primary">#2B6AFF</color>
+    <color name="color_primary_dark">#1E5AEE</color>
+    <color name="color_primary_light">#5B8FFF</color>
+
+    <!-- Glassmorphism (毛玻璃) base colors -->
+    <color name="glass_background">#99000000</color>
+    <color name="glass_border">#66FFFFFF</color>
+    <color name="glass_text_primary">#FFFFFF</color>
+    <color name="glass_text_secondary">#CCFFFFFF</color>
+
+    <!-- Watermark template colors -->
+    <color name="watermark_blue">#2B6AFF</color>
+    <color name="watermark_orange">#FF8C42</color>
+    <color name="watermark_green">#52C41A</color>
+    <color name="watermark_gray">#595959</color>
+
+    <!-- Status colors -->
+    <color name="success">#52C41A</color>
+    <color name="warning">#FAAD14</color>
+    <color name="error">#FF4D4F</color>
+
+    <!-- Background colors -->
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="transparent">#00000000</color>
+
+    <!-- Overlay colors -->
+    <color name="overlay_dark">#80000000</color>
+    <color name="overlay_black">#CC000000</color>
+
+    <!-- ===== 语义色（浅色主题默认值，深色见 values-night/colors.xml）=====
+         主题问题的根因是此前所有背景与文字色都硬编码成黑/白，
+         DayNight 切换时界面颜色完全不变。现在统一走语义色。 -->
+    <color name="app_background">#FFF5F7FA</color>
+    <color name="app_surface">#FFFFFFFF</color>
+    <color name="app_surface_alt">#FFEEF1F5</color>
+    <color name="app_on_surface">#FF111418</color>
+    <color name="app_on_surface_secondary">#FF5A6472</color>
+    <color name="app_divider">#FFE6E9EE</color>
+
+    <!-- 相机取景区固定深色（相机类应用惯例，不随主题翻转） -->
+    <color name="camera_background">#FF101010</color>
+    <color name="camera_surface">#FF1A1A1A</color>
+</resources>

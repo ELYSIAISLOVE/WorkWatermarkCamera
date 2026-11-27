@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="220" viewBox="0 0 1000 220">
+
+<rect x="12" y="12" width="976" height="196" rx="24" fill="#17191C" stroke="#4A4D50" stroke-width="3"/>
+<g font-family="DejaVu Sans, sans-serif" font-size="72" fill="#F2F2F2" text-anchor="middle">
+<rect x="170" y="55" width="660" height="110" rx="12" fill="#262A2E"/>
+<text x="500" y="132">2026-08-23</text>
+</g>
+<path d="M170 110H830" stroke="#111" stroke-width="4"/>
+
+</svg>

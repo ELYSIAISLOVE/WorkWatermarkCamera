@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "watermarkTemplates": [
+    {"id": "PROPERTY_INSPECTION", "name": "物业巡检", "asset": "watermark_templates/watermark_property_inspection.svg"},
+    {"id": "DUTY", "name": "执勤水印", "asset": "watermark_templates/watermark_duty.svg"},
+    {"id": "ATTENDANCE", "name": "考勤打卡", "asset": "watermark_templates/watermark_attendance.svg"},
+    {"id": "WORK_REPORT", "name": "工作汇报", "asset": "watermark_templates/watermark_work_report.svg"},
+    {"id": "EVIDENCE", "name": "拍照取证", "asset": "watermark_templates/watermark_evidence.svg"},
+    {"id": "ENGINEERING", "name": "工程", "legacy": true},
+    {"id": "GENERAL", "name": "通用", "legacy": true}
+  ],
+  "timeStyles": [
+    {"id": "DEFAULT", "name": "默认", "asset": "time_styles/time_default.svg"},
+    {"id": "DIGITAL_TUBE", "name": "数码管", "asset": "time_styles/time_digital_tube.svg"},
+    {"id": "FLIP_CALENDAR", "name": "翻页日历", "asset": "time_styles/time_flip_calendar.svg"},
+    {"id": "RETRO_SLASH", "name": "复古斜线", "asset": "time_styles/time_retro_slash.svg"}
+  ],
+  "previewMasks": {
+    "black": ["preview_mask_black_01", "preview_mask_black_05"],
+    "white": ["preview_mask_white_01", "preview_mask_white_05"]
+  }
+}

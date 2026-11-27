@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wm_template_property">物业巡检</string>
+    <string name="wm_template_duty">执勤</string>
+    <string name="wm_template_attendance">考勤</string>
+    <string name="wm_template_work_report">工作汇报</string>
+    <string name="wm_template_evidence">取证</string>
+    <string name="time_style_default">默认</string>
+    <string name="time_style_digital">数码管</string>
+    <string name="time_style_flip">翻页日历</string>
+    <string name="time_style_retro">复古斜线</string>
+    <string name="preview_rounded_mask_desc">圆角取景遮罩</string>
+</resources>
