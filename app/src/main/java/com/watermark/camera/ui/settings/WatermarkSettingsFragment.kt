@@ -9,7 +9,6 @@ import android.widget.GridLayout
 import android.widget.TextView
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
-import android.widget.Toast
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -20,6 +19,8 @@ import com.watermark.camera.data.model.WatermarkPosition
 import com.watermark.camera.data.model.WatermarkTemplate
 import com.watermark.camera.data.model.TimeStyle
 import com.watermark.camera.databinding.FragmentWatermarkSettingsBinding
+import com.watermark.camera.R
+import com.watermark.camera.ui.common.Feedback
 import com.watermark.camera.util.Logger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -284,7 +285,7 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
 
         binding.btnReset.setOnClickListener {
             viewModel.resetToDefault()
-            Toast.makeText(requireContext(), "已恢复默认设置", Toast.LENGTH_SHORT).show()
+            Feedback.light(binding.root, getString(R.string.feedback_settings_reset))
         }
     }
 
@@ -353,7 +354,7 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
     private suspend fun observeSaveSuccess() {
         viewModel.saveSuccess.collect { success ->
             if (success) {
-                Toast.makeText(requireContext(), "设置已保存", Toast.LENGTH_SHORT).show()
+                Feedback.light(binding.root, getString(R.string.feedback_settings_saved))
                 onConfigSaved?.invoke(viewModel.config.value)
                 viewModel.consumeSaveSuccess()
                 dismiss()
@@ -364,7 +365,7 @@ class WatermarkSettingsFragment : BottomSheetDialogFragment() {
     private suspend fun observeError() {
         viewModel.errorMessage.collect { message ->
             message?.let {
-                Toast.makeText(requireContext(), it, Toast.LENGTH_LONG).show()
+                Feedback.actionable(binding.root, it)
                 viewModel.clearError()
             }
         }

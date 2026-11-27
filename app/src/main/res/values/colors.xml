@@ -44,4 +44,8 @@
     <!-- 相机取景区固定深色（相机类应用惯例，不随主题翻转） -->
     <color name="camera_background">#FF101010</color>
     <color name="camera_surface">#FF1A1A1A</color>
+
+    <!-- 权限常驻提示条（警示用，仍随 DayNight 切换取值） -->
+    <color name="warning_container">#FFFFF3E0</color>
+    <color name="on_warning_container">#FF8A4B00</color>
 </resources>

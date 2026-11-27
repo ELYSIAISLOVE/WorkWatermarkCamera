@@ -8,7 +8,6 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
@@ -16,8 +15,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.watermark.camera.databinding.FragmentPhotoDetailBinding
+import com.watermark.camera.R
 import com.watermark.camera.domain.repository.VerificationResult
 import com.watermark.camera.ui.common.BaseFragment
+import com.watermark.camera.ui.common.Feedback
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -37,7 +38,7 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
     override fun initViews() {
         val start = arguments?.getString(ARG_PHOTO_URI)
         if (start.isNullOrBlank()) {
-            Toast.makeText(requireContext(), "无效照片", Toast.LENGTH_SHORT).show()
+            Feedback.light(binding.root, getString(R.string.feedback_invalid_photo))
             parentFragmentManager.popBackStack()
             return
         }
@@ -89,7 +90,7 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
                 launch {
                     viewModel.errorMessage.collect { msg ->
                         msg?.let {
-                            Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                            Feedback.actionable(binding.root, it)
                             viewModel.clearError()
                         }
                     }
@@ -105,7 +106,7 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
                 launch {
                     viewModel.deleteSuccess.collect { done ->
                         if (done) {
-                            Toast.makeText(requireContext(), "已删除", Toast.LENGTH_SHORT).show()
+                            Feedback.light(binding.root, getString(R.string.feedback_photo_deleted))
                             parentFragmentManager.popBackStack()
                         }
                     }

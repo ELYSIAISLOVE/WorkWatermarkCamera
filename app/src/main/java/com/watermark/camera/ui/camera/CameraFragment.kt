@@ -17,7 +17,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
-import android.widget.Toast
 import com.google.android.material.snackbar.Snackbar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -30,6 +29,8 @@ import com.watermark.camera.databinding.FragmentCameraBinding
 import com.watermark.camera.R
 import com.watermark.camera.ui.watermark.WatermarkPickerSheet
 import com.watermark.camera.ui.common.BaseFragment
+import com.watermark.camera.ui.common.Feedback
+import com.watermark.camera.ui.permission.PermissionIntroState
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -70,7 +71,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 binding.watermarkOverlay.invalidate()
             }, 200L)
         } else {
-            Toast.makeText(requireContext(), "相机权限被拒绝", Toast.LENGTH_LONG).show()
+            // 拒绝后不再反复弹对话框：常驻提示条与「去设置」由 MainActivity 统一负责
+            view?.let { Feedback.needsPermission(it, getString(R.string.permission_banner_camera)) }
         }
     }
 
@@ -154,7 +156,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             binding.btnSettings.performClick()
         }
         binding.btnVerify.setOnClickListener {
-            Toast.makeText(requireContext(), "请在相册中打开照片进行验真", Toast.LENGTH_SHORT).show()
+            Feedback.light(binding.root, getString(R.string.feedback_verify_in_gallery))
         }
 
         // iOS-like press scale on main buttons
@@ -292,7 +294,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             }
             is CameraState.Error -> {
                 binding.btnCapture.isEnabled = state.recoverable
-                Toast.makeText(requireContext(), state.message, Toast.LENGTH_LONG).show()
+                Feedback.actionable(binding.root, state.message)
             }
         }
     }
@@ -325,7 +327,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                         .setAnchorView(binding.btnCapture.takeIf { it.visibility == View.VISIBLE })
                         .show()
                 } else {
-                    Toast.makeText(requireContext(), event.message, Toast.LENGTH_SHORT).show()
+                    Feedback.light(binding.root, event.message)
                 }
             }
             is CameraEvent.ShutterFeedback -> {
@@ -425,6 +427,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
      * Check and request camera permission.
      */
     private fun requestCameraPermissionIfNeeded() {
+        // 首启说明页还没结束时，授权流程由 MainActivity 串行走完，这里不抢弹窗（规范 §3）
+        if (!PermissionIntroState.isDone(requireContext())) return
         when {
             ContextCompat.checkSelfPermission(
                 requireContext(),
@@ -621,7 +625,10 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
                 .commitAllowingStateLoss()
         } catch (e: Exception) {
             android.util.Log.e("CameraFragment", "openCollage", e)
-            android.widget.Toast.makeText(requireContext(), "无法打开拼图: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+            Feedback.actionable(
+                binding.root,
+                "${getString(R.string.feedback_collage_open_failed)}: ${e.message}"
+            )
         }
     }
 

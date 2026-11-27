@@ -15,7 +15,6 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
@@ -26,6 +25,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.watermark.camera.R
 import com.watermark.camera.data.collage.CollageEngine
 import com.watermark.camera.data.collage.CollageTemplate
+import com.watermark.camera.ui.common.Feedback
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -239,7 +239,10 @@ class CollageFragment : Fragment() {
 
                 launch {
                     viewModel.errorMessage.collect { msg ->
-                        msg?.let { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() }
+                        msg?.let {
+                            Feedback.actionable(binding.root, it)
+                            viewModel.clearError()
+                        }
                     }
                 }
             }

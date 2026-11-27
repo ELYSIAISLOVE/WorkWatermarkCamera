@@ -64,6 +64,11 @@ class CollageViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    /** 用户已经看到提示后清空，避免旋转屏幕时重复弹出。 */
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
     // endregion
 
     /** 当前拼图外观参数（间距 / 圆角 / 背景），2026-11 新增。 */

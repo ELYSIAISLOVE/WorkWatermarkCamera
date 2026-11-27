@@ -6,8 +6,12 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.viewModels
@@ -19,6 +23,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.watermark.camera.R
 import com.watermark.camera.databinding.FragmentGalleryBinding
 import com.watermark.camera.ui.common.BaseFragment
+import com.watermark.camera.ui.common.Feedback
 import com.watermark.camera.ui.detail.PhotoDetailFragment
 import com.watermark.camera.util.ViewAnim
 import dagger.hilt.android.AndroidEntryPoint
@@ -51,7 +56,42 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
         setupRecyclerView()
         setupSearch()
         setupButtons()
+        ensureMediaPermission()
     }
+
+    // region 相册权限（按需请求：只在打开相册时申请，规范 §3）
+
+    private val mediaPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        // Android 14 允许“部分照片”：只要拿到任一读权限就继续
+        if (hasMediaAccess()) {
+            viewModel.refresh()
+        } else {
+            Feedback.needsPermission(binding.root, getString(R.string.permission_banner_gallery))
+        }
+    }
+
+    /** Android 14 起支持“部分照片”授权，故一并申请 [Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED]。 */
+    private fun mediaPermissions(): Array<String> = when {
+        Build.VERSION.SDK_INT >= 34 -> arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+        )
+        Build.VERSION.SDK_INT >= 33 -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+        else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+
+    private fun hasMediaAccess(): Boolean = mediaPermissions().any {
+        ContextCompat.checkSelfPermission(requireContext(), it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun ensureMediaPermission() {
+        if (hasMediaAccess()) return
+        mediaPermissionLauncher.launch(mediaPermissions())
+    }
+
+    // endregion
 
     private fun applyGalleryInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
@@ -130,7 +170,7 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
                 launch {
                     viewModel.message.collect { msg ->
                         msg?.let {
-                            Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                            Feedback.light(binding.root, it)
                             viewModel.consumeMessage()
                         }
                     }
@@ -267,11 +307,10 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
                         .commitAllowingStateLoss()
                 } catch (e: Exception) {
                     android.util.Log.e("GalleryFragment", "collage", e)
-                    Toast.makeText(
-                        requireContext(),
-                        "打开拼图失败: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Feedback.actionable(
+                        binding.root,
+                        "${getString(R.string.feedback_collage_open_failed)}: ${e.message}"
+                    )
                 }
                 viewModel.consumeEvent()
             }

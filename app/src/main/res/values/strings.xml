@@ -74,4 +74,27 @@
     <!-- Low light warning -->
     <string name="low_light_warning">光线不足，建议开启闪光灯</string>
     <string name="low_light_turn_on">开启</string>
+
+    <!-- 权限（规范 §3：情境化授权） -->
+    <string name="permission_intro_title">开始前需要两项授权</string>
+    <string name="permission_intro_camera_title">相机</string>
+    <string name="permission_intro_camera_desc">用于拍摄工作留证照片</string>
+    <string name="permission_intro_location_title">位置</string>
+    <string name="permission_intro_location_desc">用于在水印上记录拍摄地点</string>
+    <string name="permission_intro_note">照片与位置只保存在本机，不会上传。不授权也能进入，但拍照与地点会受影响。</string>
+    <string name="permission_intro_continue">继续</string>
+    <string name="permission_intro_later">稍后再说</string>
+    <string name="permission_banner_camera">相机权限未开启，无法拍照</string>
+    <string name="permission_banner_location">位置权限未开启，水印不显示地点</string>
+    <string name="permission_banner_gallery">相册权限未开启，只能看到本应用拍摄的照片</string>
+    <string name="permission_go_settings">去设置</string>
+
+    <!-- 提示（规范 §7：成功轻提示 / 待处理 Snackbar / 破坏性确认框） -->
+    <string name="feedback_retry">重试</string>
+    <string name="feedback_verify_in_gallery">请在相册中打开照片进行验真</string>
+    <string name="feedback_invalid_photo">照片无法打开</string>
+    <string name="feedback_photo_deleted">已删除</string>
+    <string name="feedback_settings_saved">设置已保存</string>
+    <string name="feedback_settings_reset">已恢复默认设置</string>
+    <string name="feedback_collage_open_failed">无法打开拼图</string>
 </resources>

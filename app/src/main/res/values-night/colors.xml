@@ -7,4 +7,7 @@
     <color name="app_on_surface">#FFFFFFFF</color>
     <color name="app_on_surface_secondary">#FFAAAAAA</color>
     <color name="app_divider">#FF2A2A2A</color>
+
+    <color name="warning_container">#FF3A2A12</color>
+    <color name="on_warning_container">#FFFFC98A</color>
 </resources>
