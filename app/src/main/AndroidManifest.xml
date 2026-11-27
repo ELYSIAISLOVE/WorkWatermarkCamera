@@ -51,6 +51,9 @@
             android:name="com.amap.api.v2.apikey"
             android:value="YOUR_AMAP_KEY_HERE" />
 
+        <!-- 高德定位 SDK 必需的后台服务（缺失时日志报 APSService not found，定位不可用） -->
+        <service android:name="com.amap.api.location.APSService" />
+
 
         <!-- Main Activity -->
         <activity

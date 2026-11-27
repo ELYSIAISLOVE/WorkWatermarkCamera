@@ -66,7 +66,7 @@
     <EditText
         android:id="@+id/etSearch"
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="48dp"
         android:layout_marginHorizontal="12dp"
         android:layout_marginBottom="6dp"
         android:background="@drawable/bg_gallery_search"

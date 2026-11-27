@@ -27,6 +27,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 
 /**
  * Implementation of LocationRepository using FusedLocationProviderClient.
@@ -184,6 +185,8 @@ class LocationRepositoryImpl @Inject constructor(
     @android.annotation.SuppressLint("MissingPermission")
     override suspend fun getLastKnownLocation(): LocationData? {
         if (!hasLocationPermission()) return null
+        // 国内 ROM / 无 GMS 设备：直接走系统 LocationManager，不依赖 Google 服务（规范 §8）
+        if (!gmsAvailable()) return platformLastKnownLocation()
 
         return try {
             val location = fusedClient.lastLocation.await()
@@ -203,6 +206,7 @@ class LocationRepositoryImpl @Inject constructor(
         if (!hasLocationPermission()) {
             return Result.failure(SecurityException("Location permission not granted"))
         }
+        if (!gmsAvailable()) return platformCurrentLocation(timeoutMs)
 
         return try {
             _locationState.value = LocationState.Searching
@@ -242,6 +246,95 @@ class LocationRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    // region 平台定位兜底（无 Google Play 服务时）
+
+    /** 是否可用 Google Play 服务；不可用时全部退回系统 LocationManager。 */
+    private fun gmsAvailable(): Boolean = runCatching {
+        com.google.android.gms.common.GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(context) ==
+            com.google.android.gms.common.ConnectionResult.SUCCESS
+    }.getOrDefault(false)
+
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun platformLastKnownLocation(): LocationData? {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE)
+            as? android.location.LocationManager ?: return null
+        val providers = listOf(
+            android.location.LocationManager.GPS_PROVIDER,
+            android.location.LocationManager.NETWORK_PROVIDER,
+            android.location.LocationManager.PASSIVE_PROVIDER
+        )
+        for (p in providers) {
+            val loc = runCatching { lm.getLastKnownLocation(p) }.getOrNull()
+            if (loc != null) {
+                Logger.i(TAG, "Platform last known from $p")
+                return loc.toLocationData()
+            }
+        }
+        return null
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    private suspend fun platformCurrentLocation(timeoutMs: Long): Result<LocationData> {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE)
+            as? android.location.LocationManager
+            ?: return Result.failure(IllegalStateException("无定位服务"))
+
+        val provider = when {
+            lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ->
+                android.location.LocationManager.GPS_PROVIDER
+            lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER) ->
+                android.location.LocationManager.NETWORK_PROVIDER
+            else -> return Result.failure(IllegalStateException("GPS 与网络定位均已关闭"))
+        }
+
+        _locationState.value = LocationState.Searching
+        return try {
+            val data = withTimeout(timeoutMs) {
+                suspendCancellableCoroutine<LocationData?> { cont ->
+                    val listener = object : android.location.LocationListener {
+                        override fun onLocationChanged(location: android.location.Location) {
+                            runCatching { lm.removeUpdates(this) }
+                            if (cont.isActive) cont.resume(location.toLocationData())
+                        }
+
+                        override fun onProviderEnabled(provider: String) {}
+                        override fun onProviderDisabled(provider: String) {}
+
+                        @Deprecated("Deprecated in Java")
+                        override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+                    }
+                    lm.requestLocationUpdates(provider, 0L, 0f, listener, android.os.Looper.getMainLooper())
+                    cont.invokeOnCancellation { runCatching { lm.removeUpdates(listener) } }
+                }
+            }
+            if (data != null) {
+                _locationState.value = LocationState.Available(data)
+                Result.success(data)
+            } else {
+                platformLastKnownLocation()?.let {
+                    _locationState.value = LocationState.Available(it)
+                    Result.success(it)
+                } ?: run {
+                    _locationState.value = LocationState.Error("无法获取位置信息")
+                    Result.failure(IllegalStateException("Location unavailable"))
+                }
+            }
+        } catch (e: TimeoutCancellationException) {
+            _locationState.value = LocationState.Error("定位超时")
+            platformLastKnownLocation()?.let {
+                _locationState.value = LocationState.Available(it)
+                return Result.success(it)
+            }
+            Result.failure(e)
+        } catch (e: Exception) {
+            _locationState.value = LocationState.Error("定位失败: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // endregion
 
     // endregion
 
