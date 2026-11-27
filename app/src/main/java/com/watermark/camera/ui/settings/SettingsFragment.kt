@@ -32,6 +32,7 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>() {
     companion object {
         private const val PREFS = "ui_prefs"
         private const val KEY_THEME = "theme_mode"
+        private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
 
         private const val THEME_SYSTEM = "system"
         private const val THEME_LIGHT = "light"
@@ -69,6 +70,13 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>() {
         binding.btnOpenWatermarkEditor.setOnClickListener {
             com.watermark.camera.ui.settings.WatermarkSettingsFragment.newInstance()
                 .show(parentFragmentManager, "WatermarkSettings")
+        }
+
+        // 拍摄：保持屏幕常亮（默认开）
+        val keepOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true)
+        binding.swKeepScreenOn.isChecked = keepOn
+        binding.swKeepScreenOn.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean(KEY_KEEP_SCREEN_ON, checked).apply()
         }
 
         // 时间与地点：权限状态与跳转系统设置

@@ -100,6 +100,19 @@
                 style="@style/SettingsHint"
                 android:text="@string/settings_capture_hint" />
 
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swKeepScreenOn"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/settings_keep_screen_on"
+                android:textColor="@color/app_on_surface"
+                android:textSize="16sp" />
+
+            <TextView
+                style="@style/SettingsHint"
+                android:text="@string/settings_keep_screen_on_hint" />
+
             <View style="@style/SettingsDivider" />
 
             <!-- 水印 -->

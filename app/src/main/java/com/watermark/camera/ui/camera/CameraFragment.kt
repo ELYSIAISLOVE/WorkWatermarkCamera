@@ -111,8 +111,40 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         hideRedundantTopControls()
+        applyLargeScreenLayout()
         setupScaleGestureDetector()
         requestCameraPermissionIfNeeded()
+    }
+
+    /**
+     * 大屏 / 横屏自适应（规范 §8）：宽度 ≥600dp 或横屏时，底部操作区改成右侧竖直栏，
+     * 取景区相应收窄，避免控件压在水印默认位置上。
+     * Android 16 起大屏会忽略竖屏锁定，这条路径必须存在。
+     */
+    private fun applyLargeScreenLayout() {
+        val cfg = resources.configuration
+        val large = cfg.smallestScreenWidthDp >= 600 ||
+            cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        if (!large) return
+        runCatching {
+            val bar = binding.bottomBar
+            (bar.getChildAt(0) as? android.widget.LinearLayout)?.orientation =
+                android.widget.LinearLayout.VERTICAL
+            val barLp = bar.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            barLp.width = (96 * resources.displayMetrics.density).toInt()
+            barLp.height = 0
+            barLp.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            barLp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            barLp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            barLp.endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            bar.layoutParams = barLp
+
+            val preview = binding.previewView
+            val pLp = preview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            pLp.endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            pLp.endToStart = R.id.bottomBar
+            preview.layoutParams = pLp
+        }
     }
 
     override fun initViews() {
@@ -775,11 +807,6 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
 
-    private var sideEvMode = 0 // 0=关 1=自动
-    private var sideFlashMode = 0 // 0关 1开 2自动 3常亮
-    private var sideImageSize = 1 // 0小 1中 2大
-    private var sideAntiFake = false
-    private var sideThemeDark = true
 
 
     private fun applySystemBarInsets() {
@@ -805,172 +832,43 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         ViewCompat.requestApplyInsets(binding.root)
     }
 
-    private fun openSidePanel() {
-        val root = binding.sidePanelRoot
-        val sheet = binding.sidePanelSheet
-        // 顶图下移，避开状态栏
-        runCatching {
-            val hero = binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePanelHero)
-            ViewCompat.setOnApplyWindowInsetsListener(sheet) { v, insets ->
-                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                hero?.setPadding(0, bars.top, 0, 0)
-                // 用 paddingTop 把图片整体顶下去
-                v.setPadding(v.paddingLeft, 0, v.paddingRight, v.paddingBottom)
-                hero?.let {
-                    val lp = it.layoutParams
-                    if (lp is android.view.ViewGroup.MarginLayoutParams) {
-                        lp.topMargin = bars.top
-                        it.layoutParams = lp
-                    }
-                }
-                insets
-            }
-            ViewCompat.requestApplyInsets(sheet)
-        }
-        root.visibility = android.view.View.VISIBLE
-        sheet.translationX = sheet.width.toFloat().takeIf { it > 0 } ?: 400f
-        sheet.animate().translationX(0f).setDuration(200L).start()
-        binding.sidePanelScrim.setOnClickListener { closeSidePanel() }
-
-        // Theme only: 自动 / 黑色 / 白色
-        binding.sideThemeAuto.setOnClickListener { applyThemeMode("auto") }
-        binding.sideThemeBlack.setOnClickListener { applyThemeMode("black") }
-        binding.sideThemeWhite.setOnClickListener { applyThemeMode("white") }
-
-        // 基本设置开关
-        runCatching {
-            val prefs = requireContext().getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
-            val swLoc = binding.root.findViewById<androidx.appcompat.widget.SwitchCompat>(com.watermark.camera.R.id.sideSwitchLocation)
-            val swGyro = binding.root.findViewById<androidx.appcompat.widget.SwitchCompat>(com.watermark.camera.R.id.sideSwitchGyro)
-            val swOn = binding.root.findViewById<androidx.appcompat.widget.SwitchCompat>(com.watermark.camera.R.id.sideSwitchKeepOn)
-            val cfg = binding.watermarkOverlay.watermarkConfig
-            swLoc?.isChecked = cfg.showLocation
-            swGyro?.isChecked = cfg.useGyroscope
-            swOn?.isChecked = prefs.getBoolean("keep_screen_on", false)
-            swLoc?.setOnCheckedChangeListener { _, checked ->
-                val c = binding.watermarkOverlay.watermarkConfig.copy(showLocation = checked)
-                binding.watermarkOverlay.watermarkConfig = c
-                viewModel.applyLiveOverlayConfig(c)
-            }
-            swGyro?.setOnCheckedChangeListener { _, checked ->
-                // 开陀螺仪：清掉拖拽坐标，让重力贴边立即生效
-                val c = binding.watermarkOverlay.watermarkConfig.copy(
-                    useGyroscope = checked,
-                    customX = if (checked) null else binding.watermarkOverlay.watermarkConfig.customX,
-                    customY = if (checked) null else binding.watermarkOverlay.watermarkConfig.customY
-                )
-                binding.watermarkOverlay.watermarkConfig = c
-                viewModel.applyLiveOverlayConfig(c)
-                if (checked) {
-                    // 立即用当前朝向重绘（传感器回调有防抖，可能要等）
-                    orientationHelper?.getCurrentOrientation()?.let { o ->
-                        binding.watermarkOverlay.deviceOrientation = o
-                    }
-                    binding.watermarkOverlay.invalidate()
-                } else {
-                    binding.watermarkOverlay.deviceOrientation =
-                        com.watermark.camera.util.OrientationHelper.DeviceOrientation.PORTRAIT
-                    binding.watermarkOverlay.invalidate()
-                }
-            }
-            swOn?.setOnCheckedChangeListener { _, checked ->
-                prefs.edit().putBoolean("keep_screen_on", checked).apply()
-                requireActivity().window.let { w ->
-                    if (checked) w.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    else w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                }
-            }
-            fun applyPos(pos: com.watermark.camera.data.model.WatermarkPosition) {
-                // 设定偏好角；若陀螺仪开启，下次朝向变化仍会跟重力，但左右偏好保留
-                val c = binding.watermarkOverlay.watermarkConfig.copy(
-                    position = pos, customX = null, customY = null
-                )
-                binding.watermarkOverlay.watermarkConfig = c
-                binding.watermarkOverlay.invalidate()
-                viewModel.applyLiveOverlayConfig(c)
-            }
-            binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePosBL)
-                ?.setOnClickListener { applyPos(com.watermark.camera.data.model.WatermarkPosition.BOTTOM_LEFT) }
-            binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePosBR)
-                ?.setOnClickListener { applyPos(com.watermark.camera.data.model.WatermarkPosition.BOTTOM_RIGHT) }
-            binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePosTL)
-                ?.setOnClickListener { applyPos(com.watermark.camera.data.model.WatermarkPosition.TOP_LEFT) }
-            binding.root.findViewById<android.view.View>(com.watermark.camera.R.id.sidePosTR)
-                ?.setOnClickListener { applyPos(com.watermark.camera.data.model.WatermarkPosition.TOP_RIGHT) }
-        }
-        highlightThemeButtons(
-            requireContext().getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
-                .getString("theme_mode", "auto") ?: "auto"
-        )
-        binding.sideAbout.setOnClickListener {
-            android.app.AlertDialog.Builder(requireContext())
-                .setTitle("关于")
-                .setMessage("工作相机 Work Watermark Camera\nELYSIYISLOVE")
-                .setPositiveButton("确定", null)
-                .show()
-        }
-    }
 
 
-    private fun applyThemeMode(mode: String) {
-        when (mode) {
-            "black" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            "white" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        }
-        persistTheme(mode)
-        highlightThemeButtons(mode)
-        // 不再手动给取景容器刷黑/白：主题色现在由 values/ 与 values-night/ 的语义色驱动，
-        // 相机页本身固定深色（相机类应用惯例），相册/拼图/详情等页面随主题切换。
-        // recreate 让已存在的其它页面也立即套用新主题。
-        runCatching { requireActivity().recreate() }
-    }
 
-    private fun highlightThemeButtons(mode: String) {
-        val selected = 0xFF2B6AFF.toInt()
-        val normal = 0xFF3A3A3A.toInt()
-        runCatching {
-            binding.sideThemeAuto.setBackgroundColor(if (mode == "auto") selected else normal)
-            binding.sideThemeBlack.setBackgroundColor(if (mode == "black") selected else normal)
-            binding.sideThemeWhite.setBackgroundColor(if (mode == "white") selected else normal)
-        }
-    }
-
-    private fun persistTheme(mode: String) {
-        requireContext().getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
-            .edit().putString("theme_mode", mode).apply()
-    }
 
     private fun applySavedTheme() {
-        val mode = requireContext().getSharedPreferences("wm_prefs", android.content.Context.MODE_PRIVATE)
-            .getString("theme_mode", "auto") ?: "auto"
+        // 外观在设置页统一管理（ui_prefs/theme_mode）；取景区固定深色，不再刷黑白底
+        val mode = requireContext().getSharedPreferences("ui_prefs", android.content.Context.MODE_PRIVATE)
+            .getString("theme_mode", "system") ?: "system"
         when (mode) {
-            "black" -> {
+            "dark" -> {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-                binding.container.setBackgroundColor(android.graphics.Color.BLACK)
             }
-            "white" -> {
+            "light" -> {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-                binding.container.setBackgroundColor(android.graphics.Color.WHITE)
             }
             else -> {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-                binding.container.setBackgroundColor(android.graphics.Color.BLACK)
+            }
+        }
+        applyKeepScreenOn()
+    }
+
+    /** 「保持屏幕常亮」：拍摄时常亮更符合工作留证场景（规范 §4 / 设置·拍摄组）。 */
+    private fun applyKeepScreenOn() {
+        val keepOn = requireContext()
+            .getSharedPreferences("ui_prefs", android.content.Context.MODE_PRIVATE)
+            .getBoolean("keep_screen_on", true)
+        runCatching {
+            if (keepOn) {
+                requireActivity().window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                requireActivity().window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
         }
     }
 
-    private fun closeSidePanel() {
-        val sheet = binding.sidePanelSheet
-        val root = binding.sidePanelRoot
-        sheet.animate()
-            .translationX(sheet.width.toFloat())
-            .setDuration(200L)
-            .withEndAction { root.visibility = android.view.View.GONE }
-            .start()
-    }
 
-    private fun refreshSidePanelLabels() { /* camera settings removed */ }
 
 
 

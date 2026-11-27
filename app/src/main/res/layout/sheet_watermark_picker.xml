@@ -1,272 +1,320 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  水印编辑面板（规范 §5）：
+  - 顶部常驻真实渲染预览条（WatermarkRenderer 直出，与成片一致）；
+  - 下面按「模板 / 内容 / 样式 / 位置」四个 Tab 分组，不再用固定 280dp 左右双栏；
+  - 面板高度与限宽在 WatermarkPickerSheet.onStart 里设置（初始 50%、可上拉 90%、平板限宽 640dp）。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:background="@color/app_surface"
-    android:orientation="vertical"
-    android:paddingBottom="12dp">
+    android:orientation="vertical">
 
-    <!-- 真实预览：由 WatermarkRenderer 直接绘制，与成片完全一致 -->
+    <!-- 预览条 + 关闭 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="12dp">
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="8dp">
 
         <com.watermark.camera.ui.watermark.WatermarkPreviewView
             android:id="@+id/pickerPreviewCard"
             android:layout_width="0dp"
-            android:layout_height="132dp"
+            android:layout_height="120dp"
             android:layout_weight="1"
             android:background="@color/app_divider" />
 
-    <ImageButton
-        android:id="@+id/pickerClose"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginStart="8dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/btn_close"
-        android:padding="12dp"
-        android:scaleType="centerInside"
-        android:src="@drawable/ic_ui_close"
-        app:tint="@color/app_on_surface" />
+        <ImageButton
+            android:id="@+id/pickerClose"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/btn_close"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_ui_close"
+            app:tint="@color/app_on_surface" />
     </LinearLayout>
 
-    <TextView
+    <!-- 四个分组 -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/pickerTabs"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="4dp"
-        android:text="工作水印 · 左模板 / 右数字样式（可独立滑动）"
-        android:textColor="@color/app_on_surface_secondary"
-        android:textSize="11sp" />
+        android:background="@color/app_surface"
+        app:tabGravity="fill"
+        app:tabIndicatorColor="@color/color_primary"
+        app:tabMode="fixed"
+        app:tabSelectedTextColor="@color/color_primary"
+        app:tabTextColor="@color/app_on_surface_secondary" />
 
-    <!-- Dual pane -->
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="280dp"
-        android:orientation="horizontal"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
+        <!-- ① 模板：真实渲染缩略图网格 -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/pickerTemplateGrid"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="1.2"
             android:clipToPadding="false"
-            android:padding="4dp" />
+            android:padding="8dp" />
 
-        <View
-            android:layout_width="1dp"
+        <!-- ② 内容：自定义标题（带清除与字数）+ 字段显隐 -->
+        <ScrollView
+            android:id="@+id/pickerGroupContent"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:background="@color/camera_scrim_weak" />
+            android:visibility="gone">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/pickerStyleList"
-            android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/pickerContentHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingMultiplier="1.4"
+                    android:text="@string/picker_content_hint"
+                    android:textColor="@color/app_on_surface_secondary"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:id="@+id/pickerCustomTitleRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <EditText
+                        android:id="@+id/pickerCustomTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:background="@color/app_surface_alt"
+                        android:hint="@string/picker_custom_title_hint"
+                        android:imeOptions="actionNext"
+                        android:inputType="text"
+                        android:maxLength="20"
+                        android:maxLines="1"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:textColor="@color/app_on_surface"
+                        android:textColorHint="@color/app_on_surface_secondary"
+                        android:textSize="16sp" />
+
+                    <ImageButton
+                        android:id="@+id/pickerCustomTitleClear"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/picker_clear"
+                        android:padding="12dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_ui_close"
+                        app:tint="@color/app_on_surface_secondary" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/pickerCustomTitleCount"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:gravity="end"
+                    android:textColor="@color/app_on_surface_secondary"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+                <!-- 字段列表（按模板动态生成，每行标注必填/可选） -->
+                <LinearLayout
+                    android:id="@+id/pickerFieldToggles"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="vertical" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ③ 样式：时间样式 / 透明度 / 字号 / 字体 / 显示日期 -->
+        <ScrollView
+            android:id="@+id/pickerGroupStyle"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="0.8"
-            android:clipToPadding="false"
-            android:padding="4dp" />
-    </LinearLayout>
+            android:visibility="gone">
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-    <!-- 自定义水印文字（仅「自定义」模板可见） -->
-    <LinearLayout
-        android:id="@+id/pickerCustomTitleRow"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:visibility="gone">
+                <TextView
+                    style="@style/SettingsGroupTitle"
+                    android:layout_marginTop="0dp"
+                    android:text="@string/picker_time_style" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="自定义文字"
-            android:textColor="@color/app_on_surface"
-            android:textSize="13sp" />
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/pickerStyleList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false" />
 
-        <EditText
-            android:id="@+id/pickerCustomTitle"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:background="@color/app_surface_alt"
-            android:hint="输入水印标题"
-            android:imeOptions="actionDone"
-            android:inputType="text"
-            android:maxLines="1"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:textColor="@color/app_on_surface"
-            android:textColorHint="@color/app_on_surface_secondary"
-            android:textSize="14sp" />
-    </LinearLayout>
+                <!-- 透明度 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-    <!-- Transparency -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="4dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/setting_transparency"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="14sp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="透明度"
-            android:textColor="@color/app_on_surface"
-            android:textSize="13sp" />
+                    <SeekBar
+                        android:id="@+id/pickerTransparency"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:max="100"
+                        android:progress="100" />
 
-        <SeekBar
-            android:id="@+id/pickerTransparency"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:max="100"
-            android:progress="100" />
+                    <TextView
+                        android:id="@+id/pickerTransparencyValue"
+                        android:layout_width="48dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:text="100%"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="14sp" />
+                </LinearLayout>
 
-        <TextView
-            android:id="@+id/pickerTransparencyValue"
-            android:layout_width="40dp"
-            android:layout_height="wrap_content"
-            android:gravity="end"
-            android:text="100%"
-            android:textColor="@color/app_on_surface"
-            android:textSize="12sp" />
-    </LinearLayout>
+                <!-- 字号 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-    <!-- 字号 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/setting_font_size"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="14sp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="字号"
-            android:textColor="@color/app_on_surface"
-            android:textSize="13sp" />
+                    <SeekBar
+                        android:id="@+id/pickerFontScale"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:max="270"
+                        android:progress="95" />
 
-        <SeekBar
-            android:id="@+id/pickerFontScale"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:max="270"
-            android:progress="95" />
+                    <TextView
+                        android:id="@+id/pickerFontScaleValue"
+                        android:layout_width="48dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:text="1.25x"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="14sp" />
+                </LinearLayout>
 
-        <TextView
-            android:id="@+id/pickerFontScaleValue"
-            android:layout_width="40dp"
-            android:layout_height="wrap_content"
-            android:gravity="end"
-            android:text="1.25x"
-            android:textColor="@color/app_on_surface"
-            android:textSize="12sp" />
-    </LinearLayout>
+                <!-- 字体族 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-    <!-- 字体族 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/picker_font_family"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="14sp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="字体"
-            android:textColor="@color/app_on_surface"
-            android:textSize="13sp" />
+                    <LinearLayout
+                        android:id="@+id/pickerFontRow"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:orientation="horizontal" />
+                </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/pickerFontRow"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:orientation="horizontal" />
-    </LinearLayout>
+                <CheckBox
+                    android:id="@+id/pickerShowDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:checked="true"
+                    android:text="@string/picker_show_date"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="14sp" />
 
-    <!-- 显示开关 + 位置快捷 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="8dp">
+                <CheckBox
+                    android:id="@+id/pickerGyroscope"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:checked="true"
+                    android:text="@string/picker_gyroscope"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </ScrollView>
 
-        <CheckBox
-            android:id="@+id/pickerShowDate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="显示日期"
-            android:textColor="@color/app_on_surface"
-            android:textSize="13sp" />
+        <!-- ④ 位置：四角快捷 + 拖动说明 -->
+        <ScrollView
+            android:id="@+id/pickerGroupPosition"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
 
-        <View
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="位置"
-            android:textColor="@color/app_on_surface"
-            android:textSize="13sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingMultiplier="1.4"
+                    android:text="@string/picker_position_hint"
+                    android:textColor="@color/app_on_surface_secondary"
+                    android:textSize="12sp" />
 
-        <LinearLayout
-            android:id="@+id/pickerPositionRow"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:orientation="horizontal" />
-    </LinearLayout>
-
-    <!-- 字段显隐（按当前模板动态生成） -->
-    <LinearLayout
-        android:id="@+id/pickerFieldToggles"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="12dp" />
+                <LinearLayout
+                    android:id="@+id/pickerPositionRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal" />
+            </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
 </LinearLayout>

@@ -52,146 +52,115 @@
         android:textColor="@color/app_on_surface_secondary"
         android:textSize="12sp" />
 
-    <!-- 模板 -->
-    <LinearLayout
+    <!-- 调节项：横向滑动一行（规范 §6） -->
+    <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingBottom="6dp">
-
-        <Button
-            android:id="@+id/tplVertical"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="6dp"
-            android:layout_weight="1"
-            android:text="竖向"
-            android:textSize="12sp" />
-
-        <Button
-            android:id="@+id/tplGrid2"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="6dp"
-            android:layout_weight="1"
-            android:text="两图"
-            android:textSize="12sp" />
-
-        <Button
-            android:id="@+id/tplGrid4"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="6dp"
-            android:layout_weight="1"
-            android:text="四宫格"
-            android:textSize="12sp" />
-
-        <Button
-            android:id="@+id/tplGrid9"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:text="九宫格"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-    <!-- 外观：间距 / 圆角 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="间距"
-            android:textColor="@color/app_on_surface_secondary"
-            android:textSize="12sp" />
-
-        <SeekBar
-            android:id="@+id/seekSpacing"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:layout_marginEnd="6dp"
-            android:layout_weight="1"
-            android:max="40" />
-
-        <TextView
-            android:id="@+id/tvSpacing"
-            android:layout_width="40dp"
-            android:layout_height="wrap_content"
-            android:gravity="end"
-            android:text="0"
-            android:textColor="@color/app_on_surface_secondary"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="圆角"
-            android:textColor="@color/app_on_surface_secondary"
-            android:textSize="12sp" />
-
-        <SeekBar
-            android:id="@+id/seekRadius"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:layout_marginEnd="6dp"
-            android:layout_weight="1"
-            android:max="48" />
-
-        <TextView
-            android:id="@+id/tvRadius"
-            android:layout_width="40dp"
-            android:layout_height="wrap_content"
-            android:gravity="end"
-            android:text="0"
-            android:textColor="@color/app_on_surface_secondary"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-    <!-- 背景色 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingTop="4dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="4dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="背景"
-            android:textColor="@color/app_on_surface_secondary"
-            android:textSize="12sp" />
+        android:scrollbars="none">
 
         <LinearLayout
-            android:id="@+id/bgColorRow"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:orientation="horizontal" />
-    </LinearLayout>
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/tplVertical"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginEnd="6dp"
+                android:text="@string/collage_template_long"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/tplGrid2"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginEnd="6dp"
+                android:text="@string/collage_template_2"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/tplGrid4"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginEnd="6dp"
+                android:text="@string/collage_template_4"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/tplGrid9"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginEnd="16dp"
+                android:text="@string/collage_template_9"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/collage_spacing"
+                android:textColor="@color/app_on_surface_secondary"
+                android:textSize="12sp" />
+
+            <SeekBar
+                android:id="@+id/seekSpacing"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:max="40" />
+
+            <TextView
+                android:id="@+id/tvSpacing"
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:text="0"
+                android:textColor="@color/app_on_surface_secondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/collage_radius"
+                android:textColor="@color/app_on_surface_secondary"
+                android:textSize="12sp" />
+
+            <SeekBar
+                android:id="@+id/seekRadius"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:max="48" />
+
+            <TextView
+                android:id="@+id/tvRadius"
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:text="0"
+                android:textColor="@color/app_on_surface_secondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/collage_background"
+                android:textColor="@color/app_on_surface_secondary"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:id="@+id/bgColorRow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:orientation="horizontal" />
+        </LinearLayout>
+    </HorizontalScrollView>
 
     <!-- 报告栏文字 -->
     <LinearLayout

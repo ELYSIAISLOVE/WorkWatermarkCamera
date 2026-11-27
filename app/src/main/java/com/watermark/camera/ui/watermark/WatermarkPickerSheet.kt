@@ -42,6 +42,36 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         savedInstanceState: Bundle?
     ): View = inflater.inflate(R.layout.sheet_watermark_picker, container, false)
 
+    /** 四个分组 Tab：同一屏只显示一组，避免左右双栏挤在一起（规范 §5）。 */
+    private fun setupTabs(view: View) {
+        val tabs = view.findViewById<com.google.android.material.tabs.TabLayout>(R.id.pickerTabs)
+            ?: return
+        val groups = listOf(
+            view.findViewById<View>(R.id.pickerTemplateGrid),
+            view.findViewById<View>(R.id.pickerGroupContent),
+            view.findViewById<View>(R.id.pickerGroupStyle),
+            view.findViewById<View>(R.id.pickerGroupPosition)
+        )
+        listOf(
+            R.string.picker_tab_template,
+            R.string.picker_tab_content,
+            R.string.picker_tab_style,
+            R.string.picker_tab_position
+        ).forEach { tabs.addTab(tabs.newTab().setText(it)) }
+
+        tabs.addOnTabSelectedListener(
+            object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
+                override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab) {
+                    groups.forEachIndexed { index, group ->
+                        group.visibility = if (index == tab.position) View.VISIBLE else View.GONE
+                    }
+                }
+
+                override fun onTabUnselected(tab: com.google.android.material.tabs.TabLayout.Tab) {}
+                override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab) {}
+            }
+        )
+    }
     /**
      * 面板高度与宽度（规范 §5）：
      * - 初始高度为屏幕的 50%，可上拉到 90%；
@@ -85,14 +115,33 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         preview = view.findViewById(R.id.pickerPreviewCard)
         view.findViewById<View>(R.id.pickerClose).setOnClickListener { dismiss() }
 
+        // 四个分组 Tab（规范 §5）：模板 / 内容 / 样式 / 位置
+        setupTabs(view)
+
+        // 横拍文字保持正向（原侧栏项并入样式 Tab）
+        view.findViewById<android.widget.CheckBox>(R.id.pickerGyroscope)?.apply {
+            isChecked = config.useGyroscope
+            setOnCheckedChangeListener { _, checked ->
+                config = config.copy(useGyroscope = checked)
+                refreshPreview()
+                onSelectionChanged?.invoke(config)
+            }
+        }
+
         val customRow = view.findViewById<View>(R.id.pickerCustomTitleRow)
         val customEt = view.findViewById<EditText>(R.id.pickerCustomTitle)
+        val customCount = view.findViewById<TextView>(R.id.pickerCustomTitleCount)
+        view.findViewById<View>(R.id.pickerCustomTitleClear)?.setOnClickListener {
+            customEt?.setText("")
+        }
         customEt?.setText(config.customTitle)
         customEt?.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 config = config.copy(customTitle = s?.toString()?.trim().orEmpty())
+                // 字数计数（规范 §5）
+                customCount?.text = "${s?.length ?: 0}/20"
                 refreshPreview()
                 onSelectionChanged?.invoke(config)
             }
@@ -124,14 +173,19 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         leftRv.layoutManager = GridLayoutManager(requireContext(), 2)
         val templateAdapter = TemplateGridAdapter(templates, config.template) { chosen ->
             config = config.copy(template = chosen)
-            runCatching { customRow?.visibility = View.GONE }
+            // 自定义标题属于「自定义内容」这一类，任何模板都可用（规范 D5 / §5）
+            runCatching { customRow?.visibility = View.VISIBLE }
             refreshPreview()
             onSelectionChanged?.invoke(config)
             // 换模板后字段集合变了，重建字段显隐开关
             setupFieldToggles(view)
             showTemplateFieldsDialog(chosen)
         }
-        runCatching { customRow?.visibility = View.GONE }
+        runCatching {
+            customRow?.visibility = View.VISIBLE
+            customCount?.visibility = View.VISIBLE
+            customCount?.text = "${config.customTitle.length}/20"
+        }
         leftRv.adapter = templateAdapter
 
         val styles = listOf(
@@ -277,19 +331,31 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         val spec = TemplateFormCatalog.specOf(config.template)
         val density = resources.displayMetrics.density
 
+        val onSurface = androidx.core.content.ContextCompat.getColor(requireContext(), R.color.app_on_surface)
+        val onSurfaceSecondary =
+            androidx.core.content.ContextCompat.getColor(requireContext(), R.color.app_on_surface_secondary)
+
         val title = TextView(requireContext()).apply {
-            text = "显示哪些字段"
-            textSize = 13f
-            setTextColor(0xFF333333.toInt())
+            text = getString(R.string.picker_fields_title)
+            textSize = 14f
+            setTextColor(onSurface)
             setPadding(0, 0, 0, (4 * density).toInt())
         }
         container.addView(title)
 
+        // 时间必填且不可改——直接以说明行呈现，避免用户误以为能关掉（规范 §5）
+        container.addView(TextView(requireContext()).apply {
+            text = getString(R.string.picker_time_required_row)
+            textSize = 12f
+            setTextColor(onSurfaceSecondary)
+            setPadding(0, 0, 0, (8 * density).toInt())
+        })
+
         for (field in spec.editable) {
             val cb = android.widget.CheckBox(requireContext()).apply {
-                text = field.label
-                textSize = 13f
-                setTextColor(0xFF333333.toInt())
+                text = getString(R.string.picker_field_optional_with_label, field.label)
+                textSize = 14f
+                setTextColor(onSurface)
                 isChecked = !config.isFieldHidden(field.key)
                 setOnCheckedChangeListener { _, checked ->
                     config = config.withFieldVisible(field.key, checked)
@@ -302,9 +368,9 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
 
         // 地点行单独开关（日期由上面的「显示日期」控制）
         val locCb = android.widget.CheckBox(requireContext()).apply {
-            text = "地点"
-            textSize = 13f
-            setTextColor(0xFF333333.toInt())
+            text = getString(R.string.picker_field_optional_with_label, getString(R.string.setting_location))
+            textSize = 14f
+            setTextColor(onSurface)
             isChecked = config.showLocation
             setOnCheckedChangeListener { _, checked ->
                 config = config.copy(showLocation = checked)

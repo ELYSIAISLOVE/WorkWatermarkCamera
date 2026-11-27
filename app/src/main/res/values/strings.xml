@@ -150,4 +150,29 @@
     <string name="settings_version_placeholder">版本</string>
     <string name="settings_privacy">照片与位置只保存在本机，应用不上传任何内容。</string>
     <string name="settings_license">本应用以 MIT 许可发布。</string>
+    <string name="settings_keep_screen_on">保持屏幕常亮</string>
+    <string name="settings_keep_screen_on_hint">拍摄时屏幕不自动熄灭，避免低头看图纸时锁屏。</string>
+
+    <!-- 水印编辑面板（规范 §5） -->
+    <string name="picker_tab_template">模板</string>
+    <string name="picker_tab_content">内容</string>
+    <string name="picker_tab_style">样式</string>
+    <string name="picker_tab_position">位置</string>
+    <string name="picker_content_hint">时间必填（由应用自动记录，不可修改）；地点与自定义内容为可选。每个模板的填写内容独立保存。</string>
+    <string name="picker_custom_title_hint">输入水印标题</string>
+    <string name="picker_clear">清除</string>
+    <string name="picker_time_style">时间样式</string>
+    <string name="picker_font_family">字体</string>
+    <string name="picker_show_date">显示日期</string>
+    <string name="picker_gyroscope">横拍时水印文字保持正向</string>
+    <string name="picker_position_hint">在相机页直接拖动水印卡片即可调整位置，靠近中线会自动吸附。</string>
+    <string name="picker_field_required">必填</string>
+    <string name="picker_field_optional">可选</string>
+    <string name="picker_done">完成</string>
+    <string name="picker_fields_title">显示哪些字段（时间必填，其余可选）</string>
+    <string name="picker_time_required_row">时间（必填）— 由应用在按下快门时自动记录，不可修改或关闭</string>
+    <string name="picker_field_optional_with_label">%1$s（可选）</string>
+    <string name="collage_spacing">间距</string>
+    <string name="collage_radius">圆角</string>
+    <string name="collage_background">背景</string>
 </resources>
