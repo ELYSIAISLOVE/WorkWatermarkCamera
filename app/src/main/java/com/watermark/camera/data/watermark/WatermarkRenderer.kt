@@ -171,7 +171,8 @@ class WatermarkRenderer {
         val rowH = body * 1.48f
         val padH = body * 0.75f
         val padV = body * 0.45f
-        val radius = body * 0.48f
+        // 圆角由皮肤参数决定，七模板视觉差异来自同一套参数（CardSkinCatalog）
+        val radius = body * CardSkinCatalog.of(config.template).cornerFactor
 
         val rows = buildRows(config, locationText, timeMs)
         textPaint.textSize = body
@@ -250,9 +251,10 @@ class WatermarkRenderer {
     ) {
         val tmpl = config.template
         val spec = TemplateFormCatalog.specOf(tmpl)
-        val headerColor = withAlpha(tmpl.resolvedHeaderColor(), config.transparency)
+        val skin = CardSkinCatalog.of(tmpl)
+        val headerColor = withAlpha(skin.accent, config.transparency)
         val bodyColor = withAlpha(0xFFFFFFFF.toInt(), (config.transparency * 0.96f).coerceIn(0.55f, 1f))
-        val labelColor = tmpl.resolvedHeaderColor()
+        val labelColor = skin.accent
         val valueColor = 0xFF222222.toInt()
 
         val rect = RectF(m.left, m.top, m.left + m.width, m.top + m.height)
@@ -273,9 +275,35 @@ class WatermarkRenderer {
         fillPaint.color = bodyColor
         canvas.drawRect(rect, fillPaint)
 
-        // 表头底色
-        fillPaint.color = headerColor
-        canvas.drawRect(m.left, m.top, m.left + m.width, bodyTop, fillPaint)
+        // 表头底色：三种皮肤风格（纯色 / 渐变 / 强调条），参数来自 CardSkinCatalog
+        when (skin.headerStyle) {
+            CardSkinCatalog.HeaderStyle.SOLID -> {
+                fillPaint.shader = null
+                fillPaint.color = headerColor
+                canvas.drawRect(m.left, m.top, m.left + m.width, bodyTop, fillPaint)
+            }
+            CardSkinCatalog.HeaderStyle.GRADIENT -> {
+                fillPaint.shader = android.graphics.LinearGradient(
+                    m.left, m.top, m.left + m.width, bodyTop,
+                    withAlpha(CardSkinCatalog.gradientStart(skin.accent), config.transparency),
+                    headerColor,
+                    android.graphics.Shader.TileMode.CLAMP
+                )
+                canvas.drawRect(m.left, m.top, m.left + m.width, bodyTop, fillPaint)
+                fillPaint.shader = null
+            }
+            CardSkinCatalog.HeaderStyle.ACCENT_BAR -> {
+                fillPaint.shader = null
+                fillPaint.color = headerColor
+                canvas.drawRect(m.left, m.top, m.left + m.width, bodyTop, fillPaint)
+                // 底部高亮细线，强调条目感
+                fillPaint.color = 0x88FFFFFF.toInt()
+                canvas.drawRect(
+                    m.left, bodyTop - m.fontSize * 0.12f,
+                    m.left + m.width, bodyTop, fillPaint
+                )
+            }
+        }
 
         // 斜切分界：标题区 | 时间区
         val cutX = m.left + m.width * 0.52f
@@ -286,10 +314,10 @@ class WatermarkRenderer {
             lineTo(m.left + m.width, m.top)
             close()
         }
-        fillPaint.color = withAlpha(tmpl.resolvedHeaderColor(), (config.transparency * 0.88f).coerceIn(0.4f, 1f))
+        fillPaint.color = withAlpha(skin.accent, (config.transparency * 0.88f).coerceIn(0.4f, 1f))
         // 右侧略深
         fillPaint.color = withAlpha(
-            (tmpl.resolvedHeaderColor() and 0x00FFFFFF) or 0x000000,
+            (skin.accent and 0x00FFFFFF) or 0x000000,
             0.25f
         )
         // 用更深一点的叠色
@@ -302,7 +330,7 @@ class WatermarkRenderer {
 
         fillPaint.style = Paint.Style.STROKE
         fillPaint.strokeWidth = maxOf(1.2f, m.fontSize * 0.05f)
-        fillPaint.color = withAlpha(tmpl.resolvedHeaderColor(), 0.9f)
+        fillPaint.color = withAlpha(skin.accent, 0.9f)
         canvas.drawRoundRect(rect, m.radius, m.radius, fillPaint)
         fillPaint.style = Paint.Style.FILL
 
@@ -397,8 +425,10 @@ class WatermarkRenderer {
         val footerY = bodyBottom + footerH * 0.62f
         if (timeBadge.isBlank()) {
             textPaint.color = 0xCCFFFFFF.toInt()
-            textPaint.textAlign = Paint.Align.CENTER
-            canvas.drawText(spec.slogan, m.left + m.width / 2f, footerY, textPaint)
+            val leftAligned = skin.footerAlign == CardSkinCatalog.FooterAlign.LEFT
+            textPaint.textAlign = if (leftAligned) Paint.Align.LEFT else Paint.Align.CENTER
+            val footerX = if (leftAligned) m.left + m.paddingH else m.left + m.width / 2f
+            canvas.drawText(spec.slogan, footerX, footerY, textPaint)
         } else {
             // 时间来源徽标：图标 + 文字 + 颜色三态，不只靠颜色（规范 §4）
             val style = badgeStyleFor(timeBadge)
