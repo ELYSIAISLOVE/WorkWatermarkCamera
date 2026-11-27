@@ -32,7 +32,29 @@ jobs:
           cache: gradle
 
       - name: 安装 Android SDK
+        # runner 镜像本身已预装 Android SDK；此 action 在部分镜像上会失败，
+        # 因此允许失败，由下一步兜底补齐组件（首次运行即因这一步失败导致整体中断）。
+        continue-on-error: true
         uses: android-actions/setup-android@v3
+
+      - name: 确保 SDK 组件（platform 34 / build-tools 34.0.0）
+        run: |
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "使用 SDK: $SDK_DIR"
+          SM=""
+          if [ -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SM="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+          else
+            SM="$(ls -d "$SDK_DIR"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -n1 || true)"
+          fi
+          echo "sdkmanager: ${SM:-未找到}"
+          if [ -n "$SM" ]; then
+            yes | "$SM" --licenses >/dev/null 2>&1 || true
+            "$SM" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+          fi
+          echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"
+          ls "$SDK_DIR/platforms" || true
 
       - name: 单元测试
         run: |
