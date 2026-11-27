@@ -39,10 +39,10 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
         val start = arguments?.getString(ARG_PHOTO_URI)
         if (start.isNullOrBlank()) {
             Feedback.light(binding.root, getString(R.string.feedback_invalid_photo))
-            parentFragmentManager.popBackStack()
+            androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack()
             return
         }
-        val all = arguments?.getStringArrayList(ARG_ALL_URIS) ?: arrayListOf(start)
+        val all = readUriList(arguments, ARG_ALL_URIS).ifEmpty { listOf(start) }
         viewModel.setPhotoList(start, all)
         setupGestures()
         setupButtons()
@@ -113,7 +113,8 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
                     viewModel.deleteSuccess.collect { done ->
                         if (done) {
                             Feedback.light(binding.root, getString(R.string.feedback_photo_deleted))
-                            parentFragmentManager.popBackStack()
+                            androidx.navigation.fragment.NavHostFragment
+                                .findNavController(this@PhotoDetailFragment).popBackStack()
                         }
                     }
                 }
@@ -122,7 +123,9 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
     }
 
     private fun setupButtons() {
-        binding.btnBack.setOnClickListener { parentFragmentManager.popBackStack() }
+        binding.btnBack.setOnClickListener {
+            androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack()
+        }
         binding.btnInfo.setOnClickListener {
             infoExpanded = !infoExpanded
             binding.tvInfo.isVisible = infoExpanded
@@ -329,14 +332,21 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
     companion object {
         private const val MIN_SCALE = 1f
         private const val MAX_SCALE = 5f
-        private const val ARG_PHOTO_URI = "photo_uri"
-        private const val ARG_ALL_URIS = "all_uris"
+        const val ARG_PHOTO_URI = "photo_uri"
+        const val ARG_ALL_URIS = "all_uris"
+
+        /** 导航组件按 string[] 传参，旧调用用 ArrayList，两种都读。 */
+        fun readUriList(bundle: Bundle?, key: String): List<String> {
+            bundle?.getStringArray(key)?.let { return it.toList() }
+            bundle?.getStringArrayList(key)?.let { return it }
+            return emptyList()
+        }
 
         fun newInstance(uri: String, allUris: ArrayList<String> = arrayListOf(uri)): PhotoDetailFragment {
             return PhotoDetailFragment().apply {
                 arguments = Bundle().apply {
                     putString(ARG_PHOTO_URI, uri)
-                    putStringArrayList(ARG_ALL_URIS, allUris)
+                    putStringArray(ARG_ALL_URIS, allUris.toTypedArray())
                 }
             }
         }

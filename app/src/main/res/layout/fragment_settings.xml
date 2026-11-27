@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  设置页（规范 §3）：拍摄 / 水印 / 时间与地点 / 关于。
+  全部走语义色，行高 ≥48dp，文字 12/14/16/20sp 四档。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/app_background"
+    android:orientation="vertical">
+
+    <!-- 顶栏 -->
+    <LinearLayout
+        android:id="@+id/settingsTopBar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="16dp">
+
+        <ImageButton
+            android:id="@+id/btnSettingsBack"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/gallery_back"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_ui_back"
+            app:tint="@color/app_on_surface" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/settings_title"
+            android:textColor="@color/app_on_surface"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="24dp">
+
+            <!-- 拍摄 -->
+            <TextView
+                style="@style/SettingsGroupTitle"
+                android:text="@string/settings_group_capture" />
+
+            <TextView
+                style="@style/SettingsRowLabel"
+                android:text="@string/settings_theme" />
+
+            <RadioGroup
+                android:id="@+id/rgTheme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rbThemeSystem"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/settings_theme_system"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="16sp" />
+
+                <RadioButton
+                    android:id="@+id/rbThemeLight"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/settings_theme_light"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="16sp" />
+
+                <RadioButton
+                    android:id="@+id/rbThemeDark"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/settings_theme_dark"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="16sp" />
+            </RadioGroup>
+
+            <TextView
+                style="@style/SettingsHint"
+                android:text="@string/settings_capture_hint" />
+
+            <View style="@style/SettingsDivider" />
+
+            <!-- 水印 -->
+            <TextView
+                style="@style/SettingsGroupTitle"
+                android:text="@string/settings_group_watermark" />
+
+            <TextView
+                android:id="@+id/tvCurrentTemplate"
+                style="@style/SettingsRowLabel"
+                android:text="@string/settings_template_unknown" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOpenWatermarkEditor"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/settings_open_watermark_editor"
+                android:textSize="16sp" />
+
+            <TextView
+                style="@style/SettingsHint"
+                android:text="@string/settings_watermark_hint" />
+
+            <View style="@style/SettingsDivider" />
+
+            <!-- 时间与地点 -->
+            <TextView
+                style="@style/SettingsGroupTitle"
+                android:text="@string/settings_group_time_location" />
+
+            <TextView
+                android:id="@+id/tvLocationState"
+                style="@style/SettingsRowLabel"
+                android:text="@string/settings_location_denied" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnLocationSettings"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:text="@string/permission_go_settings"
+                android:textSize="14sp" />
+
+            <TextView
+                style="@style/SettingsHint"
+                android:text="@string/settings_time_hint" />
+
+            <View style="@style/SettingsDivider" />
+
+            <!-- 关于 -->
+            <TextView
+                style="@style/SettingsGroupTitle"
+                android:text="@string/settings_group_about" />
+
+            <TextView
+                android:id="@+id/tvVersion"
+                style="@style/SettingsRowLabel"
+                android:text="@string/settings_version_placeholder" />
+
+            <TextView
+                style="@style/SettingsHint"
+                android:text="@string/settings_privacy" />
+
+            <TextView
+                style="@style/SettingsHint"
+                android:text="@string/settings_license" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

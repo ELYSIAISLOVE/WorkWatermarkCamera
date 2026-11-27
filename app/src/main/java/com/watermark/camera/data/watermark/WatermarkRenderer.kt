@@ -394,10 +394,36 @@ class WatermarkRenderer {
         // Footer: slogan + time-source badge（R2：时间必须带来源）
         textPaint.typeface = baseTypeface(config)
         textPaint.textSize = m.fontSize * 0.72f
-        textPaint.color = 0xCCFFFFFF.toInt()
-        textPaint.textAlign = Paint.Align.CENTER
-        val footer = if (timeBadge.isBlank()) spec.slogan else "${spec.slogan} · $timeBadge"
-        canvas.drawText(footer, m.left + m.width / 2f, bodyBottom + footerH * 0.62f, textPaint)
+        val footerY = bodyBottom + footerH * 0.62f
+        if (timeBadge.isBlank()) {
+            textPaint.color = 0xCCFFFFFF.toInt()
+            textPaint.textAlign = Paint.Align.CENTER
+            canvas.drawText(spec.slogan, m.left + m.width / 2f, footerY, textPaint)
+        } else {
+            // 时间来源徽标：图标 + 文字 + 颜色三态，不只靠颜色（规范 §4）
+            val style = badgeStyleFor(timeBadge)
+            textPaint.textAlign = Paint.Align.LEFT
+            textPaint.color = 0xCCFFFFFF.toInt()
+            canvas.drawText(spec.slogan, m.left + m.paddingH, footerY, textPaint)
+            textPaint.color = style.color
+            textPaint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(
+                "${style.glyph} $timeBadge",
+                m.left + m.width - m.paddingH,
+                footerY,
+                textPaint
+            )
+        }
+    }
+
+    /** 时间来源徽标的三态样式：可信时间=绿勾、离线推算=琥珀时钟、设备时间=红色警示。 */
+    private data class BadgeStyle(val color: Int, val glyph: String)
+
+    private fun badgeStyleFor(timeBadge: String): BadgeStyle = when {
+        timeBadge.contains("可信时间") -> BadgeStyle(0xFF4ADE80.toInt(), "✓")
+        timeBadge.contains("离线推算") -> BadgeStyle(0xFFFBBF24.toInt(), "◴")
+        timeBadge.contains("设备时间") -> BadgeStyle(0xFFF87171.toInt(), "⚠")
+        else -> BadgeStyle(0xCCFFFFFF.toInt(), "·")
     }
 
     private fun drawLogo(canvas: Canvas, t: WatermarkTemplate, cx: Float, cy: Float, r: Float) {

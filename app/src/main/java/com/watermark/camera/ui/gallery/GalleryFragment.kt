@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.navigation.fragment.findNavController
 import com.watermark.camera.R
 import com.watermark.camera.databinding.FragmentGalleryBinding
 import com.watermark.camera.ui.common.BaseFragment
@@ -278,7 +279,7 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
     }
 
     private fun setupButtons() {
-        binding.btnBack.setOnClickListener { parentFragmentManager.popBackStack() }
+        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
 
         binding.btnMultiSelect.setOnClickListener { viewModel.toggleMultiSelectMode() }
         binding.btnSelectAll.setOnClickListener { viewModel.selectAll() }
@@ -338,21 +339,22 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
     private fun handleEvent(event: GalleryEvent) {
         when (event) {
             is GalleryEvent.NavigateToDetail -> {
-                val detail = PhotoDetailFragment.newInstance(event.uri, ArrayList(event.allUris))
-                parentFragmentManager.beginTransaction()
-                    .replace(R.id.nav_host_fragment, detail)
-                    .addToBackStack("detail")
-                    .commit()
+                val args = Bundle().apply {
+                    putString(PhotoDetailFragment.ARG_PHOTO_URI, event.uri)
+                    putStringArray(PhotoDetailFragment.ARG_ALL_URIS, event.allUris.toTypedArray())
+                }
+                findNavController().navigate(R.id.action_gallery_to_detail, args)
                 viewModel.consumeEvent()
             }
             is GalleryEvent.SendToCollage -> {
                 try {
-                    val collage =
-                        com.watermark.camera.ui.collage.CollageFragment.newInstance(event.uris)
-                    requireActivity().supportFragmentManager.beginTransaction()
-                        .replace(R.id.nav_host_fragment, collage, "collage")
-                        .addToBackStack("collage")
-                        .commitAllowingStateLoss()
+                    val args = Bundle().apply {
+                        putStringArray(
+                            com.watermark.camera.ui.collage.CollageFragment.ARG_URIS,
+                            event.uris.toTypedArray()
+                        )
+                    }
+                    findNavController().navigate(R.id.action_gallery_to_collage, args)
                 } catch (e: Exception) {
                     android.util.Log.e("GalleryFragment", "collage", e)
                     Feedback.actionable(

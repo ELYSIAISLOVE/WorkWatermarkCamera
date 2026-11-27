@@ -79,6 +79,36 @@ class CollageViewModel @Inject constructor(
     private val _savedUri = MutableStateFlow<Uri?>(null)
     val savedUri: StateFlow<Uri?> = _savedUri.asStateFlow()
 
+    // region 撤销（规范 §6）
+
+    private data class Snapshot(
+        val photos: List<String>,
+        val style: CollageEngine.CollageStyle,
+        val template: CollageTemplate
+    )
+
+    private val history = ArrayDeque<Snapshot>()
+
+    private val _canUndo = MutableStateFlow(false)
+    val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
+
+    /** 结构性改动（选图/换模板/背景/排序/删除）前留快照，最多保留 20 步。 */
+    private fun pushHistory() {
+        history.addLast(Snapshot(_selectedPhotos.value, _style.value, _selectedTemplate.value))
+        while (history.size > 20) history.removeFirst()
+        _canUndo.value = true
+    }
+
+    fun undo() {
+        val snap = history.removeLastOrNull() ?: return
+        _selectedPhotos.value = snap.photos
+        _style.value = snap.style
+        _selectedTemplate.value = snap.template
+        _canUndo.value = history.isNotEmpty()
+    }
+
+    // endregion
+
     // 报告栏文字（拼图底部信息条）
     private val _reportTitle = MutableStateFlow("工作汇报")
     val reportTitle: StateFlow<String> = _reportTitle.asStateFlow()
@@ -114,6 +144,7 @@ class CollageViewModel @Inject constructor(
     }
 
     fun setBackgroundColor(@androidx.annotation.ColorInt color: Int) {
+        pushHistory()
         _style.value = _style.value.copy(backgroundColor = color)
     }
 
@@ -122,6 +153,7 @@ class CollageViewModel @Inject constructor(
         if (from !in cur.indices) return
         val target = to.coerceIn(0, cur.size - 1)
         if (from == target) return
+        pushHistory()
         val item = cur.removeAt(from)
         cur.add(target, item)
         _selectedPhotos.value = cur
@@ -137,6 +169,8 @@ class CollageViewModel @Inject constructor(
      * Select a collage template.
      */
     fun selectTemplate(template: CollageTemplate) {
+        if (_selectedTemplate.value == template) return
+        pushHistory()
         _selectedTemplate.value = template
         Logger.d(TAG, "Template selected: ${template.displayName}")
     }
@@ -200,6 +234,7 @@ class CollageViewModel @Inject constructor(
     fun addPhoto(path: String) {
         val current = _selectedPhotos.value.toMutableList()
         if (!current.contains(path)) {
+            pushHistory()
             current.add(path)
             _selectedPhotos.value = current
         }
@@ -211,6 +246,7 @@ class CollageViewModel @Inject constructor(
     fun removePhotoAt(index: Int) {
         val current = _selectedPhotos.value.toMutableList()
         if (index in current.indices) {
+            pushHistory()
             current.removeAt(index)
             _selectedPhotos.value = current
         }
@@ -220,6 +256,7 @@ class CollageViewModel @Inject constructor(
      * Clear all selections.
      */
     fun clearSelections() {
+        if (_selectedPhotos.value.isNotEmpty()) pushHistory()
         _selectedPhotos.value = emptyList()
         _collageResult.value = null
         _errorMessage.value = null

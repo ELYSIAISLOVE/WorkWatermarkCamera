@@ -69,6 +69,9 @@ class CollageFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // 预览区至少占屏幕高度 55%（规范 §6）
+        binding.previewContainer.minimumHeight =
+            (resources.displayMetrics.heightPixels * 0.55f).toInt()
         setupTemplates()
         setupStyle()
         setupBackgrounds()
@@ -81,7 +84,9 @@ class CollageFragment : Fragment() {
     /** 从相册带过来的已选照片（只处理一次，避免旋转屏幕后重复导入）。 */
     private fun importArgumentsOnce() {
         if (importedArguments) return
-        val uris = arguments?.getStringArrayList(ARG_URIS) ?: return
+        // 导航组件按 string[] 传参，旧调用用 ArrayList，两种都读
+        val uris = arguments?.getStringArray(ARG_URIS)?.toList()
+            ?: arguments?.getStringArrayList(ARG_URIS) ?: return
         if (uris.isEmpty()) return
         importedArguments = true
         viewModel.importFromPicker(requireContext(), uris.map { Uri.parse(it) })
@@ -192,6 +197,7 @@ class CollageFragment : Fragment() {
     private fun setupActions() {
         binding.btnPick.setOnClickListener { pickImages.launch("image/*") }
         binding.btnClear.setOnClickListener { viewModel.clearSelections() }
+        binding.btnUndo.setOnClickListener { viewModel.undo() }
         binding.btnGenerate.setOnClickListener { viewModel.generateCollage() }
         binding.btnShare.setOnClickListener {
             val uri = viewModel.savedUri.value ?: return@setOnClickListener
@@ -238,6 +244,10 @@ class CollageFragment : Fragment() {
                 }
 
                 launch {
+                    viewModel.canUndo.collect { binding.btnUndo.isEnabled = it }
+                }
+
+                launch {
                     viewModel.errorMessage.collect { msg ->
                         msg?.let {
                             Feedback.actionable(binding.root, it)
@@ -265,10 +275,10 @@ class CollageFragment : Fragment() {
     companion object {
         fun newInstance(uris: List<String>): CollageFragment = CollageFragment().apply {
             arguments = Bundle().apply {
-                putStringArrayList(ARG_URIS, ArrayList(uris))
+                putStringArray(ARG_URIS, uris.toTypedArray())
             }
         }
 
-        private const val ARG_URIS = "collage_uris"
+        const val ARG_URIS = "collage_uris"
     }
 }

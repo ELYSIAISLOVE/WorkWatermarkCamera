@@ -97,6 +97,7 @@
     <string name="feedback_settings_saved">设置已保存</string>
     <string name="feedback_settings_reset">已恢复默认设置</string>
     <string name="feedback_collage_open_failed">无法打开拼图</string>
+    <string name="feedback_gallery_open_failed">无法打开相册</string>
 
     <!-- 控件与无障碍（规范 §4 控件规格） -->
     <string name="flash_toggle">补光灯</string>
@@ -125,4 +126,28 @@
     <!-- 拼图（规范 §6） -->
     <string name="collage_undo">撤销</string>
     <string name="collage_saving">正在保存…</string>
+    <string name="collage_empty_hint">点「选图」开始拼图</string>
+
+    <!-- 设置页（规范 §3：拍摄 / 水印 / 时间与地点 / 关于） -->
+    <string name="settings_title">设置</string>
+    <string name="settings_group_capture">拍摄</string>
+    <string name="settings_group_watermark">水印</string>
+    <string name="settings_group_time_location">时间与地点</string>
+    <string name="settings_group_about">关于</string>
+    <string name="settings_theme">外观</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_dark">深色</string>
+    <string name="settings_capture_hint">相机取景区始终为深色，不随外观变化。</string>
+    <string name="settings_template_unknown">未选择模板</string>
+    <string name="settings_open_watermark_editor">编辑水印</string>
+    <string name="settings_watermark_hint">水印只包含时间、地点与自定义内容三类信息，可在面板里调整样式与位置。</string>
+    <string name="settings_location_precise">定位：精确位置已授权</string>
+    <string name="settings_location_approximate">定位：仅大致位置</string>
+    <string name="settings_location_denied">定位：未授权，水印不显示地点</string>
+    <string name="settings_time_hint">拍摄时间优先使用联网授时；离线时按上次校准推算，并在水印上标明来源。</string>
+    <string name="settings_version">版本 %1$s</string>
+    <string name="settings_version_placeholder">版本</string>
+    <string name="settings_privacy">照片与位置只保存在本机，应用不上传任何内容。</string>
+    <string name="settings_license">本应用以 MIT 许可发布。</string>
 </resources>

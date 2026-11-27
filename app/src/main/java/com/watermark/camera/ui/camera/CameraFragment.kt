@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.navigation.fragment.findNavController
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -45,6 +46,10 @@ import dagger.hilt.android.AndroidEntryPoint
 class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
     private val viewModel: CameraViewModel by viewModels()
+
+    /** 用于拍照后取最近一张照片的缩略图做「飞入」动效（规范 §4）。 */
+    @javax.inject.Inject
+    lateinit var databaseRepository: com.watermark.camera.domain.repository.DatabaseRepository
 
     /**
      * Camera permission launcher.
@@ -86,6 +91,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
      * Current zoom ratio for pinch gesture tracking.
      */
     private var currentZoomRatio = 1.0f
+    /** 双指捏合进行中：用于让缩放优先于单击对焦（规范 §4）。 */
+    private var scaleInProgress = false
     /** 用户可变焦上限（双指/拖动均限制） */
     private val MAX_USER_ZOOM = 10.0f
 
@@ -145,9 +152,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             openCollage()
         }
 
-        // Settings button click（设置入口已收敛到顶栏，规范 §3）
+        // Settings button click：进入合并后的单一设置页（规范 §3，取消侧栏）
         binding.btnSettings.setOnClickListener {
-            openSidePanel()
+            runCatching { findNavController().navigate(R.id.action_camera_to_settings) }
         }
 
         // 顶栏：拼图（自底栏上移）
@@ -231,12 +238,17 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             val scaleHandled = scaleGestureDetector?.onTouchEvent(event) ?: false
 
             // Handle tap to focus
-            if (event.pointerCount == 1 && event.action == android.view.MotionEvent.ACTION_UP && !scaleHandled) {
+            if (event.pointerCount == 1 &&
+                event.action == android.view.MotionEvent.ACTION_UP &&
+                !scaleHandled && !scaleInProgress
+            ) {
                 val previewView = binding.previewView
                 val x = event.x / previewView.width
                 val y = event.y / previewView.height
                 viewModel.tapToFocus(x, y)
                 showFocusFrame(event.x, event.y)
+                // 对焦框旁显示曝光滑杆（规范 §4）
+                runCatching { binding.sliderExposure.visibility = View.VISIBLE }
             }
 
             v.performClick()
@@ -345,6 +357,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             }
             is CameraEvent.ShutterFeedback -> {
                 playShutterAnimation()
+                playThumbnailFlyIn()
             }
             is CameraEvent.RequestCameraPermission -> {
                 requestCameraPermissionIfNeeded()
@@ -371,6 +384,16 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         scaleGestureDetector = ScaleGestureDetector(
             requireContext(),
             object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                    // 双指捏合优先于单击对焦等其它手势（规范 §4）
+                    scaleInProgress = true
+                    return true
+                }
+
+                override fun onScaleEnd(detector: ScaleGestureDetector) {
+                    scaleInProgress = false
+                }
+
                 override fun onScale(detector: ScaleGestureDetector): Boolean {
                     val scale = detector.scaleFactor
                     val minZ = viewModel.getMinZoomRatio().coerceAtLeast(1f)
@@ -428,7 +451,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             alpha = 0.8f
             animate()
                 .alpha(0.0f)
-                .setDuration(200)
+                .setDuration(80) // 规范 §4：快门瞬间闪白约 80ms
                 .withEndAction {
                     visibility = View.INVISIBLE
                 }
@@ -467,6 +490,66 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             lifecycleOwner = viewLifecycleOwner,
             previewSurface = binding.previewView.surfaceProvider
         )
+    }
+
+    /**
+     * 缩略图「飞入」相册入口（规范 §4）：从取景区中心飞向相册按钮后淡出。
+     * 缩略图取最近一张照片，取不到就跳过动效，不影响拍照主流程。
+     */
+    private fun playThumbnailFlyIn() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val uri = runCatching {
+                databaseRepository.getRecentPhotos(1).firstOrNull()?.uri
+            }.getOrNull() ?: return@launch
+
+            val bitmap = runCatching {
+                requireContext().contentResolver.openInputStream(android.net.Uri.parse(uri))
+                    ?.use {
+                        android.graphics.BitmapFactory.decodeStream(
+                            it, null,
+                            android.graphics.BitmapFactory.Options().apply { inSampleSize = 8 }
+                        )
+                    }
+            }.getOrNull() ?: return@launch
+
+            val root = binding.root as? android.view.ViewGroup ?: return@launch
+            val sizePx = (48 * resources.displayMetrics.density).toInt()
+            val rootLoc = IntArray(2).also { root.getLocationInWindow(it) }
+            val previewLoc = IntArray(2).also { binding.previewView.getLocationInWindow(it) }
+            val galleryLoc = IntArray(2).also { binding.btnGallery.getLocationInWindow(it) }
+
+            val startX = (previewLoc[0] - rootLoc[0] +
+                binding.previewView.width / 2 - sizePx / 2).toFloat()
+            val startY = (previewLoc[1] - rootLoc[1] +
+                binding.previewView.height / 2 - sizePx / 2).toFloat()
+            val endX = (galleryLoc[0] - rootLoc[0] +
+                binding.btnGallery.width / 2 - sizePx / 2).toFloat()
+            val endY = (galleryLoc[1] - rootLoc[1] +
+                binding.btnGallery.height / 2 - sizePx / 2).toFloat()
+
+            val fly = android.widget.ImageView(requireContext()).apply {
+                setImageBitmap(bitmap)
+                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                layoutParams = android.view.ViewGroup.LayoutParams(sizePx, sizePx)
+                x = startX
+                y = startY
+                alpha = 0f
+                elevation = 30f
+                isClickable = false
+            }
+            root.addView(fly)
+            fly.animate().alpha(1f).scaleX(0.85f).scaleY(0.85f).setDuration(120)
+                .withEndAction {
+                    fly.animate()
+                        .x(endX).y(endY)
+                        .scaleX(0.35f).scaleY(0.35f)
+                        .alpha(0f)
+                        .setDuration(260)
+                        .withEndAction { runCatching { root.removeView(fly) } }
+                        .start()
+                }
+                .start()
+        }
     }
 
     /**
@@ -541,13 +624,16 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     // region Navigation
 
     private fun openGallery() {
-        requireActivity().supportFragmentManager.beginTransaction()
-            .replace(
-                com.watermark.camera.R.id.nav_host_fragment,
-                com.watermark.camera.ui.gallery.GalleryFragment()
+        // 统一走 NavController（规范 §3），支持系统返回手势
+        runCatching {
+            findNavController().navigate(R.id.action_camera_to_gallery)
+        }.onFailure { e ->
+            android.util.Log.e("CameraFragment", "openGallery", e)
+            Feedback.actionable(
+                binding.root,
+                getString(R.string.feedback_gallery_open_failed)
             )
-            .addToBackStack("gallery")
-            .commit()
+        }
     }
 
 
@@ -616,13 +702,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     }
 
     private fun openCollage() {
-        try {
-            val collage = com.watermark.camera.ui.collage.CollageFragment.newInstance(emptyList())
-            requireActivity().supportFragmentManager.beginTransaction()
-                .replace(R.id.nav_host_fragment, collage, "collage")
-                .addToBackStack("collage")
-                .commitAllowingStateLoss()
-        } catch (e: Exception) {
+        runCatching {
+            findNavController().navigate(R.id.action_camera_to_collage)
+        }.onFailure { e ->
             android.util.Log.e("CameraFragment", "openCollage", e)
             Feedback.actionable(
                 binding.root,
@@ -659,8 +741,9 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private fun hideRedundantTopControls() {
         // Keep bottom bar only; remove duplicate / unused top chrome
         runCatching { binding.tvAspectRatio.visibility = View.GONE }
-        runCatching { binding.tvEvValue.visibility = View.GONE }
+        // 曝光滑杆在单击对焦后出现（规范 §4），不再强制隐藏
         runCatching { binding.sliderExposure.visibility = View.GONE }
+        runCatching { binding.tvEvValue.visibility = View.VISIBLE }
         runCatching { binding.btnSettingsTop.visibility = View.GONE }
         runCatching { binding.btnVerify.visibility = View.GONE }
         runCatching { binding.btnMenu.visibility = View.GONE }

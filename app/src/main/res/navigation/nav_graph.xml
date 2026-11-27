@@ -1,15 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  导航图（规范 §3）：相机页是唯一主页，相册 / 详情 / 拼图 / 设置都是子页，
+  统一走 NavController 返回栈，支持系统返回手势与预测式返回。
+-->
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
     app:startDestination="@id/cameraFragment">
 
-    <!-- Camera Preview Screen (Main) -->
     <fragment
         android:id="@+id/cameraFragment"
         android:name="com.watermark.camera.ui.camera.CameraFragment"
-        android:label="CameraFragment"
-        tools:layout="@layout/fragment_camera" />
+        android:label="相机"
+        tools:layout="@layout/fragment_camera">
+        <action
+            android:id="@+id/action_camera_to_gallery"
+            app:destination="@id/galleryFragment"
+            app:enterAnim="@android:anim/fade_in"
+            app:exitAnim="@android:anim/fade_out"
+            app:popEnterAnim="@android:anim/fade_in"
+            app:popExitAnim="@android:anim/fade_out" />
+        <action
+            android:id="@+id/action_camera_to_collage"
+            app:destination="@id/collageFragment" />
+        <action
+            android:id="@+id/action_camera_to_settings"
+            app:destination="@id/settingsFragment" />
+    </fragment>
 
+    <fragment
+        android:id="@+id/galleryFragment"
+        android:name="com.watermark.camera.ui.gallery.GalleryFragment"
+        android:label="相册"
+        tools:layout="@layout/fragment_gallery">
+        <action
+            android:id="@+id/action_gallery_to_detail"
+            app:destination="@id/photoDetailFragment" />
+        <action
+            android:id="@+id/action_gallery_to_collage"
+            app:destination="@id/collageFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/photoDetailFragment"
+        android:name="com.watermark.camera.ui.detail.PhotoDetailFragment"
+        android:label="照片详情"
+        tools:layout="@layout/fragment_photo_detail">
+        <!-- 详情页参数：当前照片 + 同批照片列表（用于左右滑动） -->
+        <argument
+            android:name="photo_uri"
+            android:defaultValue=""
+            app:argType="string" />
+        <argument
+            android:name="all_uris"
+            android:defaultValue="@null"
+            app:argType="string[]"
+            app:nullable="true" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/collageFragment"
+        android:name="com.watermark.camera.ui.collage.CollageFragment"
+        android:label="拼图"
+        tools:layout="@layout/fragment_collage">
+        <argument
+            android:name="collage_uris"
+            android:defaultValue="@null"
+            app:argType="string[]"
+            app:nullable="true" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.watermark.camera.ui.settings.SettingsFragment"
+        android:label="设置"
+        tools:layout="@layout/fragment_settings" />
 </navigation>

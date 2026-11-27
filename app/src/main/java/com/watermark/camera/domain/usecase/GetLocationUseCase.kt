@@ -29,6 +29,9 @@ class GetLocationUseCase @Inject constructor(
         val maxAttempts: Int = MAX_ATTEMPTS
     )
 
+    /** 供界面显示「未授权 / 获取中 / 失败」三态中的未授权态（规范 §4）。 */
+    fun hasPermission(): Boolean = locationRepository.hasLocationPermission()
+
     override suspend fun execute(params: Params): Result<LocationData> {
         if (!locationRepository.hasLocationPermission()) {
             return Result.failure(SecurityException("定位权限未授予"))

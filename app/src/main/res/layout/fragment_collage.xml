@@ -9,6 +9,7 @@
 
     <!-- 预览区 -->
     <FrameLayout
+        android:id="@+id/previewContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
@@ -18,7 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@color/app_surface"
-            android:contentDescription="拼图预览"
+            android:contentDescription="@string/collage_title"
             android:scaleType="fitCenter" />
 
         <TextView
@@ -26,7 +27,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="点「选图」开始拼图"
+            android:text="@string/collage_empty_hint"
             android:textColor="@color/app_on_surface_secondary"
             android:textSize="16sp" />
 
@@ -250,7 +251,17 @@
             android:text="清空" />
 
         <Button
-            android:id="@+id/btnPick"
+            android:id="@+id/btnUndo"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:enabled="false"
+            android:text="@string/collage_undo" />
+
+            <Button
+                android:id="@+id/btnPick"
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_marginEnd="8dp"

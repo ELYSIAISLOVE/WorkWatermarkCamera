@@ -540,6 +540,11 @@ class CameraViewModel @Inject constructor(
         locationSampleJob?.cancel()
         locationSampleJob = viewModelScope.launch(Dispatchers.IO) {
             // Always re-fetch on open / return
+            // 定位三态之一：未授权时直接把状态写在水印卡片上，而不是一直「定位中…」
+            if (!getLocationUseCase.hasPermission()) {
+                _locationDisplay.value = "未授权定位"
+                return@launch
+            }
             _locationDisplay.value = "定位中…"
             val firstDeadline = System.currentTimeMillis() + 10_000L
             var gotFix = false
