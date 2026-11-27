@@ -594,6 +594,9 @@ class CameraViewModel @Inject constructor(
      */
     fun getMinZoomRatio(): Float = cameraRepository.getMinZoomRatio()
 
+    /** 设备是否有补光灯；没有时界面隐藏该按钮（规范 §8）。 */
+    fun hasFlashUnit(): Boolean = cameraRepository.hasFlashUnit()
+
     /**
      * Get maximum zoom ratio.
      */

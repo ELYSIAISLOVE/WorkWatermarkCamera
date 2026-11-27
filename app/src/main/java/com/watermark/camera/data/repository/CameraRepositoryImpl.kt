@@ -246,6 +246,8 @@ class CameraRepositoryImpl @Inject constructor(
         return camera?.cameraInfo?.torchState?.value == TorchState.ON
     }
 
+    override fun hasFlashUnit(): Boolean = camera?.cameraInfo?.hasFlashUnit() ?: false
+
     override fun isLowLight(): Boolean {
         val cameraInfo = camera?.cameraInfo ?: return false
         val exposureState = cameraInfo.exposureState

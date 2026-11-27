@@ -173,6 +173,11 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             runCatching { binding.tvGalleryLabel.visibility = View.GONE }
         }
 
+        // Android 12 以下没有背景模糊，毛玻璃降级为半透明纯色（规范 §8）
+        if (!com.watermark.camera.util.UiCapabilities.supportsBlur) {
+            runCatching { binding.btnWatermark.setBackgroundResource(R.drawable.bg_top_bar_solid) }
+        }
+
         // iOS-like press scale on main buttons
         runCatching {
             ViewAnim.attachPressScale(
@@ -497,6 +502,8 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
      * 缩略图取最近一张照片，取不到就跳过动效，不影响拍照主流程。
      */
     private fun playThumbnailFlyIn() {
+        // 低内存机型关闭该动效，避免额外解码位图（规范 §8）
+        if (com.watermark.camera.util.UiCapabilities.isLowRamDevice) return
         viewLifecycleOwner.lifecycleScope.launch {
             val uri = runCatching {
                 databaseRepository.getRecentPhotos(1).firstOrNull()?.uri
@@ -1050,12 +1057,24 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private var zoomWedgeVisible = false
 
     private fun setupZoomChips() {
-        // 隐藏旧 chip 行
+        // 镜头芯片只显示设备实际具备的档位（规范 §4 / §8）
         runCatching {
-            binding.zoomChip05.visibility = View.GONE
-            binding.zoomChip1x.visibility = View.GONE
-            binding.zoomChip2x.visibility = View.GONE
-            binding.zoomChipRow.visibility = View.GONE
+            val minZoom = viewModel.getMinZoomRatio().coerceAtLeast(0.1f)
+            val maxZoom = viewModel.getMaxZoomRatio().coerceAtLeast(1f)
+
+            binding.zoomChip05.visibility = if (minZoom <= 0.55f) View.VISIBLE else View.GONE
+            binding.zoomChip1x.visibility = View.VISIBLE
+            binding.zoomChip2x.visibility = if (maxZoom >= 1.9f) View.VISIBLE else View.GONE
+            binding.zoomChipRow.visibility = View.VISIBLE
+
+            binding.zoomChip05.setOnClickListener {
+                applyZoomFromUi(0.5f.coerceIn(minZoom, maxZoom))
+            }
+            binding.zoomChip1x.setOnClickListener { applyZoomFromUi(1f.coerceIn(minZoom, maxZoom)) }
+            binding.zoomChip2x.setOnClickListener { applyZoomFromUi(2f.coerceIn(minZoom, maxZoom)) }
+
+            // 没有补光灯的设备直接隐藏按钮
+            if (!viewModel.hasFlashUnit()) binding.btnFlash.visibility = View.GONE
         }
         // 倍率文字必须可见，作为变焦入口
         runCatching {

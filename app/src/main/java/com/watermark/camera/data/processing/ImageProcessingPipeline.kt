@@ -44,7 +44,9 @@ class ImageProcessingPipeline @Inject constructor(
     companion object {
         private const val TAG = "ImagePipeline"
         private const val TEMP_DIR = "processing_temp"
-        private const val MAX_PROCESSING_DIMENSION = 2560
+    /** 长边上限：低内存机型自动降级（见 UiCapabilities）。 */
+    private val maxProcessingDimension: Int
+        get() = com.watermark.camera.util.UiCapabilities.maxProcessingDimension
     }
 
     private val decoder = BitmapDecoder()
@@ -82,7 +84,7 @@ class ImageProcessingPipeline @Inject constructor(
 
             // Stage 2: Decode
             Logger.i(TAG, "[$operationId] Stage 1/5: Decoding...")
-            sourceBitmap = decoder.decode(captureResult.imageProxy, MAX_PROCESSING_DIMENSION)
+            sourceBitmap = decoder.decode(captureResult.imageProxy, maxProcessingDimension)
             memoryManager.checkMemory("${operationId}_decoded")
 
             // Stage 3: Watermark

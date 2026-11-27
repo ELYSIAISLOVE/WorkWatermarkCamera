@@ -87,6 +87,9 @@ interface CameraRepository {
      */
     fun getTorchState(): Boolean
 
+    /** 设备是否有可用的补光灯/闪光灯（没有时界面应直接隐藏按钮，规范 §8）。 */
+    fun hasFlashUnit(): Boolean
+
     /**
      * Check if current environment is low light.
      * Uses CameraX exposure state to estimate.

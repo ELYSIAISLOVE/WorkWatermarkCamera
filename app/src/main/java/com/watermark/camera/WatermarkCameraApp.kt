@@ -11,6 +11,7 @@ class WatermarkCameraApp : Application() {
     override fun onCreate() {
         super.onCreate()
         applyStoredTheme()
+        com.watermark.camera.util.UiCapabilities.init(this)
         com.watermark.camera.data.processing.BitmapDecoder.appContext = applicationContext
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
