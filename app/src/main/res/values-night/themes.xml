@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 深色主题下状态栏改为深底白图标，否则白图标压在浅底上看不见 -->
     <style name="Theme.WatermarkCamera" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- API 29 起生效，低版本忽略（lint 已声明意图） -->
+        <item name="android:forceDarkAllowed" tools:ignore="NewApi">false</item>
         <item name="colorPrimary">@color/color_primary</item>
         <item name="colorPrimaryDark">@color/color_primary_dark</item>
         <item name="colorAccent">@color/color_primary</item>

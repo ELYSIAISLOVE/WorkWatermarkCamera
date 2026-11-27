@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 基础主题：颜色全部走语义色，随 DayNight 切换（见 values-night/） -->
     <style name="Theme.WatermarkCamera" parent="Theme.Material3.DayNight.NoActionBar">
@@ -19,6 +19,10 @@
         <!-- 导航栏 -->
         <item name="android:navigationBarColor">@color/app_background</item>
         <item name="android:windowTranslucentNavigation">false</item>
+
+        <!-- 关闭厂商强制深色，避免取景区与水印预览被改色（规范 §8）。
+             该属性 API 29 起生效，低版本系统会忽略，故对 lint 声明意图。 -->
+        <item name="android:forceDarkAllowed" tools:ignore="NewApi">false</item>
 
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>

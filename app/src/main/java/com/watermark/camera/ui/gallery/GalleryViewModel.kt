@@ -44,8 +44,11 @@ class GalleryViewModel @Inject constructor(
 
         private const val PREF = "gallery_ui"
         private const val KEY_COLUMNS = "grid_columns"
+
+        /** 0 表示按屏宽自适应（规范 §6：每列约 110dp，手机至少 3 列，平板 5–8 列）。 */
+        const val COLUMNS_AUTO = 0
         const val MIN_COLUMNS = 2
-        const val MAX_COLUMNS = 5
+        const val MAX_COLUMNS = 8
     }
 
     private val prefs = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -78,14 +81,21 @@ class GalleryViewModel @Inject constructor(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    /** 网格列数（2–5），持久化。 */
+    /** 网格列数，0 = 自适应；持久化。 */
     private val _columns = MutableStateFlow(
-        prefs.getInt(KEY_COLUMNS, 3).coerceIn(MIN_COLUMNS, MAX_COLUMNS)
+        prefs.getInt(KEY_COLUMNS, COLUMNS_AUTO).let {
+            if (it == COLUMNS_AUTO) COLUMNS_AUTO else it.coerceIn(MIN_COLUMNS, MAX_COLUMNS)
+        }
     )
     val columns: StateFlow<Int> = _columns.asStateFlow()
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
+
+    /** 已确认但还没真正删除的 uri；非空时界面提供「撤销」（规范 §6）。 */
+    private val pendingDelete = linkedSetOf<String>()
+    private val _undoAvailable = MutableStateFlow<List<String>?>(null)
+    val undoAvailable: StateFlow<List<String>?> = _undoAvailable.asStateFlow()
 
     private val _event = MutableStateFlow<GalleryEvent?>(null)
     val event: StateFlow<GalleryEvent?> = _event.asStateFlow()
@@ -163,7 +173,12 @@ class GalleryViewModel @Inject constructor(
     }
 
     private fun rebuildItems() {
-        _items.value = GalleryItem.build(_photos.value, _selectedUris.value)
+        val visible = if (pendingDelete.isEmpty()) {
+            _photos.value
+        } else {
+            _photos.value.filterNot { pendingDelete.contains(it.uri) }
+        }
+        _items.value = GalleryItem.build(visible, _selectedUris.value)
     }
 
     // endregion
@@ -186,7 +201,7 @@ class GalleryViewModel @Inject constructor(
     }
 
     fun setColumns(count: Int) {
-        val c = count.coerceIn(MIN_COLUMNS, MAX_COLUMNS)
+        val c = if (count == COLUMNS_AUTO) COLUMNS_AUTO else count.coerceIn(MIN_COLUMNS, MAX_COLUMNS)
         _columns.value = c
         prefs.edit().putInt(KEY_COLUMNS, c).apply()
     }
@@ -237,13 +252,36 @@ class GalleryViewModel @Inject constructor(
     // region 删除
 
     /**
-     * 删除选中照片。
+     * 第一步：把选中照片标记为待删除并立即从列表隐藏，同时暴露 [undoAvailable]
+     * 供界面显示「撤销」（规范 §6）。真正的删除由 [commitPendingDelete] 完成。
+     */
+    fun deleteSelected() {
+        val uris = _selectedUris.value.toList()
+        if (uris.isEmpty() || uris.all { pendingDelete.contains(it) }) return
+        pendingDelete.addAll(uris)
+        _selectedUris.value = linkedSetOf()
+        _isMultiSelectMode.value = false
+        rebuildItems()
+        _undoAvailable.value = pendingDelete.toList()
+    }
+
+    /** 撤销删除：只是取消待删标记，照片从未被真正删除。 */
+    fun undoDelete() {
+        pendingDelete.clear()
+        _undoAvailable.value = null
+        rebuildItems()
+    }
+
+    /**
+     * 第二步：用户没有再撤销，真正删除。
      *
      * 只有 MediaStore 真删成功（或文件已不存在）才计入成功；失败会如实告知用户，
      * 不再像旧实现那样无条件报告成功。
      */
-    fun deleteSelected() {
-        val uris = _selectedUris.value.toList()
+    fun commitPendingDelete() {
+        val uris = pendingDelete.toList()
+        pendingDelete.clear()
+        _undoAvailable.value = null
         if (uris.isEmpty()) return
         viewModelScope.launch {
             _isLoading.value = true
@@ -268,8 +306,6 @@ class GalleryViewModel @Inject constructor(
                 val removed = uris - failed.toSet()
                 databaseRepository.deletePhotos(removed)
             }
-            _selectedUris.value = linkedSetOf()
-            _isMultiSelectMode.value = false
             _message.value = when {
                 failed.isEmpty() -> "已删除 $deleted 张"
                 deleted == 0 -> "删除失败（${failed.size} 张），请检查相册权限"

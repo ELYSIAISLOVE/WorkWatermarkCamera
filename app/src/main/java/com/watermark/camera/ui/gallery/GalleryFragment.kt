@@ -162,6 +162,13 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
                 }
 
                 launch {
+                    viewModel.undoAvailable.collect { pending ->
+                        if (pending.isNullOrEmpty()) return@collect
+                        showUndoSnackbar(pending.size)
+                    }
+                }
+
+                launch {
                     viewModel.event.collect { event ->
                         event?.let { handleEvent(it) }
                     }
@@ -202,8 +209,12 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
         })
     }
 
-    /** 应用列数，并按列宽把格子设成正方形。 */
-    private fun applyColumns(columns: Int) {
+    /**
+     * 应用列数。传入 [GalleryViewModel.COLUMNS_AUTO]（0）时按屏宽自适应：
+     * 每列约 110dp，手机至少 3 列、平板最多 8 列（规范 §6）。
+     */
+    private fun applyColumns(pref: Int) {
+        val columns = if (pref > 0) pref else autoColumns()
         val lm = layoutManager ?: GridLayoutManager(requireContext(), columns).also {
             layoutManager = it
             binding.recyclerView.layoutManager = it
@@ -219,8 +230,41 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
                 val padding = binding.recyclerView.paddingLeft + binding.recyclerView.paddingRight
                 val cell = (width - padding) / columns
                 adapter.cellSizePx = cell.coerceAtLeast(1)
+                // 自适应模式下，宽度变化（旋转 / 分屏 / 折叠屏展开）时重算列数
+                if (pref <= 0) {
+                    val recomputed = autoColumns(width)
+                    if (recomputed != lm.spanCount) {
+                        lm.spanCount = recomputed
+                        lm.spanSizeLookup = adapter.spanSizeLookup(recomputed)
+                        adapter.cellSizePx = ((width - padding) / recomputed).coerceAtLeast(1)
+                    }
+                }
             }
         }
+    }
+
+    private fun autoColumns(widthPx: Int = 0): Int {
+        val width = if (widthPx > 0) widthPx else binding.recyclerView.width.takeIf { it > 0 }
+            ?: resources.displayMetrics.widthPixels
+        val padding = binding.recyclerView.paddingLeft + binding.recyclerView.paddingRight
+        val target = (110 * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+        return ((width - padding) / target).coerceIn(3, GalleryViewModel.MAX_COLUMNS)
+    }
+
+    /** 删除后提供「撤销」：撤销不删除任何文件，超时或被划走才真正删除（规范 §6）。 */
+    private fun showUndoSnackbar(count: Int) {
+        val bar = com.google.android.material.snackbar.Snackbar.make(
+            binding.root,
+            getString(R.string.gallery_delete_done, count),
+            com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+        )
+        bar.setAction(R.string.gallery_delete_undo) { viewModel.undoDelete() }
+        bar.addCallback(object : com.google.android.material.snackbar.Snackbar.Callback() {
+            override fun onDismissed(transientBottomBar: com.google.android.material.snackbar.Snackbar?, event: Int) {
+                if (event != DISMISS_EVENT_ACTION) viewModel.commitPendingDelete()
+            }
+        })
+        bar.show()
     }
 
     private fun setupSearch() {
@@ -247,10 +291,10 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
             val n = viewModel.selectedUris.value.size
             if (n <= 0) return@setOnClickListener
             AlertDialog.Builder(requireContext())
-                .setTitle("删除照片")
-                .setMessage("确定删除选中的 $n 张照片？此操作不可恢复。")
-                .setPositiveButton("删除") { _, _ -> viewModel.deleteSelected() }
-                .setNegativeButton("取消", null)
+                .setTitle(R.string.gallery_delete_confirm_title)
+                .setMessage(getString(R.string.gallery_delete_confirm_message, n))
+                .setPositiveButton(R.string.detail_delete) { _, _ -> viewModel.deleteSelected() }
+                .setNegativeButton(R.string.collage_cancel, null)
                 .show()
         }
 
@@ -274,14 +318,18 @@ class GalleryFragment : BaseFragment<FragmentGalleryBinding>() {
     }
 
     private fun showColumnPicker() {
-        val options = (GalleryViewModel.MIN_COLUMNS..GalleryViewModel.MAX_COLUMNS)
-            .map { "$it 列" }
+        val options = (listOf(0) + (GalleryViewModel.MIN_COLUMNS..GalleryViewModel.MAX_COLUMNS).toList())
+            .map { if (it == 0) "自适应（推荐）" else "$it 列" }
             .toTypedArray()
-        val current = viewModel.columns.value - GalleryViewModel.MIN_COLUMNS
+        val current = viewModel.columns.value.let {
+            if (it == GalleryViewModel.COLUMNS_AUTO) 0 else it - GalleryViewModel.MIN_COLUMNS + 1
+        }
         AlertDialog.Builder(requireContext())
             .setTitle("每行显示")
             .setSingleChoiceItems(options, current) { dialog, which ->
-                viewModel.setColumns(which + GalleryViewModel.MIN_COLUMNS)
+                val chosen = if (which == 0) GalleryViewModel.COLUMNS_AUTO
+                else which - 1 + GalleryViewModel.MIN_COLUMNS
+                viewModel.setColumns(chosen)
                 dialog.dismiss()
             }
             .show()

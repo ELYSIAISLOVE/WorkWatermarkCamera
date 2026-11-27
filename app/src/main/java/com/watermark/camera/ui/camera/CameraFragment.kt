@@ -22,6 +22,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -112,6 +113,7 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         binding.btnCapture.setOnClickListener {
             // 成片使用与预览一致的配置（含自定义标题）
             viewModel.applyLiveOverlayConfig(binding.watermarkOverlay.watermarkConfig)
+            clearQueueFailure()
             viewModel.capturePhoto()
         }
 
@@ -143,20 +145,25 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
             openCollage()
         }
 
-        // Settings button click
+        // Settings button click（设置入口已收敛到顶栏，规范 §3）
         binding.btnSettings.setOnClickListener {
             openSidePanel()
         }
 
-        // Top bar buttons
+        // 顶栏：拼图（自底栏上移）
         binding.btnCollage.setOnClickListener {
-            binding.btnCollageBottom.performClick()
+            openCollage()
         }
         binding.btnSettingsTop.setOnClickListener {
             binding.btnSettings.performClick()
         }
         binding.btnVerify.setOnClickListener {
             Feedback.light(binding.root, getString(R.string.feedback_verify_in_gallery))
+        }
+
+        // 字体放大到 1.3 倍以上时隐藏文字标签、保留图标（规范 §4）
+        if (resources.configuration.fontScale >= 1.3f) {
+            runCatching { binding.tvGalleryLabel.visibility = View.GONE }
         }
 
         // iOS-like press scale on main buttons
@@ -307,6 +314,12 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
     private suspend fun observeWatermarkConfigDisplay() {
         viewModel.watermarkConfigDisplay.collect { config ->
             binding.watermarkOverlay.watermarkConfig = config.copy(showLocation = true)
+            // 底栏右侧显示当前水印模板名（规范 §4）
+            runCatching {
+                binding.btnWatermark.text = config.customTitle.ifBlank {
+                    config.template.displayName
+                }
+            }
         }
     }
 
@@ -556,54 +569,40 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         sheet.show(parentFragmentManager, "WatermarkPicker")
     }
 
-    private val queueSlotViews = mutableListOf<View>()
-
+    /**
+     * 保存队列角标（规范 §4：取代原来的 14dp 细条指示器）。
+     * 处理中显示转圈 + 张数，失败时在角标旁显示红点。
+     */
     private fun setupSaveQueueIndicator() {
-        queueSlotViews.clear()
-        val ids = intArrayOf(
-            R.id.queueSlot0,
-            R.id.queueSlot1,
-            R.id.queueSlot2,
-            R.id.queueSlot3,
-            R.id.queueSlot4,
-            R.id.queueSlot5,
-            R.id.queueSlot6,
-            R.id.queueSlot7,
-            R.id.queueSlot8,
-            R.id.queueSlot9
-        )
-        for (id in ids) {
-            val slot = binding.root.findViewById<View>(id)
-            if (slot != null) queueSlotViews.add(slot)
-        }
-        runCatching {
-            val indicator = binding.root.findViewById<View>(R.id.saveQueueIndicatorRoot)
-                
-            indicator?.visibility = View.VISIBLE
-            indicator?.isClickable = false
-            indicator?.isFocusable = false
-        }
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.saveQueueDepth.collect { depth ->
-                updateQueueIndicator(depth)
+                updateQueueBadge(depth)
             }
         }
     }
 
-    private fun updateQueueIndicator(depth: Int) {
-        val d = depth.coerceIn(0, 10)
-        // queueSlot0 = bottom of the bar; fill bottom-up as queue grows
-        queueSlotViews.forEachIndexed { index, view ->
-            val filled = index < d
-            view.setBackgroundColor(
-                if (filled) 0xFF4CAF50.toInt() else 0x33FFFFFF
-            )
-            view.alpha = if (filled) 1f else 0.35f
+    private fun updateQueueBadge(depth: Int) {
+        runCatching {
+            if (depth <= 0) {
+                binding.queueBadge.visibility = View.GONE
+                return@runCatching
+            }
+            binding.queueBadge.visibility = View.VISIBLE
+            binding.queueBadgeProgress.visibility = View.GONE
+            binding.tvQueueCount.visibility = View.VISIBLE
+            binding.tvQueueCount.text = depth.coerceAtMost(99).toString()
+            binding.queueBadge.contentDescription =
+                getString(R.string.queue_processing, depth)
         }
-        binding.root.findViewById<View>(R.id.saveQueueIndicatorRoot)?.let { root ->
-            root.alpha = if (d >= 10) 1f else 0.85f
-            // Full queue: slight red border cue via tag only; keep green slots
-        }
+    }
+
+    /** 保存/处理失败：红点保留到下一次拍照。 */
+    private fun markQueueFailed() {
+        runCatching { binding.vQueueFailed.visibility = View.VISIBLE }
+    }
+
+    private fun clearQueueFailure() {
+        runCatching { binding.vQueueFailed.visibility = View.GONE }
     }
 
 
@@ -662,7 +661,6 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
         runCatching { binding.tvAspectRatio.visibility = View.GONE }
         runCatching { binding.tvEvValue.visibility = View.GONE }
         runCatching { binding.sliderExposure.visibility = View.GONE }
-        runCatching { binding.btnCollage.visibility = View.GONE }
         runCatching { binding.btnSettingsTop.visibility = View.GONE }
         runCatching { binding.btnVerify.visibility = View.GONE }
         runCatching { binding.btnMenu.visibility = View.GONE }
@@ -696,41 +694,22 @@ class CameraFragment : BaseFragment<FragmentCameraBinding>() {
 
     private fun applySystemBarInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            // 所有顶部控件下移，避免被状态栏遮挡
-            // 仅使用布局中真实存在的 id，避免 R.id 编译失败
-            val topIds = intArrayOf(
-                com.watermark.camera.R.id.btnFlash,
-                com.watermark.camera.R.id.btnMenu,
-                com.watermark.camera.R.id.btnSettingsTop,
-                com.watermark.camera.R.id.btnTurnOnFlash
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
-            for (id in topIds) {
-                runCatching {
-                    val v = binding.root.findViewById<android.view.View>(id) ?: return@runCatching
-                    val lp = v.layoutParams
-                    if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
-                        lp.topMargin = bars.top + 8
-                        v.layoutParams = lp
-                    } else {
-                        v.setPadding(v.paddingLeft, bars.top + 4, v.paddingRight, v.paddingBottom)
-                    }
-                }
-            }
-            runCatching {
-                val lp = binding.bottomBar.layoutParams
-                if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
-                    lp.bottomMargin = bars.bottom
-                    binding.bottomBar.layoutParams = lp
-                }
-            }
-            runCatching {
-                val lp = binding.tvZoomRatio.layoutParams
-                if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
-                    lp.bottomMargin = bars.bottom + 6
-                    binding.tvZoomRatio.layoutParams = lp
-                }
-            }
+            // 顶栏 = 状态栏高 + 56dp；横屏时左右也避开挖孔（规范 §4、§8）
+            val px12 = (12 * resources.displayMetrics.density).toInt()
+            binding.topBar.updatePadding(
+                left = px12 + bars.left,
+                top = bars.top,
+                right = px12 + bars.right
+            )
+            // 底栏整体避开导航栏与横屏挖孔
+            binding.bottomBar.updatePadding(
+                left = bars.left,
+                right = bars.right,
+                bottom = bars.bottom
+            )
             insets
         }
         ViewCompat.requestApplyInsets(binding.root)

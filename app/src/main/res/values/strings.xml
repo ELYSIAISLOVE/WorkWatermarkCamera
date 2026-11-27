@@ -97,4 +97,32 @@
     <string name="feedback_settings_saved">设置已保存</string>
     <string name="feedback_settings_reset">已恢复默认设置</string>
     <string name="feedback_collage_open_failed">无法打开拼图</string>
+
+    <!-- 控件与无障碍（规范 §4 控件规格） -->
+    <string name="flash_toggle">补光灯</string>
+    <string name="capture_hint">拍照</string>
+    <string name="queue_processing">正在保存 %1$d 张</string>
+    <string name="queue_failed">有照片保存失败</string>
+    <string name="gallery_columns">调整列数</string>
+    <string name="gallery_empty">相册为空</string>
+    <string name="gallery_back">返回</string>
+    <string name="btn_close">关闭</string>
+
+    <!-- 相册删除撤销（规范 §6） -->
+    <string name="gallery_delete_confirm_title">删除照片</string>
+    <string name="gallery_delete_confirm_message">确定删除所选 %1$d 张照片？</string>
+    <string name="gallery_delete_undo">撤销</string>
+    <string name="gallery_delete_done">已删除 %1$d 张</string>
+    <string name="gallery_delete_partial">成功 %1$d 张，失败 %2$d 张</string>
+
+    <!-- 详情页（规范 §6） -->
+    <string name="detail_locked">已锁定，不可编辑</string>
+    <string name="detail_share_original">带水印原图</string>
+    <string name="detail_share_with_report">附带验真说明</string>
+    <string name="detail_share_title">分享方式</string>
+    <string name="detail_evidence_toggle">证据细节</string>
+
+    <!-- 拼图（规范 §6） -->
+    <string name="collage_undo">撤销</string>
+    <string name="collage_saving">正在保存…</string>
 </resources>

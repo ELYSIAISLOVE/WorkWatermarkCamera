@@ -53,7 +53,12 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.photoUri.collect { uri ->
-                        uri?.let { binding.ivPhoto.setImageURI(it) }
+                        uri?.let {
+                            binding.ivPhoto.setImageURI(it)
+                            // 切图后复位缩放，避免上一张的缩放状态残留
+                            photoScale = 1f
+                            applyPhotoTransform()
+                        }
                     }
                 }
                 launch {
@@ -75,6 +80,7 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
                         if (infoExpanded) {
                             binding.tvInfo.text = buildInfo(meta, v)
                         }
+                        showVerificationCard(v)
                     }
                 }
                 launch {
@@ -138,10 +144,26 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
     }
 
     private fun setupGestures() {
+        // 捏合缩放 + 双击放大（规范 §6）；放大后拖动平移
+        val scaleDetector = android.view.ScaleGestureDetector(
+            requireContext(),
+            object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+                    photoScale = (photoScale * detector.scaleFactor).coerceIn(MIN_SCALE, MAX_SCALE)
+                    applyPhotoTransform()
+                    return true
+                }
+            }
+        )
         val detector = GestureDetector(
             requireContext(),
             object : GestureDetector.SimpleOnGestureListener() {
                 override fun onDown(e: MotionEvent): Boolean = true
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    photoScale = if (photoScale > 1.05f) 1f else 2.5f
+                    applyPhotoTransform()
+                    return true
+                }
                 override fun onFling(
                     e1: MotionEvent?,
                     e2: MotionEvent,
@@ -149,6 +171,8 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
                     velocityY: Float
                 ): Boolean {
                     if (e1 == null) return false
+                    // 放大状态下不切图，交给拖动平移处理
+                    if (photoScale > 1.05f) return false
                     val dx = e2.x - e1.x
                     val dy = e2.y - e1.y
                     if (abs(dx) > abs(dy) && abs(dx) > 80 && abs(velocityX) > 200) {
@@ -157,11 +181,65 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
                     }
                     return false
                 }
+                override fun onScroll(
+                    e1: MotionEvent?,
+                    e2: MotionEvent,
+                    distanceX: Float,
+                    distanceY: Float
+                ): Boolean {
+                    if (photoScale <= 1.05f || e1 == null) return false
+                    photoOffsetX -= distanceX
+                    photoOffsetY -= distanceY
+                    applyPhotoTransform()
+                    return true
+                }
             }
         )
         binding.ivPhoto.setOnTouchListener { _, event ->
+            scaleDetector.onTouchEvent(event)
             detector.onTouchEvent(event)
             true
+        }
+    }
+
+    private var photoScale = 1f
+    private var photoOffsetX = 0f
+    private var photoOffsetY = 0f
+
+    private fun applyPhotoTransform() {
+        if (photoScale <= 1.05f) {
+            photoOffsetX = 0f
+            photoOffsetY = 0f
+        }
+        binding.ivPhoto.scaleX = photoScale
+        binding.ivPhoto.scaleY = photoScale
+        binding.ivPhoto.translationX = photoOffsetX
+        binding.ivPhoto.translationY = photoOffsetY
+    }
+
+    /** 验真结果用大号状态卡 + 白话解释（规范 §6）。 */
+    private fun showVerificationCard(v: VerificationResult?) {
+        val card = binding.tvVerificationCard
+        when (v) {
+            is VerificationResult.Authentic -> {
+                card.visibility = View.VISIBLE
+                card.setTextColor(androidx.core.content.ContextCompat.getColor(
+                    requireContext(), R.color.success))
+                card.text = "验真通过\n时间、位置与校验摘要一致，未被改动。"
+            }
+            is VerificationResult.Tampered -> {
+                card.visibility = View.VISIBLE
+                card.setTextColor(androidx.core.content.ContextCompat.getColor(
+                    requireContext(), R.color.warning))
+                card.text = "可能被篡改\n校验摘要与照片内记录不一致，请谨慎采信。"
+            }
+            is VerificationResult.Failed -> {
+                card.visibility = View.VISIBLE
+                card.setTextColor(androidx.core.content.ContextCompat.getColor(
+                    requireContext(), R.color.error))
+                card.text = "验真失败\n${v.reason}"
+            }
+            null -> card.visibility = View.GONE
         }
     }
 
@@ -217,15 +295,40 @@ class PhotoDetailFragment : BaseFragment<FragmentPhotoDetailBinding>() {
     }
 
     private fun share(uri: Uri) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.detail_share_title)
+            .setItems(
+                arrayOf(
+                    getString(R.string.detail_share_original),
+                    getString(R.string.detail_share_with_report)
+                )
+            ) { _, which ->
+                if (which == 0) shareImage(uri, null) else shareImage(uri, buildReport())
+            }
+            .show()
+    }
+
+    /** 「附带验真说明」分享时附加的可读证据摘要。 */
+    private fun buildReport(): String {
+        val meta = viewModel.metadata.value
+        val verify = viewModel.verificationResult.value
+        val body = buildInfo(meta, verify)
+        return "工作留证说明\n$body\n\n（由水印相机生成，照片本身未做任何修改）"
+    }
+
+    private fun shareImage(uri: Uri, extraText: String?) {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "image/*"
             putExtra(Intent.EXTRA_STREAM, uri)
+            extraText?.let { putExtra(Intent.EXTRA_TEXT, it) }
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(intent, "分享照片"))
     }
 
     companion object {
+        private const val MIN_SCALE = 1f
+        private const val MAX_SCALE = 5f
         private const val ARG_PHOTO_URI = "photo_uri"
         private const val ARG_ALL_URIS = "all_uris"
 

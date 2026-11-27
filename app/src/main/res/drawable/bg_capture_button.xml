@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  拍照键背景（规范 §4）：点击热区 88dp，视觉直径 72dp，外环 4dp。
+  热区与视觉的差值靠 8dp inset 实现，控件本身保持 88dp。
+-->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
+    <item android:left="8dp" android:top="8dp" android:right="8dp" android:bottom="8dp">
         <shape android:shape="oval">
             <solid android:color="@color/camera_surface_white" />
             <size android:width="72dp" android:height="72dp" />
         </shape>
     </item>
-    <item android:left="5dp" android:top="5dp" android:right="5dp" android:bottom="5dp">
+    <item android:left="13dp" android:top="13dp" android:right="13dp" android:bottom="13dp">
         <shape android:shape="oval">
-            <stroke android:width="3dp" android:color="@color/camera_on_primary" />
+            <stroke android:width="4dp" android:color="@color/camera_on_primary" />
             <solid android:color="@android:color/transparent" />
         </shape>
     </item>

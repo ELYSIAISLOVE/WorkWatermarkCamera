@@ -25,12 +25,12 @@
 
 
 
-    <!-- Top bar: 左侧变焦显示，右侧补光灯，不再留空 -->
+    <!-- 顶栏（规范 §4）：状态栏高 + 56dp，半透明渐变；左变焦倍数，右拼图 / 补光灯 / 设置 -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="0dp"
-        android:layout_height="48dp"
-        android:background="@drawable/bg_top_bar_solid"
+        android:layout_height="56dp"
+        android:background="@drawable/bg_top_bar_gradient"
         android:elevation="10dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -43,7 +43,7 @@
         <TextView
             android:id="@+id/tvZoomRatio"
             android:layout_width="52dp"
-            android:layout_height="32dp"
+            android:layout_height="48dp"
             android:background="@color/camera_scrim_strong"
             android:gravity="center"
             android:text="1.0x"
@@ -56,16 +56,43 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
+        <!-- 拼图（从底栏上移，使底栏主次清晰） -->
+        <ImageButton
+            android:id="@+id/btnCollage"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_icon_circle"
+            android:contentDescription="@string/btn_collage"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_ui_photo"
+            app:tint="@color/camera_on_surface" />
+
         <!-- 补光灯开关 -->
         <ImageButton
             android:id="@+id/btnFlash"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_icon_circle"
+            android:contentDescription="@string/flash_toggle"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_ui_flash_on"
+            app:tint="@color/camera_on_surface" />
+
+        <!-- 设置 -->
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_icon_circle"
             android:contentDescription="@string/btn_settings"
-            android:padding="8dp"
+            android:padding="12dp"
             android:scaleType="centerInside"
-            android:src="@drawable/ic_flash_on" />
+            android:src="@drawable/ic_ui_settings"
+            app:tint="@color/camera_on_surface" />
     </LinearLayout>
 
 
@@ -97,55 +124,101 @@
             android:orientation="horizontal"
             android:paddingHorizontal="8dp">
 
-            <!-- Gallery -->
-            <LinearLayout
+            <!-- 相册入口；保存队列以角标叠加（规范 §4） -->
+            <FrameLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-                <ImageButton
-                    android:id="@+id/btnGallery"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:background="@drawable/bg_icon_circle"
-                    android:contentDescription="@string/btn_gallery"
-                    android:padding="12dp"
-                    android:scaleType="centerInside"
-                    android:src="@drawable/ic_gallery" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="16dp"
-                    android:gravity="center"
-                    android:text="相册"
-                    android:textColor="@color/camera_on_surface_secondary"
-                    android:textSize="10sp" />
-            </LinearLayout>
+                android:layout_weight="1">
 
-            <!-- Watermark -->
-            <LinearLayout
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageButton
+                        android:id="@+id/btnGallery"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_icon_circle"
+                        android:contentDescription="@string/btn_gallery"
+                        android:padding="12dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_ui_gallery"
+                        app:tint="@color/camera_on_surface" />
+
+                    <TextView
+                        android:id="@+id/tvGalleryLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="@string/btn_gallery"
+                        android:textColor="@color/camera_on_surface_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <FrameLayout
+                    android:id="@+id/queueBadge"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="top|center_horizontal"
+                    android:layout_marginStart="40dp"
+                    android:background="@drawable/bg_queue_badge"
+                    android:visibility="gone">
+
+                    <ProgressBar
+                        android:id="@+id/queueBadgeProgress"
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:layout_gravity="center"
+                        android:indeterminate="true"
+                        android:indeterminateTint="@color/camera_on_surface" />
+
+                    <TextView
+                        android:id="@+id/tvQueueCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:includeFontPadding="false"
+                        android:textColor="@color/camera_on_surface"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        tools:text="3" />
+                </FrameLayout>
+
+                <View
+                    android:id="@+id/vQueueFailed"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_gravity="top|center_horizontal"
+                    android:layout_marginStart="52dp"
+                    android:background="@drawable/bg_status_dot_failed"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <!-- 当前水印模板名（点击打开选择面板） -->
+            <FrameLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-                <ImageButton
-                    android:id="@+id/btnWatermark"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:background="@drawable/bg_icon_circle"
-                    android:contentDescription="@string/btn_watermark"
-                    android:padding="12dp"
-                    android:scaleType="centerInside"
-                    android:src="@drawable/ic_watermark" />
+                android:layout_weight="1">
+
                 <TextView
+                    android:id="@+id/btnWatermark"
                     android:layout_width="wrap_content"
-                    android:layout_height="16dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_glass_chip"
+                    android:ellipsize="end"
                     android:gravity="center"
-                    android:text="水印"
-                    android:textColor="@color/camera_on_surface_secondary"
-                    android:textSize="10sp" />
-            </LinearLayout>
+                    android:maxLines="1"
+                    android:maxWidth="180dp"
+                    android:paddingHorizontal="12dp"
+                    android:text="@string/btn_watermark"
+                    android:textColor="@color/camera_on_surface"
+                    android:textSize="12sp" />
+            </FrameLayout>
 
             <!-- Capture -->
             <FrameLayout
@@ -154,69 +227,14 @@
                 android:layout_weight="1.4">
                 <ImageButton
                     android:id="@+id/btnCapture"
-                    android:layout_width="84dp"
-                    android:layout_height="84dp"
+                    android:layout_width="88dp"
+                    android:layout_height="88dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_capture_button"
                     android:contentDescription="@string/btn_capture"
                     android:scaleType="centerInside" />
             </FrameLayout>
 
-            <!-- Collage -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-                <ImageButton
-                    android:id="@+id/btnCollageBottom"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:background="@drawable/bg_icon_circle"
-                    android:contentDescription="@string/btn_collage"
-                    android:padding="12dp"
-                    android:scaleType="centerInside"
-                    android:src="@drawable/ic_photo" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="16dp"
-                    android:gravity="center"
-                    android:text="拼图"
-                    android:textColor="@color/camera_on_surface_secondary"
-                    android:textSize="10sp" />
-            </LinearLayout>
-
-            <!-- Settings — same structure as Gallery/Watermark/Collage -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-                <FrameLayout
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:background="@drawable/bg_icon_circle">
-                    <ImageButton
-                        android:id="@+id/btnSettings"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_gravity="center"
-                        android:background="@android:color/transparent"
-                        android:contentDescription="@string/btn_settings"
-                        android:padding="0dp"
-                        android:scaleType="fitCenter"
-                        android:src="@drawable/ic_settings" />
-                </FrameLayout>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="16dp"
-                    android:gravity="center"
-                    android:text="设置"
-                    android:textColor="@color/camera_on_surface_secondary"
-                    android:textSize="10sp" />
-            </LinearLayout>
         </LinearLayout>
     </FrameLayout>
 
@@ -246,34 +264,7 @@
         app:layout_constraintEnd_toEndOf="@id/previewView" />
 
 
-    <!-- 保存队列指示：移到画面右下角，避开默认左下水印位置 -->
-    <LinearLayout
-        android:id="@+id/saveQueueIndicatorRoot"
-        android:layout_width="14dp"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="6dp"
-        android:background="@color/camera_scrim_medium"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:clickable="false"
-        android:focusable="false"
-        app:layout_constraintTop_toTopOf="@id/previewView"
-        app:layout_constraintBottom_toBottomOf="@id/previewView"
-        app:layout_constraintEnd_toEndOf="@id/previewView"
-        app:layout_constraintVertical_bias="0.15">
-        <View android:id="@+id/queueSlot9" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-        <View android:id="@+id/queueSlot8" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-        <View android:id="@+id/queueSlot7" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-        <View android:id="@+id/queueSlot6" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-        <View android:id="@+id/queueSlot5" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-        <View android:id="@+id/queueSlot4" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-        <View android:id="@+id/queueSlot3" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-        <View android:id="@+id/queueSlot2" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-        <View android:id="@+id/queueSlot1" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-        <View android:id="@+id/queueSlot0" android:layout_width="8dp" android:layout_height="10dp" android:layout_margin="1dp" android:background="@color/camera_queue_slot" />
-    </LinearLayout>
+    <!-- 保存队列已改为相册角标（规范 §4），原 14dp 细条指示器移除 -->
 
 <com.watermark.camera.data.watermark.WatermarkOverlayView
         android:id="@+id/watermarkOverlay"
@@ -306,21 +297,21 @@
         <TextView
             android:id="@+id/zoomChip05"
             android:visibility="gone"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginHorizontal="4dp"
             android:background="@drawable/bg_zoom_chip"
             android:gravity="center"
             android:text="0.5"
             android:textColor="@color/camera_on_surface"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/zoomChip1x"
             android:visibility="gone"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginHorizontal="4dp"
             android:background="@drawable/bg_zoom_chip"
             android:gravity="center"
@@ -332,8 +323,8 @@
         <TextView
             android:id="@+id/zoomChip2x"
             android:visibility="gone"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginHorizontal="4dp"
             android:background="@drawable/bg_zoom_chip"
             android:gravity="center"
@@ -367,7 +358,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
     <ImageButton
-        android:id="@+id/btnCollage"
+        android:id="@+id/btnCollageBottom"
         android:layout_width="1dp"
         android:layout_height="1dp"
         android:visibility="gone"

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@color/app_surface"
@@ -22,14 +23,17 @@
             android:layout_weight="1"
             android:background="@color/app_divider" />
 
-        <ImageButton
-            android:id="@+id/pickerClose"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="关闭"
-            android:src="@android:drawable/ic_menu_close_clear_cancel" />
+    <ImageButton
+        android:id="@+id/pickerClose"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/btn_close"
+        android:padding="12dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_ui_close"
+        app:tint="@color/app_on_surface" />
     </LinearLayout>
 
     <TextView

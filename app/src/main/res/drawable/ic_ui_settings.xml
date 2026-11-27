@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 由 assets/design/ui_icons/settings.svg 生成（scripts/svg2vd.js），线宽 2dp、圆角端点；用 app:tint 着色 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M9,12 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="m19.4 15 .1.1-1.8 3.1-.2-.1-2-1.1a7 7 0 0 1-2 .9L13 20h-3l-.3-2.1a7 7 0 0 1-2-.9l-2 1.1-.2.1-1.8-3.1.1-.1 1.7-1.4a7 7 0 0 1 0-2.2L3.8 10l-.1-.1 1.8-3.1.2.1 2 1.1a7 7 0 0 1 2-.9L10 5h3l.3 2.1a7 7 0 0 1 2 .9l2-1.1.2-.1 1.8 3.1-.1.1-1.7 1.4a7 7 0 0 1 0 2.2Z"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

@@ -42,6 +42,42 @@ class WatermarkPickerSheet : BottomSheetDialogFragment() {
         savedInstanceState: Bundle?
     ): View = inflater.inflate(R.layout.sheet_watermark_picker, container, false)
 
+    /**
+     * 面板高度与宽度（规范 §5）：
+     * - 初始高度为屏幕的 50%，可上拉到 90%；
+     * - 平板（宽度 ≥600dp）限宽 640dp 并居中。
+     */
+    override fun onStart() {
+        super.onStart()
+        val dialog = dialog as? com.google.android.material.bottomsheet.BottomSheetDialog ?: return
+        val sheet = dialog.findViewById<View>(
+            com.google.android.material.R.id.design_bottom_sheet
+        ) ?: return
+
+        val dm = resources.displayMetrics
+        val maxHeight = (dm.heightPixels * 0.9f).toInt()
+        val peekHeight = (dm.heightPixels * 0.5f).toInt()
+
+        val lp = sheet.layoutParams
+        lp.height = maxHeight
+        lp.width = if (resources.configuration.screenWidthDp >= 600) {
+            (640 * dm.density).toInt().coerceAtMost(dm.widthPixels)
+        } else {
+            dm.widthPixels
+        }
+        (lp as? android.widget.FrameLayout.LayoutParams)?.gravity =
+            android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL
+        sheet.layoutParams = lp
+
+        com.google.android.material.bottomsheet.BottomSheetBehavior.from(sheet).apply {
+            isFitToContents = false
+            this.peekHeight = peekHeight
+            this.maxHeight = maxHeight
+            skipCollapsed = false
+            state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_COLLAPSED
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         config = initialConfig.copy(showLocation = true)
